@@ -342,7 +342,7 @@ async function fetchRemoteXaml(url) {
     if (!canFallbackToDirect) {
       throw new Error(
         `无法拉取联网主页：${proxyError.message}\n\n` +
-        "请确认地址有效，或检查本地代理是否可用。"
+        "请确认地址有效，或检查代理设置是否可用。"
       );
     }
 
@@ -350,15 +350,21 @@ async function fetchRemoteXaml(url) {
       return await fetchDirect(url, controller.signal);
     } catch (error) {
       if (error.name === "AbortError") throw error;
+      const proxyMissing =
+        !proxyError ||
+        proxyError.status === 404 ||
+        proxyError.status === 405 ||
+        proxyError.code === "PROXY_HTML";
       const proxyHint = proxyError
-        ? `本地代理不可用（${proxyError.message}）。` +
-          "GitHub Pages、Netlify、Vercel 等纯静态部署没有 /api/proxy，"
-        : "";
+        ? proxyMissing
+          ? `未找到可用的 /api/proxy（${proxyError.message}）。当前部署可能是纯静态站点。`
+          : `代理请求失败（${proxyError.message}）。`
+        : "未找到可用的 /api/proxy。";
       throw new Error(
         `无法拉取联网主页：${error.message}\n\n` +
-        proxyHint +
-        "静态部署时只能加载允许浏览器跨域（CORS）的地址，例如 raw.githubusercontent.com；" +
-        "目标站点未开放 CORS 时，请运行 node server.js 使用本地代理。"
+        proxyHint + "\n" +
+        "目标站点未开放 CORS 时，需要可用的服务端代理（例如 Vercel Function /api/proxy），" +
+        "或运行 node server.js 使用本地代理。"
       );
     }
   } catch (error) {
