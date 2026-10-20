@@ -257,7 +257,7 @@ export function readEvents(element) {
   return events;
 }
 
-function substitutePlaceholders(source, context) {
+export function substitutePlaceholders(source, context, { escape = true } = {}) {
   return source.replace(PLACEHOLDER_RE, (match, variableName, variableFallback, settingName) => {
     let value = "";
     if (variableName) {
@@ -275,7 +275,7 @@ function substitutePlaceholders(source, context) {
     } else if (match.toLowerCase() === "{login}") {
       value = context.user?.login ?? "离线";
     }
-    return escapeXml(value);
+    return escape ? escapeXml(value) : String(value ?? "");
   });
 }
 

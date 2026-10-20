@@ -2,6 +2,7 @@ import { PclTheme } from "./theme.js";
 import { PclRenderer } from "./renderer.js?v=20261020e";
 import { PclRuntime } from "./runtime.js";
 import { PclShell } from "./shell.js?v=20261020c";
+import { substitutePlaceholders } from "./xaml.js?v=20261020f";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
@@ -384,6 +385,11 @@ async function fetchRemoteXaml(url) {
 }
 
 
+function resolveRemoteUrl(url) {
+  // PCL expands placeholders before requesting the page; URL values must not be XML-escaped.
+  return substitutePlaceholders(url, runtime.context, { escape: false });
+}
+
 async function resolveCurrentContent({ forceRemote = false } = {}) {
   if (state.mode === "file") {
     if (!state.fileContent.trim()) throw new Error("尚未选择本地 XAML 文件。");
@@ -399,7 +405,7 @@ async function resolveCurrentContent({ forceRemote = false } = {}) {
     if (!state.urlContent || forceRemote) {
       if (forceRemote) state.urlContent = "";
       shell.setLoading(true, "正在拉取联网主页…");
-      const content = await fetchRemoteXaml(state.url);
+      const content = await fetchRemoteXaml(resolveRemoteUrl(state.url));
       state.urlContent = content;
       shell.setLoading(false, "");
     }
