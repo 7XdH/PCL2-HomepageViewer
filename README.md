@@ -37,7 +37,7 @@ npm run build
 | --- | --- |
 | **GitHub Pages** | 仓库 **Settings → Pages → Source → GitHub Actions**。推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动构建 `dist/` 并部署。项目使用相对路径，支持 `https://<user>.github.io/<repo>/` 子路径。 |
 | **Netlify** | 导入仓库即可；`netlify.toml` 已配置 `npm run build` 与发布目录 `dist/`。 |
-| **Vercel** | 导入仓库即可；`vercel.json` 已配置构建命令、`dist/` 输出目录和 `api/proxy.js` 的 30 秒执行时间。Vercel 会自动把 `api/proxy.js` 部署为 Node Function。 |
+| **Vercel** | 导入仓库即可；`vercel.json` 已配置 `framework: null`（避免把本地 `server.js` 误识别为 Node/Express 应用）、构建命令、`dist/` 输出目录和 `api/proxy.js` 的 30 秒执行时间。Vercel 会自动把 `api/proxy.js` 部署为 Node Function。 |
 
 静态部署的限制：
 
@@ -75,6 +75,35 @@ PCL_PROXY_UA=PCL2-Homepage-Viewer
 不设置白名单时允许访问任意公网 HTTP(S) 文本地址。它仍然是一个出站代理，公开运行时请按需增加平台限流；不要把代理用作通用开放代理。
 
 Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDuration`。GitHub Pages 和 Netlify 静态部署不会包含这个函数。
+
+### Vercel 显示 `NOT_FOUND`
+
+如果 `/api/proxy` 可用，但 `/`、`/index.html` 和静态资源都是 404，通常是因为 Vercel 把仓库根目录的 `server.js` 自动识别成了 Express / Node 应用：
+
+- `server.js` 被作为单个 Function 部署，`/api/health`、`/` 等路由由它处理；
+- `express.static()` 或自定义静态服务不会从 `dist` 提供文件；
+- 因此页面根路径返回 `Not Found`。
+
+仓库中的 `vercel.json` 已设置：
+
+```json
+{
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}
+```
+
+请确认 Vercel 项目的 **Settings → Build & Development Settings**：
+
+```text
+Framework Preset: Other
+Build Command: npm run build
+Output Directory: dist
+Root Directory: 留空
+```
+
+修改后执行一次 **Redeploy**。如果项目仍然缓存了 Express 预设，建议在 Vercel 中重新导入仓库，或在设置中手动切换为 Other 后再部署。
 
 ## 功能
 
