@@ -219,13 +219,35 @@ function isTextResponse(response, finalUrl) {
   );
 }
 
-async function readBody(response, finalUrl) {
+function isImageResponse(response, finalUrl) {
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  if (/^image\//i.test(contentType)) return true;
+
+  let pathname = "";
+  try {
+    pathname = new URL(finalUrl).pathname.toLowerCase();
+  } catch {
+    pathname = "";
+  }
+  return (
+    !contentType ||
+    (/octet-stream/i.test(contentType) &&
+      /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i.test(pathname))
+  );
+}
+
+async function readBody(response, finalUrl, imageMode = false) {
   const contentLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_BYTES) {
     await discardBody(response);
     throw new ProxyError("远程文件过大（超过 4 MB）", 413);
   }
-  if (!isTextResponse(response, finalUrl)) {
+  if (imageMode) {
+    if (!isImageResponse(response, finalUrl)) {
+      await discardBody(response);
+      throw new ProxyError("目标不是图片内容，无法加载。", 415);
+    }
+  } else if (!isTextResponse(response, finalUrl)) {
     await discardBody(response);
     throw new ProxyError("目标不是文本或 XAML 内容，无法加载。", 415);
   }
@@ -251,7 +273,7 @@ async function readBody(response, finalUrl) {
   return Buffer.concat(chunks);
 }
 
-async function fetchTarget(initialTarget, userAgent) {
+async function fetchTarget(initialTarget, userAgent, imageMode = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -268,7 +290,7 @@ async function fetchTarget(initialTarget, userAgent) {
         headers: {
           "User-Agent": userAgent,
           Referer: "http://200.open.pcl2.server/",
-          Accept: "text/xml,application/xml,text/plain,*/*"
+          Accept: imageMode ? "image/*,*/*" : "text/xml,application/xml,text/plain,*/*"
         }
       });
 
@@ -291,8 +313,9 @@ async function fetchTarget(initialTarget, userAgent) {
       }
 
       const finalUrl = target.toString();
-      const body = await readBody(response, finalUrl);
-      return { body, finalUrl };
+      const contentType = response.headers.get("content-type") || "";
+      const body = await readBody(response, finalUrl, imageMode);
+      return { body, finalUrl, contentType };
     }
     throw new ProxyError("重定向次数过多", 502);
   } catch (error) {
@@ -322,13 +345,24 @@ export default async function handler(request, response) {
 
   try {
     const target = requestUrl.searchParams.get("url");
+    const imageMode = requestUrl.searchParams.get("image") === "1";
     const userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
-    const result = await fetchTarget(target, userAgent);
-    send(response, 200, result.body, {
+    const result = await fetchTarget(target, userAgent, imageMode);
+    const headers = {
       "X-PCL-Proxy": "vercel",
       "X-PCL-Proxy-Ua": encodeURIComponent(userAgent),
       "X-PCL-Proxy-Final-Url": encodeURI(result.finalUrl)
-    });
+    };
+    if (imageMode) {
+      Object.assign(headers, {
+        "Content-Type": result.contentType || "application/octet-stream",
+        "Cache-Control": "public, max-age=86400",
+        "Cross-Origin-Resource-Policy": "cross-origin",
+        "Access-Control-Allow-Origin": "*",
+        "X-PCL-Proxy-Image": "1"
+      });
+    }
+    send(response, 200, result.body, headers);
   } catch (error) {
     const status = error instanceof ProxyError ? error.status : 502;
     send(response, status, String(error?.message || error));

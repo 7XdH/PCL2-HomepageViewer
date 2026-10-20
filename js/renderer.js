@@ -160,14 +160,47 @@ function buildPathSvg(data, options = {}) {
 }
 
 export class PclRenderer {
-  constructor({ root, runtime }) {
+  constructor({ root, runtime, getProxyUa } = {}) {
     this.root = root;
     this.runtime = runtime;
+    this.getProxyUa = getProxyUa;
     this.warnings = [];
     this.controlCount = 0;
     this.resources = new Map();
     this.implicitStyles = new Map();
     this.resourceNodes = new WeakSet();
+  }
+
+  proxyImageSource(source) {
+    if (!/^https?:/i.test(source)) return source;
+    if (location.protocol !== "http:" && location.protocol !== "https:") return source;
+    const proxy = new URL("api/proxy", document.baseURI);
+    proxy.searchParams.set("url", source);
+    proxy.searchParams.set("image", "1");
+    const ua = this.getProxyUa?.();
+    if (ua) proxy.searchParams.set("ua", ua);
+    return proxy.toString();
+  }
+
+  loadImageSource(source, onLoad, onError) {
+    const candidates = [source];
+    const proxied = this.proxyImageSource(source);
+    if (proxied !== source) candidates.push(proxied);
+
+    let index = 0;
+    const attempt = () => {
+      if (index >= candidates.length) {
+        onError?.();
+        return;
+      }
+      const candidate = candidates[index++];
+      const image = new Image();
+      image.referrerPolicy = "no-referrer";
+      image.onload = () => onLoad?.(candidate);
+      image.onerror = attempt;
+      image.src = candidate;
+    };
+    attempt();
   }
 
   render(source) {
@@ -1203,10 +1236,23 @@ export class PclRenderer {
         img.alt = "";
         img.draggable = false;
         img.referrerPolicy = "no-referrer";
-        img.src = resolveImageSource(logoSource) || NO_ICON;
-        img.addEventListener("error", () => {
-          img.src = NO_ICON;
-        }, { once: true });
+        const resolvedLogo = resolveImageSource(logoSource) || NO_ICON;
+        if (/^https?:/i.test(resolvedLogo)) {
+          this.loadImageSource(
+            resolvedLogo,
+            loaded => {
+              img.src = loaded;
+            },
+            () => {
+              img.src = NO_ICON;
+            }
+          );
+        } else {
+          img.src = resolvedLogo;
+          img.addEventListener("error", () => {
+            img.src = NO_ICON;
+          }, { once: true });
+        }
         logo.append(img);
       } else {
         const { svg } = buildPathSvg(logoSource, { stretch: "Uniform", fill: "currentColor" });
@@ -1298,10 +1344,15 @@ export class PclRenderer {
 
       const useFallback = () => {
         if (fallback) {
-          img.src = fallback;
-          img.addEventListener("error", () => {
-            img.src = NO_ICON;
-          }, { once: true });
+          this.loadImageSource(
+            fallback,
+            loaded => {
+              img.src = loaded;
+            },
+            () => {
+              img.src = NO_ICON;
+            }
+          );
         } else {
           img.src = NO_ICON;
         }
@@ -1310,18 +1361,18 @@ export class PclRenderer {
       if (/^https?:/i.test(resolved)) {
         img.src = loadingSource;
         node.classList.add("is-loading");
-        const preload = new Image();
-        preload.referrerPolicy = "no-referrer";
-        preload.onload = () => {
-          img.src = resolved;
-          node.classList.remove("is-loading");
-        };
-        preload.onerror = () => {
-          node.classList.remove("is-loading");
-          useFallback();
-          this.warn(`图片加载失败：${source}`);
-        };
-        preload.src = resolved;
+        this.loadImageSource(
+          resolved,
+          loaded => {
+            img.src = loaded;
+            node.classList.remove("is-loading");
+          },
+          () => {
+            node.classList.remove("is-loading");
+            useFallback();
+            this.warn(`图片加载失败：${source}`);
+          }
+        );
       } else {
         img.src = resolved;
         img.addEventListener("error", () => {

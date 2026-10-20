@@ -98,7 +98,12 @@ function normalizeUserAgent(rawUserAgent) {
   return value;
 }
 
-function requestOnce(url, redirectsLeft, userAgent) {
+function requestOnce(
+  url,
+  redirectsLeft,
+  userAgent,
+  accept = "text/xml,application/xml,text/plain,*/*"
+) {
   return new Promise((resolve, reject) => {
     let parsed;
     try {
@@ -120,7 +125,7 @@ function requestOnce(url, redirectsLeft, userAgent) {
         headers: {
           "User-Agent": userAgent,
           Referer: "http://200.open.pcl2.server/",
-          Accept: "text/xml,application/xml,text/plain,*/*",
+          Accept: accept,
           "Accept-Encoding": "gzip, deflate, br"
         },
         timeout: TIMEOUT_MS
@@ -135,7 +140,7 @@ function requestOnce(url, redirectsLeft, userAgent) {
             return;
           }
           const next = new URL(location, parsed).toString();
-          resolve(requestOnce(next, redirectsLeft - 1, userAgent));
+          resolve(requestOnce(next, redirectsLeft - 1, userAgent, accept));
           return;
         }
         if (status < 200 || status >= 300) {
@@ -209,6 +214,7 @@ async function proxy(req, res, requestUrl) {
     send(res, 400, "缺少 url 参数", { "Content-Type": "text/plain; charset=utf-8" });
     return;
   }
+  const imageMode = requestUrl.searchParams.get("image") === "1";
   let userAgent;
   try {
     userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
@@ -217,12 +223,39 @@ async function proxy(req, res, requestUrl) {
     return;
   }
   try {
-    const result = await requestOnce(target, MAX_REDIRECTS, userAgent);
+    const result = await requestOnce(
+      target,
+      MAX_REDIRECTS,
+      userAgent,
+      imageMode ? "image/*,*/*" : "text/xml,application/xml,text/plain,*/*"
+    );
     let finalPath = "";
     try {
       finalPath = new URL(result.finalUrl).pathname.toLowerCase();
     } catch {
       finalPath = "";
+    }
+    if (imageMode) {
+      const isImage =
+        /^image\//i.test(result.contentType) ||
+        (/octet-stream/i.test(result.contentType) &&
+          /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i.test(finalPath));
+      if (!isImage) {
+        send(res, 415, "目标不是图片内容，无法加载。", {
+          "Content-Type": "text/plain; charset=utf-8"
+        });
+        return;
+      }
+      send(res, 200, result.body, {
+        "Content-Type": result.contentType || "application/octet-stream",
+        "Cache-Control": "public, max-age=86400",
+        "Cross-Origin-Resource-Policy": "cross-origin",
+        "Access-Control-Allow-Origin": "*",
+        "X-PCL-Proxy-Image": "1",
+        "X-PCL-Proxy-Ua": encodeURIComponent(userAgent),
+        "X-PCL-Proxy-Final-Url": result.finalUrl
+      });
+      return;
     }
     const isText =
       /xml|text|json|javascript/i.test(result.contentType) ||
@@ -305,7 +338,8 @@ server.listen(PORT, () => {
   console.log("  Plain Craft Launcher (PCL) Homepage Viewer (第三方)");
   console.log(`  http://localhost:${PORT}`);
   console.log("");
-  console.log("  联网主页将通过 /api/proxy 代理，默认 UA：PCL2-Homepage-Viewer。");
+  console.log("  联网主页将通过 /api/proxy 代理，远程图片失败时通过 image=1 模式重试。");
+  console.log("  默认 UA：PCL2-Homepage-Viewer。");
   console.log("  按 Ctrl + C 停止服务器。");
   console.log("");
 });

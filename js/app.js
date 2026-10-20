@@ -1,5 +1,5 @@
 import { PclTheme } from "./theme.js";
-import { PclRenderer } from "./renderer.js?v=20261020e";
+import { PclRenderer } from "./renderer.js?v=20261020h";
 import { PclRuntime } from "./runtime.js";
 import { PclShell } from "./shell.js?v=20261020c";
 import { substitutePlaceholders } from "./xaml.js?v=20261020f";
@@ -100,7 +100,8 @@ theme.setHue(Number(runtime.settings.UiLauncherHue));
 
 const renderer = new PclRenderer({
   root: $.root,
-  runtime
+  runtime,
+  getProxyUa: () => state.ua
 });
 
 function setRuntime(text, mode = "ready") {
