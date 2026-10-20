@@ -51,12 +51,13 @@ npm run build
 `api/proxy.js` 是一个无依赖的 Node Function，和前端同源，前端无需配置额外地址：
 
 ```text
-GET /api/proxy?url=https%3A%2F%2Fnews.bugjump.net%2F
+GET /api/proxy?url=https%3A%2F%2Fnews.bugjump.net%2F&ua=PCL2-Homepage-Viewer
 ```
 
-它会：
+默认 UA 是 `PCL2-Homepage-Viewer`，可以在联网面板中修改，也可以直接通过 `ua` 查询参数指定。它会：
 
-- 附带 PCL 风格的 User-Agent / Referer；
+- 使用指定的 User-Agent（最多 512 个可打印 ASCII 字符），默认 `PCL2-Homepage-Viewer`；
+- 附带 PCL 风格的 Referer；
 - 跟随最多 5 次重定向；
 - 限制 25 秒超时、4 MB 响应体；
 - 只接受文本 / XML / XAML，拒绝 HTML；
@@ -66,9 +67,12 @@ GET /api/proxy?url=https%3A%2F%2Fnews.bugjump.net%2F
 
 ```text
 PCL_PROXY_ALLOWLIST=news.bugjump.net,raw.githubusercontent.com
+PCL_PROXY_UA=PCL2-Homepage-Viewer
 ```
 
-不设置时允许访问任意公网 HTTP(S) 文本地址。它仍然是一个出站代理，公开运行时请按需增加平台限流；不要把代理用作通用开放代理。
+`ua` 参数为空或未提供时，代理会使用 `PCL_PROXY_UA`；该环境变量未设置时使用默认值 `PCL2-Homepage-Viewer`。查询参数优先于环境变量。
+
+不设置白名单时允许访问任意公网 HTTP(S) 文本地址。它仍然是一个出站代理，公开运行时请按需增加平台限流；不要把代理用作通用开放代理。
 
 Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDuration`。GitHub Pages 和 Netlify 静态部署不会包含这个函数。
 
@@ -81,7 +85,7 @@ Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDur
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线。
 - **PCL 自定义事件**：按钮、卡片、列表项、提示条和 `CustomEventCollection` 都会进入同一个顺序事件队列；支持变量与设置替换标记。
 - **安全渲染**：XAML 通过 `DOMParser` 解析，只创建受控 DOM；不执行脚本、不加载 `x:Code`、不打开 `WebBrowser`，并过滤常见危险类型与成员。
-- **联网代理**：运行 `node server.js` 时使用本地 `/api/proxy`；部署到 Vercel 时自动使用 `api/proxy.js`。代理附带 PCL 风格的 User-Agent / Referer，支持重定向、gzip / br / deflate，限制 4 MB 且只接受文本 / XAML 内容；纯静态部署自动回退到 CORS 直连。
+- **联网代理**：运行 `node server.js` 时使用本地 `/api/proxy`；部署到 Vercel 时自动使用 `api/proxy.js`。代理默认 UA 为 `PCL2-Homepage-Viewer`，可通过联网面板、`ua` 参数或 `PCL_PROXY_UA` 环境变量自定义；同时附带 PCL 风格 Referer，支持重定向、gzip / br / deflate，限制 4 MB 且只接受文本 / XAML 内容。纯静态部署自动回退到 CORS 直连。
 - **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
 
 ## 支持的 XAML
@@ -156,7 +160,7 @@ Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDur
 
 - 不执行 JavaScript、VBScript、`x:Code`、`x:Static`、`ObjectDataProvider`、`XamlReader`、`WebBrowser`、`Frame` 等。
 - 链接只允许 `http` / `https` / `mailto`；`打开网页` 与 `下载文件` 会校验协议。
-- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 没有 SSRF 防护；Vercel 的 `api/proxy.js` 会拦截本机 / 内网 / 保留地址、非 80 / 443 端口和 HTML 响应，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。公开部署时仍应设置白名单并按需限流。
+- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 没有 SSRF 防护；Vercel 的 `api/proxy.js` 会拦截本机 / 内网 / 保留地址、非 80 / 443 端口和 HTML 响应，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。公开部署时仍应设置白名单并按需限流。
 - 静态部署时，联网 URL 受目标站点 CORS 策略限制；这属于浏览器安全边界，不是渲染器错误。Vercel 部署可通过同源 `/api/proxy` 获取未开放 CORS 的内容。
 - 远程图片由浏览器直接加载，可能受目标站点的证书、CORS 或防盗链策略影响。
 

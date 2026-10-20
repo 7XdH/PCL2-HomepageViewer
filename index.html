@@ -84,7 +84,12 @@
               <input class="lab-input" id="urlInput" type="url" spellcheck="false" placeholder="https://example.com/Custom.xaml">
               <button class="compact-button" id="urlLoadBtn" type="button">拉取</button>
             </div>
-            <p class="field-note">本地服务器会通过 <code>/api/proxy</code> 拉取，并附带 PCL 风格的 User-Agent 与 Referer。GitHub Pages、Netlify、Vercel 等纯静态部署没有代理，会直接按 CORS 规则拉取，目标站点必须允许跨域。</p>
+            <label class="field-label field-label--spaced" for="uaInput">请求 UA（可选）</label>
+            <div class="input-row">
+              <input class="lab-input" id="uaInput" type="text" maxlength="512" spellcheck="false" autocomplete="off" placeholder="PCL2-Homepage-Viewer">
+            </div>
+            <p class="field-note">默认 UA 为 <code>PCL2-Homepage-Viewer</code>，留空使用默认值。自定义 UA 只会通过代理发送；浏览器直连时 User-Agent 由浏览器控制。本地 <code>server.js</code> 和 Vercel <code>/api/proxy</code> 都支持该参数。</p>
+            <p class="field-note">代理会附带 PCL 风格的 Referer。GitHub Pages、Netlify 等纯静态部署没有代理，会直接按 CORS 规则拉取，目标站点必须允许跨域。</p>
             <div class="example-strip">
               <span>可用的在线示例</span>
               <button type="button" data-fill-url="https://raw.githubusercontent.com/BlankTasftu/pcl2-custom-homepage/main/Custom.xaml">PCL 自定义主页示例（CORS）</button>

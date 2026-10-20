@@ -52,6 +52,7 @@ const $ = {
   dropzone: el("dropzone"),
   fileMeta: el("fileMeta"),
   urlInput: el("urlInput"),
+  uaInput: el("uaInput"),
   codeEditor: el("codeEditor"),
   codeLines: el("codeLines"),
   varChips: el("varChips"),
@@ -78,6 +79,7 @@ const state = {
   fileContent: "",
   url: "",
   urlContent: "",
+  ua: "",
   code: ""
 };
 
@@ -230,6 +232,7 @@ function saveSourceState(content) {
       preset: state.preset,
       fileName: state.fileName,
       url: state.url,
+      ua: state.ua,
       code: state.mode === "code" ? content : "",
       content: state.mode === "preset" ? "" : content
     };
@@ -247,6 +250,10 @@ function restoreSourceState() {
     if (!raw) return false;
     const saved = JSON.parse(raw);
     if (!saved || typeof saved !== "object") return false;
+    state.ua = typeof saved.ua === "string" ? saved.ua.trim() : "";
+    if (state.ua.length > 512 || (state.ua && !/^[\x20-\x7E]+$/.test(state.ua))) {
+      state.ua = "";
+    }
     if (saved.mode === "preset" && PRESETS[saved.preset]) {
       state.mode = "preset";
       state.preset = saved.preset;
@@ -291,6 +298,7 @@ async function applyFile(file) {
 async function fetchViaProxy(url, signal) {
   const proxyUrl = new URL("api/proxy", document.baseURI);
   proxyUrl.searchParams.set("url", url);
+  if (state.ua) proxyUrl.searchParams.set("ua", state.ua);
   const response = await fetch(proxyUrl, { signal, cache: "no-store" });
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   if (!response.ok || contentType.includes("text/html")) {
@@ -500,8 +508,19 @@ async function loadUrlAndRender() {
     });
     return;
   }
+  const ua = $.uaInput.value.trim();
+  if (ua.length > 512 || (ua && !/^[\x20-\x7E]+$/.test(ua))) {
+    shell.showModal({
+      title: "UA 无效",
+      caption: "User-Agent 必须是 1–512 个可打印 ASCII 字符，不能包含换行或控制字符。留空则使用默认值 PCL2-Homepage-Viewer。",
+      buttons: ["确定"],
+      warn: true
+    });
+    return;
+  }
   state.mode = "url";
   state.url = url;
+  state.ua = ua;
   state.urlContent = "";
   codeDirty = false;
   setPresetActive(null);
@@ -509,6 +528,7 @@ async function loadUrlAndRender() {
   updateFileMeta();
   await renderCurrent({ reason: "url", forceRemote: true });
   $.urlInput.value = state.url;
+  $.uaInput.value = state.ua;
 }
 
 async function applyCodeAndRender() {
@@ -593,6 +613,12 @@ function bindUi() {
 
   $.urlLoadBtn?.addEventListener("click", () => loadUrlAndRender());
   $.urlInput?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      loadUrlAndRender();
+    }
+  });
+  $.uaInput?.addEventListener("keydown", event => {
     if (event.key === "Enter") {
       event.preventDefault();
       loadUrlAndRender();
@@ -733,6 +759,7 @@ async function init() {
   } else {
     setActiveTab("file");
   }
+  $.uaInput.value = state.ua;
   setPresetActive(state.mode === "preset" ? state.preset : null);
   updateFileMeta();
   bindUi();

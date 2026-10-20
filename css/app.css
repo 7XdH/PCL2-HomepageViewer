@@ -503,6 +503,10 @@ body {
   letter-spacing: 0.03em;
 }
 
+.field-label--spaced {
+  margin-top: 12px;
+}
+
 .input-row {
   display: flex;
   gap: 7px;

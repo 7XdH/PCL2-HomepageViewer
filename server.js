@@ -10,6 +10,14 @@ const PORT = Number(process.env.PORT) || 3000;
 const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 const TIMEOUT_MS = 25000;
+const DEFAULT_USER_AGENT = "PCL2-Homepage-Viewer";
+const MAX_USER_AGENT_LENGTH = 512;
+
+const ENV_USER_AGENT = (process.env.PCL_PROXY_UA || "").trim();
+const EFFECTIVE_DEFAULT_USER_AGENT =
+  ENV_USER_AGENT && /^[\x20-\x7E]{1,512}$/.test(ENV_USER_AGENT)
+    ? ENV_USER_AGENT
+    : DEFAULT_USER_AGENT;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -80,7 +88,16 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-function requestOnce(url, redirectsLeft) {
+function normalizeUserAgent(rawUserAgent) {
+  const value = String(rawUserAgent ?? "").trim();
+  if (!value) return EFFECTIVE_DEFAULT_USER_AGENT;
+  if (value.length > MAX_USER_AGENT_LENGTH || !/^[\x20-\x7E]+$/.test(value)) {
+    throw new Error("UA 必须是 1-512 个可打印 ASCII 字符");
+  }
+  return value;
+}
+
+function requestOnce(url, redirectsLeft, userAgent) {
   return new Promise((resolve, reject) => {
     let parsed;
     try {
@@ -100,8 +117,7 @@ function requestOnce(url, redirectsLeft) {
       {
         method: "GET",
         headers: {
-          "User-Agent":
-            "PCL2/2.11.0 Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36",
+          "User-Agent": userAgent,
           Referer: "http://200.open.pcl2.server/",
           Accept: "text/xml,application/xml,text/plain,*/*",
           "Accept-Encoding": "gzip, deflate, br"
@@ -118,7 +134,7 @@ function requestOnce(url, redirectsLeft) {
             return;
           }
           const next = new URL(location, parsed).toString();
-          resolve(requestOnce(next, redirectsLeft - 1));
+          resolve(requestOnce(next, redirectsLeft - 1, userAgent));
           return;
         }
         if (status < 200 || status >= 300) {
@@ -166,8 +182,15 @@ async function proxy(req, res, requestUrl) {
     send(res, 400, "缺少 url 参数", { "Content-Type": "text/plain; charset=utf-8" });
     return;
   }
+  let userAgent;
   try {
-    const result = await requestOnce(target, MAX_REDIRECTS);
+    userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
+  } catch (error) {
+    send(res, 400, String(error?.message || error), { "Content-Type": "text/plain; charset=utf-8" });
+    return;
+  }
+  try {
+    const result = await requestOnce(target, MAX_REDIRECTS, userAgent);
     let finalPath = "";
     try {
       finalPath = new URL(result.finalUrl).pathname.toLowerCase();
@@ -187,6 +210,7 @@ async function proxy(req, res, requestUrl) {
     send(res, 200, result.body, {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
+      "X-PCL-Proxy-Ua": encodeURIComponent(userAgent),
       "X-PCL-Proxy-Final-Url": result.finalUrl
     });
   } catch (error) {
@@ -233,7 +257,7 @@ server.listen(PORT, () => {
   console.log("  Plain Craft Launcher (PCL) Homepage Viewer (第三方)");
   console.log(`  http://localhost:${PORT}`);
   console.log("");
-  console.log("  联网主页将通过 /api/proxy 代理，并附带 PCL 风格的 UA / Referer。");
+  console.log("  联网主页将通过 /api/proxy 代理，默认 UA：PCL2-Homepage-Viewer。");
   console.log("  按 Ctrl + C 停止服务器。");
   console.log("");
 });

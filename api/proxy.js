@@ -6,8 +6,14 @@ const MAX_REDIRECTS = 5;
 const TIMEOUT_MS = 25_000;
 const MAX_URL_LENGTH = 4096;
 
-const PCL_USER_AGENT =
-  "PCL2/2.11.0 Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36";
+const DEFAULT_USER_AGENT = "PCL2-Homepage-Viewer";
+const MAX_USER_AGENT_LENGTH = 512;
+
+const ENV_USER_AGENT = (process.env.PCL_PROXY_UA || "").trim();
+const EFFECTIVE_DEFAULT_USER_AGENT =
+  ENV_USER_AGENT && /^[\x20-\x7E]{1,512}$/.test(ENV_USER_AGENT)
+    ? ENV_USER_AGENT
+    : DEFAULT_USER_AGENT;
 
 const ALLOWLIST = (process.env.PCL_PROXY_ALLOWLIST || "")
   .split(",")
@@ -100,6 +106,15 @@ function isBlockedHostname(hostname) {
 function isAllowedHost(hostname) {
   if (!ALLOWLIST.length) return true;
   return ALLOWLIST.some(entry => hostname === entry || hostname.endsWith(`.${entry}`));
+}
+
+function normalizeUserAgent(rawUserAgent) {
+  const value = String(rawUserAgent ?? "").trim();
+  if (!value) return EFFECTIVE_DEFAULT_USER_AGENT;
+  if (value.length > MAX_USER_AGENT_LENGTH || !/^[\x20-\x7E]+$/.test(value)) {
+    throw new ProxyError("UA 必须是 1-512 个可打印 ASCII 字符", 400);
+  }
+  return value;
 }
 
 function parseTarget(rawTarget) {
@@ -236,7 +251,7 @@ async function readBody(response, finalUrl) {
   return Buffer.concat(chunks);
 }
 
-async function fetchTarget(initialTarget) {
+async function fetchTarget(initialTarget, userAgent) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -251,7 +266,7 @@ async function fetchTarget(initialTarget) {
         signal: controller.signal,
         cache: "no-store",
         headers: {
-          "User-Agent": PCL_USER_AGENT,
+          "User-Agent": userAgent,
           Referer: "http://200.open.pcl2.server/",
           Accept: "text/xml,application/xml,text/plain,*/*"
         }
@@ -307,9 +322,11 @@ export default async function handler(request, response) {
 
   try {
     const target = requestUrl.searchParams.get("url");
-    const result = await fetchTarget(target);
+    const userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
+    const result = await fetchTarget(target, userAgent);
     send(response, 200, result.body, {
       "X-PCL-Proxy": "vercel",
+      "X-PCL-Proxy-Ua": encodeURIComponent(userAgent),
       "X-PCL-Proxy-Final-Url": encodeURI(result.finalUrl)
     });
   } catch (error) {
