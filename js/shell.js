@@ -489,8 +489,16 @@ export class PclShell {
   }
 
   toggleAccount() {
-    this.account = this.account.name === "Steve" ? ACCOUNTS.Alex : ACCOUNTS.Steve;
+    const previous = this.account;
+    this.account = previous.name === "Steve" ? ACCOUNTS.Alex : ACCOUNTS.Steve;
     this.updateAccountUi();
+    this.pushEvent({
+      type: "切换账户",
+      data: `${previous.name} -> ${this.account.name}`,
+      status: "ok",
+      message: `当前账户：${this.account.name}`,
+      time: Date.now()
+    });
     this.onAccountChange?.({ ...this.account });
   }
 
