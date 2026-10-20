@@ -249,7 +249,7 @@
 
 
             <div class="pcl-main">
-              <aside class="pcl-sidebar" id="pclSidebar">
+              <aside class="pcl-sidebar" id="pclSidebar" data-skin="Steve">
                 <div class="pcl-login-badge" id="pclAccountBtn" role="button" tabindex="0" title="切换账户">
                   <span class="pcl-login-badge__avatar" aria-hidden="true"></span>
                   <span>离线登录</span>
@@ -257,12 +257,13 @@
                 </div>
 
                 <div class="pcl-profile">
-                  <div class="pcl-avatar" aria-hidden="true">
+                  <div class="pcl-avatar" id="pclAvatarBtn" role="button" tabindex="0"
+                       title="切换为 Alex 头像" aria-label="切换头像，当前 Steve">
                     <div class="pcl-avatar__face"></div>
                     <div class="pcl-avatar__hat"></div>
                     <span class="pcl-avatar__shine"></span>
                   </div>
-                  <div class="pcl-profile__name">Steve</div>
+                  <div class="pcl-profile__name" id="pclProfileName" aria-live="polite">Steve</div>
                   <div class="pcl-profile__sub">离线账户 · 点击切换</div>
                 </div>
 
@@ -382,7 +383,7 @@
     })();
   </script>
 
-  <script type="module" src="js/app.js?v=20261020"></script>
+  <script type="module" src="js/app.js?v=20261020b"></script>
 </body>
 </html>
 

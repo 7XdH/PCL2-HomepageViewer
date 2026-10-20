@@ -361,6 +361,24 @@ img {
   filter: drop-shadow(0 12px 18px rgba(11, 91, 203, 0.17));
   transform: perspective(240px) rotateY(-5deg) rotateX(3deg);
   transform-style: preserve-3d;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  transition: filter 140ms ease, transform 140ms ease;
+}
+
+.pcl-avatar:hover,
+.pcl-avatar:focus-visible {
+  filter: drop-shadow(0 14px 21px rgba(11, 91, 203, 0.22));
+}
+
+.pcl-avatar:focus-visible {
+  outline: 2px solid var(--pcl-c3);
+  outline-offset: 3px;
+}
+
+.pcl-avatar:active {
+  transform: perspective(240px) rotateY(-5deg) rotateX(3deg) scale(0.97);
 }
 
 .pcl-avatar__face,
@@ -378,6 +396,12 @@ img {
 .pcl-avatar__hat {
   background-position: -380px -76px;
   mix-blend-mode: normal;
+}
+
+.pcl-sidebar[data-skin="Alex"] .pcl-login-badge__avatar,
+.pcl-sidebar[data-skin="Alex"] .pcl-avatar__face,
+.pcl-sidebar[data-skin="Alex"] .pcl-avatar__hat {
+  background-image: url("../assets/pcl/images/Skins/Alex.png");
 }
 
 .pcl-avatar__shine {

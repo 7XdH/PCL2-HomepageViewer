@@ -35,6 +35,21 @@ const VERSIONS = [
   { name: "1.21.4-Vanilla", meta: "原版 1.21.4 · 上周" }
 ];
 
+const ACCOUNTS = {
+  Steve: {
+    name: "Steve",
+    uuid: "8667ba71-b85a-4004-af54-457a9734eed7",
+    login: "离线",
+    skin: "Steve"
+  },
+  Alex: {
+    name: "Alex",
+    uuid: "ec561538-f3fd-461d-aff5-086b22154bce",
+    login: "离线",
+    skin: "Alex"
+  }
+};
+
 const COMMIT_REFRESH_MS = 10 * 60 * 1000;
 const COMMIT_TIMEOUT_MS = 8000;
 const COMMIT_SOURCE_LABELS = {
@@ -103,9 +118,11 @@ const timeString = date => {
 };
 
 export class PclShell {
-  constructor({ onLaunch } = {}) {
+  constructor({ onLaunch, onAccountChange } = {}) {
     this.onLaunch = onLaunch;
+    this.onAccountChange = onAccountChange;
     this.version = VERSIONS[0].name;
+    this.account = ACCOUNTS.Steve;
     this.events = [];
     this.modalChain = Promise.resolve();
     this.currentPage = "Launch";
@@ -117,6 +134,9 @@ export class PclShell {
     this.scaler = document.getElementById("pclScaler");
     this.titlebar = document.getElementById("pclTitlebar");
     this.nav = document.getElementById("pclNav");
+    this.sidebar = document.getElementById("pclSidebar");
+    this.avatarButton = document.getElementById("pclAvatarBtn");
+    this.profileName = document.getElementById("pclProfileName");
     this.homePage = document.getElementById("pclHomePage");
     this.stubPage = document.getElementById("pclStubPage");
     this.stubTitle = document.getElementById("pclStubTitle");
@@ -138,6 +158,7 @@ export class PclShell {
     this.commitAbort = null;
 
     this.bindWindowControls();
+    this.bindAccountSwitcher();
     this.bindTooltips();
     this.loadLatestCommit();
     window.setInterval(() => this.loadLatestCommit({ silent: true }), COMMIT_REFRESH_MS);
@@ -439,7 +460,7 @@ export class PclShell {
     document.getElementById("pclAccountBtn")?.addEventListener("click", () => {
       this.showModal({
         title: "账户",
-        caption: "当前演示账户：Steve（离线登录）\n\n网页渲染器不会连接 Mojang 或微软登录服务。",
+        caption: `当前演示账户：${this.account.name}（离线登录）\n\n点击左侧头像可在 Steve / Alex 之间切换。\n\n网页渲染器不会连接 Mojang 或微软登录服务。`,
         buttons: ["好"]
       });
     });
@@ -455,6 +476,32 @@ export class PclShell {
         this.showHint(`已选择版本：${this.version}`, "Green");
       }
     });
+  }
+
+  bindAccountSwitcher() {
+    this.avatarButton?.addEventListener("click", () => this.toggleAccount());
+    this.avatarButton?.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      this.toggleAccount();
+    });
+    this.updateAccountUi();
+  }
+
+  toggleAccount() {
+    this.account = this.account.name === "Steve" ? ACCOUNTS.Alex : ACCOUNTS.Steve;
+    this.updateAccountUi();
+    this.onAccountChange?.({ ...this.account });
+  }
+
+  updateAccountUi() {
+    const nextName = this.account.name === "Steve" ? "Alex" : "Steve";
+    this.sidebar?.setAttribute("data-skin", this.account.skin);
+    if (this.profileName) this.profileName.textContent = this.account.name;
+    if (this.avatarButton) {
+      this.avatarButton.title = `切换为 ${nextName} 头像`;
+      this.avatarButton.setAttribute("aria-label", `切换头像，当前 ${this.account.name}`);
+    }
   }
 
   toggleMinimized(force) {
