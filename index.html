@@ -84,10 +84,10 @@
               <input class="lab-input" id="urlInput" type="url" spellcheck="false" placeholder="https://example.com/Custom.xaml">
               <button class="compact-button" id="urlLoadBtn" type="button">拉取</button>
             </div>
-            <p class="field-note">经由本地代理拉取时，会自动附带 PCL 风格的 User-Agent 与 Referer。直接打开 <code>index.html</code> 时受浏览器 CORS 限制。</p>
+            <p class="field-note">本地服务器会通过 <code>/api/proxy</code> 拉取，并附带 PCL 风格的 User-Agent 与 Referer。GitHub Pages、Netlify、Vercel 等纯静态部署没有代理，会直接按 CORS 规则拉取，目标站点必须允许跨域。</p>
             <div class="example-strip">
               <span>可用的在线示例</span>
-              <button type="button" data-fill-url="https://raw.gitcode.com/WForst-Breeze/WhatsNewPCL/raw/main/Custom.xaml">PCL 新功能说明书</button>
+              <button type="button" data-fill-url="https://raw.githubusercontent.com/BlankTasftu/pcl2-custom-homepage/main/Custom.xaml">PCL 自定义主页示例（CORS）</button>
             </div>
           </section>
 

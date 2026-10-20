@@ -24,6 +24,28 @@ node server.js
 
 不要直接双击 `index.html`：项目使用 ES Module、同源 `fetch` 与 `/api/proxy`，通过 `file://` 打开时浏览器会阻止这些请求。
 
+## 部署到静态托管
+
+可以部署到 GitHub Pages、Netlify、Vercel 等纯静态平台。核心渲染、预设、本地文件与源码编辑都不依赖后端；只有“联网 URL”的代理能力需要服务器。
+
+```powershell
+npm run build
+# 输出目录：dist/
+```
+
+| 平台 | 配置 |
+| --- | --- |
+| **GitHub Pages** | 仓库 **Settings → Pages → Source → GitHub Actions**。推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动构建 `dist/` 并部署。项目使用相对路径，支持 `https://<user>.github.io/<repo>/` 子路径。 |
+| **Netlify** | 导入仓库即可；`netlify.toml` 已配置 `npm run build` 与发布目录 `dist/`。 |
+| **Vercel** | 导入仓库即可；`vercel.json` 已配置构建命令与 `dist/` 输出目录。 |
+
+静态部署的限制：
+
+- 没有 `/api/proxy`，联网标签页会改为浏览器直接 `fetch`。
+- 目标站点必须返回允许跨域的响应头（如 `Access-Control-Allow-Origin: *`），例如 `raw.githubusercontent.com`。
+- 像 `https://news.bugjump.net/` 这类没有开放 CORS 的地址，在纯静态站点中无法加载；请运行 `node server.js` 使用本地代理，或在 Netlify/Vercel 上自行增加服务端代理函数。
+- GitHub Pages 若仓库为私有，需要对应账号计划支持 Pages；公开仓库通常可直接使用。
+
 ## 功能
 
 - **三种来源**：本地 `.xaml` 文件（拖拽或 Ctrl+O）、联网 URL、直接编辑 XAML 源码。
@@ -33,7 +55,7 @@ node server.js
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线。
 - **PCL 自定义事件**：按钮、卡片、列表项、提示条和 `CustomEventCollection` 都会进入同一个顺序事件队列；支持变量与设置替换标记。
 - **安全渲染**：XAML 通过 `DOMParser` 解析，只创建受控 DOM；不执行脚本、不加载 `x:Code`、不打开 `WebBrowser`，并过滤常见危险类型与成员。
-- **联网代理**：`/api/proxy` 会附带 PCL 风格的 User-Agent / Referer，支持重定向、gzip / br / deflate，限制 4 MB 且只接受文本 / XAML 内容。
+- **本地联网代理**：运行 `node server.js` 时，`/api/proxy` 会附带 PCL 风格的 User-Agent / Referer，支持重定向、gzip / br / deflate，限制 4 MB 且只接受文本 / XAML 内容；静态部署时自动回退到 CORS 直连。
 - **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
 
 ## 支持的 XAML
@@ -108,7 +130,8 @@ node server.js
 
 - 不执行 JavaScript、VBScript、`x:Code`、`x:Static`、`ObjectDataProvider`、`XamlReader`、`WebBrowser`、`Frame` 等。
 - 链接只允许 `http` / `https` / `mailto`；`打开网页` 与 `下载文件` 会校验协议。
-- `/api/proxy` 是本地开发代理，**没有 SSRF 防护**；不要把它暴露到公网，也不要在不可信网络中长期运行。
+- `/api/proxy` 是本地开发代理，**没有 SSRF 防护**；不要把它暴露到公网，也不要在不可信网络中长期运行。GitHub Pages / Netlify / Vercel 静态部署没有这个代理。
+- 静态部署时，联网 URL 受目标站点 CORS 策略限制；这属于浏览器安全边界，不是渲染器错误。
 - 远程图片由浏览器直接加载，可能受目标站点的证书、CORS 或防盗链策略影响。
 
 ## 已知限制
@@ -138,6 +161,10 @@ assets/pcl/                PCL 图片、图标与字体
 assets/presets/            教程 / 画廊 / 事件 / 提示预设
 server.js                  静态服务器 + 文本代理
 tools/generate-assets.mjs  重新生成 js/assets.js
+tools/build-static.mjs     构建 dist/ 静态站点
+netlify.toml               Netlify 构建与发布配置
+vercel.json                Vercel 构建与发布配置
+.github/workflows/         GitHub Pages 自动部署
 ```
 
 重新生成图片映射：

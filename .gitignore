@@ -25,3 +25,6 @@ _shot.png
 _dump.html
 _sample_remote.xaml
 _bugjump.xaml
+
+# Static build output
+dist/

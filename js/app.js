@@ -288,28 +288,82 @@ async function applyFile(file) {
   await renderCurrent({ reason: "file" });
 }
 
+async function fetchViaProxy(url, signal) {
+  const proxyUrl = new URL("api/proxy", document.baseURI);
+  proxyUrl.searchParams.set("url", url);
+  const response = await fetch(proxyUrl, { signal, cache: "no-store" });
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  if (!response.ok || contentType.includes("text/html")) {
+    const text = await response.text().catch(() => "");
+    const error = new Error(text.trim() || `代理返回 HTTP ${response.status}`);
+    error.status = response.status;
+    error.code = contentType.includes("text/html") ? "PROXY_HTML" : "PROXY_HTTP";
+    throw error;
+  }
+  return response.text();
+}
+
+async function fetchDirect(url, signal) {
+  const response = await fetch(url, {
+    signal,
+    mode: "cors",
+    credentials: "omit",
+    cache: "no-cache"
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  if (contentType.includes("text/html")) {
+    throw new Error("目标地址返回了 HTML 页面，而不是 XAML。");
+  }
+  return response.text();
+}
+
 async function fetchRemoteXaml(url) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 22000);
+  let proxyError = null;
   try {
     if (location.protocol === "http:" || location.protocol === "https:") {
-      const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl, { signal: controller.signal });
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(text.trim() || `代理返回 HTTP ${response.status}`);
+      try {
+        return await fetchViaProxy(url, controller.signal);
+      } catch (error) {
+        if (error.name === "AbortError") throw error;
+        proxyError = error;
       }
-      return await response.text();
     }
-    const response = await fetch(url, { signal: controller.signal, mode: "cors" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
+
+    const canFallbackToDirect =
+      !proxyError ||
+      !proxyError.status ||
+      proxyError.status === 404 ||
+      proxyError.status === 405 ||
+      proxyError.status >= 500 ||
+      proxyError.code === "PROXY_HTML";
+    if (!canFallbackToDirect) {
+      throw new Error(
+        `无法拉取联网主页：${proxyError.message}\n\n` +
+        "请确认地址有效，或检查本地代理是否可用。"
+      );
+    }
+
+    try {
+      return await fetchDirect(url, controller.signal);
+    } catch (error) {
+      if (error.name === "AbortError") throw error;
+      const proxyHint = proxyError
+        ? `本地代理不可用（${proxyError.message}）。` +
+          "GitHub Pages、Netlify、Vercel 等纯静态部署没有 /api/proxy，"
+        : "";
+      throw new Error(
+        `无法拉取联网主页：${error.message}\n\n` +
+        proxyHint +
+        "静态部署时只能加载允许浏览器跨域（CORS）的地址，例如 raw.githubusercontent.com；" +
+        "目标站点未开放 CORS 时，请运行 node server.js 使用本地代理。"
+      );
+    }
   } catch (error) {
     if (error.name === "AbortError") throw new Error("请求超时（22 秒）。");
-    throw new Error(
-      `无法拉取联网主页：${error.message}\n\n` +
-      "如果直接打开 index.html，请先运行 node server.js，再通过本地服务器访问页面。"
-    );
+    throw error;
   } finally {
     window.clearTimeout(timeout);
   }
@@ -380,9 +434,12 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     $.renderStats.textContent = "渲染失败";
     $.renderStats.title = error.message || String(error);
     shell.setLoading(false);
+    const networkFailure = state.mode === "url" && String(error.message || error).startsWith("无法拉取联网主页");
     shell.showModal({
-      title: "加载主页失败",
-      caption: `主页内容编写有误，请根据下列错误信息进行检查：\n\n${error.message || error}`,
+      title: networkFailure ? "联网主页加载失败" : "加载主页失败",
+      caption: networkFailure
+        ? String(error.message || error)
+        : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${error.message || error}`,
       buttons: ["重试", "取消"],
       warn: true
     }).then(choice => {
