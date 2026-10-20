@@ -844,6 +844,7 @@ export class PclRenderer {
       if (!canSwap) return;
       const currently = card.classList.contains("is-swapped");
       if (target === currently) return;
+      card.setAttribute("aria-expanded", String(!target));
 
       if (!useAnimation) {
         card.classList.toggle("is-swapped", target);
@@ -862,7 +863,6 @@ export class PclRenderer {
 
       if (target) {
         card.classList.remove("is-swapped");
-        card.setAttribute("aria-expanded", "false");
         void card.offsetHeight;
         card.style.height = "40px";
         const finish = () => {
@@ -881,7 +881,6 @@ export class PclRenderer {
         }, 340);
       } else {
         card.classList.remove("is-swapped");
-        card.setAttribute("aria-expanded", "true");
         void card.offsetHeight;
         const targetHeight = explicitHeight != null ? explicitHeight : Math.max(40, body.scrollHeight);
         card.style.height = `${targetHeight}px`;

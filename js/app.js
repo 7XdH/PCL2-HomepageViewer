@@ -1,5 +1,5 @@
 import { PclTheme } from "./theme.js";
-import { PclRenderer } from "./renderer.js";
+import { PclRenderer } from "./renderer.js?v=20261020e";
 import { PclRuntime } from "./runtime.js";
 import { PclShell } from "./shell.js?v=20261020c";
 
