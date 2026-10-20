@@ -327,19 +327,55 @@ async function fetchDirect(url, signal) {
   return response.text();
 }
 
+function isLikelyXaml(source) {
+  let text = String(source ?? "").replace(/^\uFEFF/, "").trim();
+  if (!text) return false;
+
+  // Allow an XML declaration, processing instructions and comments before the root.
+  for (let index = 0; index < 8; index += 1) {
+    const next = text
+      .replace(/^<\?xml[\s\S]*?\?>/i, "")
+      .replace(/^<!--[\s\S]*?-->/, "")
+      .replace(/^<\?[\s\S]*?\?>/, "")
+      .trim();
+    if (next === text) break;
+    text = next;
+  }
+
+  if (!text || /^<!doctype\b/i.test(text) || /^<html(?:\s|>)/i.test(text)) return false;
+  return /^<([A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*(?:\s|\/?>)/.test(text);
+}
+
+function assertXamlResponse(content, url) {
+  if (isLikelyXaml(content)) return content;
+  const sample = String(content ?? "").replace(/^\uFEFF/, "").trimStart();
+  const kind = /^[\[{]/.test(sample)
+    ? "JSON"
+    : /^<!doctype\s+html\b|^<html(?:\s|>)/i.test(sample)
+      ? "HTML"
+      : sample
+        ? "纯文本或其他格式"
+        : "空内容";
+  const error = new Error(`无法拉取联网主页：目标地址返回的不是 XAML（${kind}）。\n\n${url}`);
+  error.code = "NOT_XAML";
+  throw error;
+}
+
 async function fetchRemoteXaml(url) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 22000);
   let proxyError = null;
   try {
+    let proxiedContent = null;
     if (location.protocol === "http:" || location.protocol === "https:") {
       try {
-        return await fetchViaProxy(url, controller.signal);
+        proxiedContent = await fetchViaProxy(url, controller.signal);
       } catch (error) {
         if (error.name === "AbortError") throw error;
         proxyError = error;
       }
     }
+    if (proxiedContent !== null) return assertXamlResponse(proxiedContent, url);
 
     const canFallbackToDirect =
       !proxyError ||
@@ -355,8 +391,9 @@ async function fetchRemoteXaml(url) {
       );
     }
 
+    let directContent;
     try {
-      return await fetchDirect(url, controller.signal);
+      directContent = await fetchDirect(url, controller.signal);
     } catch (error) {
       if (error.name === "AbortError") throw error;
       const proxyMissing =
@@ -376,6 +413,7 @@ async function fetchRemoteXaml(url) {
         "或运行 node server.js 使用本地代理。"
       );
     }
+    return assertXamlResponse(directContent, url);
   } catch (error) {
     if (error.name === "AbortError") throw new Error("请求超时（22 秒）。");
     throw error;

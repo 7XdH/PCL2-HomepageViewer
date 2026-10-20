@@ -205,6 +205,7 @@ Root Directory: 留空
 - **安全渲染**：XAML 通过 `DOMParser` 解析，只创建受控 DOM；不执行脚本、不加载 `x:Code`、不打开 `WebBrowser`，并过滤常见危险类型与成员。
 - **联网代理**：运行 `node server.js` 时使用本地 `/api/proxy`；部署到 Vercel 时自动使用 `api/proxy.js`。代理默认 UA 为 `PCL2-Homepage-Viewer`，可通过联网面板、`ua` 参数或 `PCL_PROXY_UA` 环境变量自定义；同时附带 PCL 风格 Referer，支持重定向、gzip / br / deflate，限制 4 MB 且只接受文本 / XAML 内容。纯静态部署自动回退到 CORS 直连。
 - **联网 URL 替换标记**：联网地址会在请求前解析 `{variable:...}`、`{setup:...}` 等标记，例如 `https://weather-p.kaphia.top/{variable:PCLDailyWeatherPage:choose}.xaml`；输入框仍保留原始模板。
+- **非 XAML 响应校验**：联网地址返回空内容、JSON、HTML 或纯文本时会直接报错，不再渲染为空白页。
 - **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
 
 ## 支持的 XAML
