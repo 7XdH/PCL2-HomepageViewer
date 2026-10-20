@@ -62,7 +62,6 @@ const $ = {
   helpBtn: el("helpBtn"),
   renderBtn: el("renderBtn"),
   refreshBtn: el("refreshBtn"),
-  fitBtn: el("fitBtn"),
   fullscreenBtn: el("fullscreenBtn"),
   exportBtn: el("exportBtn"),
   applyCodeBtn: el("applyCodeBtn"),
@@ -657,7 +656,6 @@ function bindUi() {
 
   $.renderBtn?.addEventListener("click", () => renderCurrent({ reason: "manual" }));
   $.refreshBtn?.addEventListener("click", () => renderCurrent({ reason: "refresh", forceRemote: true }));
-  $.fitBtn?.addEventListener("click", () => fitStage());
   $.fullscreenBtn?.addEventListener("click", toggleFullscreen);
   $.exportBtn?.addEventListener("click", exportCurrent);
   $.helpBtn?.addEventListener("click", showHelp);
