@@ -121,6 +121,19 @@ Netlify 不包含 `/api/proxy`；联网主页只能依赖目标站的 CORS，或
 
 设置白名单后，只有列表中的域名（及其子域名）能通过 `/api/proxy`；如果只填 `news.bugjump.net`，示例 GitHub 地址会被拒绝。修改变量后需要重新部署。
 
+### 最近提交时间
+
+启动页底部显示的是**构建时的最近提交**，不再是固定的演示时间。数据来源按顺序尝试：
+
+1. 构建时生成的 `commit.json`（`npm run build` 自动写入 `dist/`）
+   - Vercel、Netlify、GitHub Pages 都优先读取这个文件
+   - 显示的是当次部署对应的 commit，重新部署后更新
+2. 仅本地 `node server.js` 且没有 `commit.json` 时，调用同源 `/api/latest-commit` 读取当前目录的 `git log -1`
+
+Vercel 线上不会请求 GitHub API，也不需要配置 GitHub Token。页面每 10 分钟刷新一次提交信息，并每分钟更新“几分钟前”等相对时间；悬停可以看到完整时间与短 SHA。
+
+如果构建环境没有可用的 git 历史，构建会跳过 `commit.json`，页面会显示“获取失败”。Vercel 的正常 Git 构建会自动生成该文件。
+
 
 ### Vercel 代理（`api/proxy`）
 

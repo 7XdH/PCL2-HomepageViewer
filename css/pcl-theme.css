@@ -547,10 +547,13 @@ img {
 }
 
 .pcl-launch-meta {
+  overflow: hidden;
   margin-top: 7px;
   color: var(--pcl-gray3);
   font-size: 9.5px;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 

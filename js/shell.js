@@ -35,6 +35,61 @@ const VERSIONS = [
   { name: "1.21.4-Vanilla", meta: "原版 1.21.4 · 上周" }
 ];
 
+const COMMIT_REFRESH_MS = 10 * 60 * 1000;
+const COMMIT_TIMEOUT_MS = 8000;
+const COMMIT_SOURCE_LABELS = {
+  build: "构建时记录的提交",
+  local: "本地最近提交"
+};
+const COMMIT_ERROR_TITLE = "无法读取最近提交信息。请确认 npm run build 已生成 commit.json，或使用 node server.js 本地运行。";
+
+const formatRelativeTime = date => {
+  const diff = Math.max(0, Date.now() - date.getTime());
+  if (diff < 60_000) return "刚刚";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} 天前`;
+  return date.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+};
+
+const normalizeCommit = (data, source) => {
+  const commit = data?.commit || data;
+  const rawDate = data?.date || commit?.committer?.date || commit?.author?.date;
+  const date = rawDate ? new Date(rawDate) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return {
+    date,
+    sha: data?.sha || commit?.sha || "",
+    source: data?.source || source
+  };
+};
+
+const fetchLatestCommit = async signal => {
+  const cacheBust = Date.now();
+  const isLocalHost = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+  const endpoints = [
+    { url: `commit.json?t=${cacheBust}`, source: "build" },
+    ...(isLocalHost ? [{ url: `api/latest-commit?t=${cacheBust}`, source: "local" }] : [])
+  ];
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint.url, {
+        signal,
+        cache: "no-store",
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) continue;
+      const data = await response.json();
+      const item = Array.isArray(data) ? data[0] : data;
+      const commit = normalizeCommit(item, endpoint.source);
+      if (commit) return commit;
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+    }
+  }
+  return null;
+};
+
 const hintColors = {
   Blue: ["rgba(37, 155, 252, 0.843)", "rgba(10, 142, 252, 0.843)"],
   Green: ["rgba(33, 177, 33, 0.843)", "rgba(29, 160, 29, 0.843)"],
@@ -78,9 +133,15 @@ export class PclShell {
     this.eventCount = document.getElementById("eventCount");
     this.stageEmpty = document.getElementById("stageEmpty");
     this.tooltip = document.getElementById("pclTooltip");
+    this.launchMeta = document.getElementById("pclLaunchMeta");
+    this.latestCommit = null;
+    this.commitAbort = null;
 
     this.bindWindowControls();
     this.bindTooltips();
+    this.loadLatestCommit();
+    window.setInterval(() => this.loadLatestCommit({ silent: true }), COMMIT_REFRESH_MS);
+    window.setInterval(() => this.renderCommitMeta(), 60_000);
   }
 
   showHint(text, type = "Blue") {
@@ -197,6 +258,61 @@ export class PclShell {
   setLoading(visible, text = "正在加载主页…") {
     this.loadingText.textContent = text;
     this.loadingLayer.hidden = !visible;
+  }
+
+  async loadLatestCommit({ silent = false } = {}) {
+    if (!this.launchMeta) return;
+    if (document.visibilityState === "hidden" && silent) return;
+
+    this.commitAbort?.abort();
+    const controller = new AbortController();
+    this.commitAbort = controller;
+    const timeout = window.setTimeout(() => controller.abort(), COMMIT_TIMEOUT_MS);
+
+    if (!this.latestCommit && !silent) {
+      this.launchMeta.textContent = "最近提交：正在获取…";
+      this.launchMeta.title = "正在获取最近提交…";
+    }
+
+    try {
+      const commit = await fetchLatestCommit(controller.signal);
+      if (commit) {
+        this.latestCommit = commit;
+        this.renderCommitMeta();
+      } else if (!this.latestCommit) {
+        this.launchMeta.textContent = "最近提交：获取失败";
+        this.launchMeta.title = COMMIT_ERROR_TITLE;
+      }
+    } catch (error) {
+      if (!this.latestCommit) {
+        const timeoutFailure = error?.name === "AbortError";
+        this.launchMeta.textContent = timeoutFailure ? "最近提交：获取超时" : "最近提交：获取失败";
+        this.launchMeta.title = timeoutFailure
+          ? "获取最近提交超时，请稍后刷新重试。"
+          : COMMIT_ERROR_TITLE;
+      }
+    } finally {
+      window.clearTimeout(timeout);
+      if (this.commitAbort === controller) this.commitAbort = null;
+    }
+  }
+
+  renderCommitMeta() {
+    if (!this.launchMeta || !this.latestCommit) return;
+    const relative = formatRelativeTime(this.latestCommit.date);
+    const shortSha = this.latestCommit.sha.slice(0, 7);
+    this.launchMeta.textContent = `最近提交：${relative}${shortSha ? ` · ${shortSha}` : ""}`;
+    const full = this.latestCommit.date.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+    const source = COMMIT_SOURCE_LABELS[this.latestCommit.source] || COMMIT_SOURCE_LABELS.build;
+    this.launchMeta.title = `${source}：${full}${shortSha ? ` · ${shortSha}` : ""}`;
   }
 
   getVersion() {

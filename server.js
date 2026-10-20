@@ -2,6 +2,7 @@ import http from "node:http";
 import https from "node:https";
 import fs from "node:fs";
 import path from "node:path";
+import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
 
@@ -176,6 +177,32 @@ function requestOnce(url, redirectsLeft, userAgent) {
   });
 }
 
+function readLatestCommit() {
+  return new Promise((resolve, reject) => {
+    execFile(
+      "git",
+      ["log", "-1", "--format=%cI%n%H"],
+      { cwd: ROOT, windowsHide: true, timeout: 5000, encoding: "utf8" },
+      (error, stdout) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const [date, sha] = String(stdout).trim().split(/\r?\n/);
+        if (!date || !sha) {
+          reject(new Error("git log 返回为空"));
+          return;
+        }
+        resolve({
+          date,
+          sha,
+          source: "local"
+        });
+      }
+    );
+  });
+}
+
 async function proxy(req, res, requestUrl) {
   const target = requestUrl.searchParams.get("url");
   if (!target) {
@@ -233,6 +260,27 @@ const server = http.createServer((req, res) => {
     send(res, 200, JSON.stringify({ ok: true, service: "pcl-homepage-viewer" }), {
       "Content-Type": "application/json; charset=utf-8"
     });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/latest-commit") {
+    if (req.method !== "GET") {
+      send(res, 405, "Method Not Allowed");
+      return;
+    }
+    readLatestCommit()
+      .then(commit => {
+        send(res, 200, JSON.stringify(commit), {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store"
+        });
+      })
+      .catch(error => {
+        send(res, 503, JSON.stringify({ error: String(error?.message || error) }), {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store"
+        });
+      });
     return;
   }
 

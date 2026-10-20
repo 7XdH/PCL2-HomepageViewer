@@ -10,6 +10,15 @@
   },
   "headers": [
     {
+      "source": "/commit.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
       "source": "/(.*)\\.xaml",
       "headers": [
         {

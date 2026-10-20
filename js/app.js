@@ -1,7 +1,7 @@
 import { PclTheme } from "./theme.js";
 import { PclRenderer } from "./renderer.js";
 import { PclRuntime } from "./runtime.js";
-import { PclShell } from "./shell.js";
+import { PclShell } from "./shell.js?v=20261020";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
