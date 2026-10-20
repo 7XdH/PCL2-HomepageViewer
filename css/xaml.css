@@ -866,6 +866,10 @@
   overflow-wrap: anywhere;
 }
 
+.pcl-flowdoc__paragraph.has-inline-code {
+  line-height: 20px;
+}
+
 .pcl-flowdoc__list {
   margin: 6px 0 6px 20px;
   padding: 0 0 0 22px;

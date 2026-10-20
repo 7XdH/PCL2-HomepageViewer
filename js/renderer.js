@@ -1538,6 +1538,11 @@ export class PclRenderer {
     const text = getProp(props, "Text");
     if (text != null) node.textContent = text;
     this.appendInlines(element, node);
+    if (node.querySelector(".pcl-inline-code")) {
+      node.classList.add("has-inline-code");
+      const configured = Number.parseFloat(node.style.lineHeight);
+      if (!Number.isFinite(configured) || configured < 20) node.style.lineHeight = "20px";
+    }
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
     this.bindEvents(node, element);
@@ -1640,6 +1645,10 @@ export class PclRenderer {
     node.textContent = text != null ? text : extractText(element);
     this.applyInlineStyles(node, props);
     this.applyBox(node, props);
+    if (isInlineCode) {
+      node.style.marginBottom = "0";
+      node.style.verticalAlign = "-2px";
+    }
     this.applyAlignment(node, props, layout);
     this.bindEvents(node, element);
     return node;
