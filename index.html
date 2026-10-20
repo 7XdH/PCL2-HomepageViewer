@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1370f3">
+  <meta name="description" content="第三方独立作品：在浏览器中渲染 Plain Craft Launcher (PCL) 自定义主页 XAML，并兼容其控件、属性与自定义事件。">
+  <title>Plain Craft Launcher (PCL) Homepage Viewer（第三方）</title>
+  <link rel="icon" href="assets/pcl/images/icon.ico">
+  <link rel="stylesheet" href="css/pcl-theme.css">
+  <link rel="stylesheet" href="css/xaml.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <div class="ambient__sky"></div>
+    <div class="ambient__grid"></div>
+    <div class="ambient__glow ambient__glow--one"></div>
+    <div class="ambient__glow ambient__glow--two"></div>
+    <img class="ambient__block ambient__block--one" src="assets/pcl/images/Blocks/Grass.png" alt="">
+    <img class="ambient__block ambient__block--two" src="assets/pcl/images/Blocks/CommandBlock.png" alt="">
+    <span class="ambient__wordmark">PCL</span>
+  </div>
+
+  <header class="lab-header">
+    <div class="lab-brand">
+      <span class="lab-brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 84 29" role="img">
+          <path d="M26,29 v-25 h6 a7,7 180 0 1 0,14 h-6 M62.5,6.5 a10,11.5 180 1 0 0,18 M71,2.5 v24.5 h13.5"
+                fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </span>
+      <span class="lab-brand__text">
+        <span class="lab-brand__eyebrow">第三方 · CUSTOM HOMEPAGE VIEWER</span>
+        <span class="lab-brand__title">Plain Craft Launcher (PCL) Homepage Viewer</span>
+      </span>
+    </div>
+    <div class="lab-header__actions">
+      <span class="runtime-pill" id="runtimePill">
+        <span class="runtime-pill__dot"></span>
+        <span id="runtimeText">正在初始化</span>
+      </span>
+      <button class="lab-text-button" id="helpBtn" type="button">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.15 6.2a1.9 1.9 0 1 1 2.32 1.85c-.3.1-.47.38-.47.7v.35" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="11.4" r=".8" fill="currentColor"/></svg>
+        使用说明
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace" id="workspace">
+    <aside class="lab-panel" aria-label="主页源设置">
+      <div class="lab-panel__scroll">
+        <div class="panel-heading">
+          <div>
+            <span class="panel-heading__index">01 / SOURCE</span>
+            <h1 class="panel-heading__title">主页源</h1>
+          </div>
+          <span class="panel-heading__badge">XAML</span>
+        </div>
+        <p class="panel-heading__caption">加载 PCL 的 <code>Custom.xaml</code>，或直接粘贴源码。渲染过程不会执行脚本。</p>
+
+        <div class="source-tabs" role="tablist" aria-label="主页源类型">
+          <button class="source-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="tabFile" data-tab="file">文件</button>
+          <button class="source-tab" type="button" role="tab" aria-selected="false" aria-controls="tabUrl" data-tab="url">联网</button>
+          <button class="source-tab" type="button" role="tab" aria-selected="false" aria-controls="tabCode" data-tab="code">源码</button>
+        </div>
+
+        <div class="source-tab-panels">
+          <section class="source-pane is-active" id="tabFile" role="tabpanel" data-pane="file">
+            <button class="dropzone" id="dropzone" type="button">
+              <span class="dropzone__icon" aria-hidden="true">
+                <svg viewBox="0 0 32 32"><path d="M6 4.5h12l7 7v16H6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M18 4.5v7h7M11 18h9M11 22h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </span>
+              <span class="dropzone__title">拖入 <code>Custom.xaml</code></span>
+              <span class="dropzone__hint">或点击选择本地文件</span>
+              <span class="dropzone__meta" id="fileMeta">尚未选择文件</span>
+            </button>
+            <p class="field-note">本地文件只会在浏览器内存中读取，不会上传到任何服务器。</p>
+          </section>
+
+          <section class="source-pane" id="tabUrl" role="tabpanel" data-pane="url" hidden>
+            <label class="field-label" for="urlInput">联网主页地址</label>
+            <div class="input-row">
+              <input class="lab-input" id="urlInput" type="url" spellcheck="false" placeholder="https://example.com/Custom.xaml">
+              <button class="compact-button" id="urlLoadBtn" type="button">拉取</button>
+            </div>
+            <p class="field-note">经由本地代理拉取时，会自动附带 PCL 风格的 User-Agent 与 Referer。直接打开 <code>index.html</code> 时受浏览器 CORS 限制。</p>
+            <div class="example-strip">
+              <span>可用的在线示例</span>
+              <button type="button" data-fill-url="https://raw.gitcode.com/WForst-Breeze/WhatsNewPCL/raw/main/Custom.xaml">PCL 新功能说明书</button>
+            </div>
+          </section>
+
+          <section class="source-pane" id="tabCode" role="tabpanel" data-pane="code" hidden>
+            <div class="code-editor">
+              <pre class="code-lines" id="codeLines" aria-hidden="true">1</pre>
+              <textarea class="code-input" id="codeEditor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="PCL 自定义主页 XAML 源码"></textarea>
+            </div>
+            <div class="code-actions">
+              <span class="shortcut-hint"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd> 渲染</span>
+              <button class="compact-button compact-button--accent" id="applyCodeBtn" type="button">应用源码</button>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel-section">
+          <header class="section-heading">
+            <span class="section-heading__index">02</span>
+            <h2 class="section-heading__title">快速预设</h2>
+            <span class="section-heading__en">PRESETS</span>
+          </header>
+          <div class="preset-list" id="presetList">
+            <button class="preset-item is-active" type="button" data-preset="tutorial">
+              <span class="preset-item__glyph" aria-hidden="true">
+                <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 7h8M6 10h8M6 13h5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              </span>
+              <span class="preset-item__body"><strong>PCL 原版教程</strong><small>逐项讲解控件、属性与事件</small></span>
+              <span class="preset-item__arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="preset-item" type="button" data-preset="gallery">
+              <span class="preset-item__glyph" aria-hidden="true">
+                <svg viewBox="0 0 20 20"><rect x="2.8" y="4" width="6" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="11.2" y="4" width="6" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="2.8" y="11" width="14.4" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+              </span>
+              <span class="preset-item__body"><strong>控件画廊</strong><small>卡片、提示、按钮、列表项与图片</small></span>
+              <span class="preset-item__arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="preset-item" type="button" data-preset="events">
+              <span class="preset-item__glyph" aria-hidden="true">
+                <svg viewBox="0 0 20 20"><path d="M9.2 2.6 3.8 11h5l-1 6.4L15.2 8h-5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="preset-item__body"><strong>事件测试台</strong><small>逐个试用 PCL 自定义事件</small></span>
+              <span class="preset-item__arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="preset-item" type="button" data-preset="hint">
+              <span class="preset-item__glyph" aria-hidden="true">
+                <svg viewBox="0 0 20 20"><path d="M10 2.8a5.7 5.7 0 0 0-3.4 10.3v2a1.2 1.2 0 0 0 1.2 1.2h4.4a1.2 1.2 0 0 0 1.2-1.2v-2A5.7 5.7 0 0 0 10 2.8Z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 18h4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              </span>
+              <span class="preset-item__body"><strong>你知道吗</strong><small>替换标记 {hint} 的轻量示例</small></span>
+              <span class="preset-item__arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel-section panel-section--about">
+          <header class="section-heading">
+            <span class="section-heading__index">03</span>
+            <h2 class="section-heading__title">关于</h2>
+            <span class="section-heading__en">ABOUT</span>
+          </header>
+          <p class="about-credit">
+            第三方独立作品，与 PCL 官方无关。<br>
+            原作者：<strong>龙腾猫跃</strong> ·
+            <a href="https://meloong.com/afd/a/LTCat" target="_blank" rel="noreferrer">赞助链接</a>
+          </p>
+          <p class="field-note">
+            本工具复制了 PCL 的界面素材与字体，用于 1:1 预览自定义主页；
+            请遵守 <a href="https://github.com/Meloong-Git/PCL/blob/main/LICENCE" target="_blank" rel="noreferrer">PCL 分发有限许可</a>。
+          </p>
+        </section>
+
+        <section class="panel-section panel-section--vars">
+          <header class="section-heading">
+            <span class="section-heading__index">04</span>
+            <h2 class="section-heading__title">自定义变量</h2>
+            <button class="section-heading__action" id="clearVarsBtn" type="button">清空</button>
+          </header>
+          <div class="var-chips" id="varChips">
+            <span class="var-chips__empty">暂无变量 · 使用 <code>修改变量</code> 事件后出现</span>
+          </div>
+        </section>
+      </div>
+
+      <div class="lab-panel__footer">
+        <button class="render-button" id="renderBtn" type="button">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.2 2.4 13 8l-8.8 5.6z" fill="currentColor"/></svg>
+          <span>渲染主页</span>
+          <span class="render-button__hint">Ctrl ↵</span>
+        </button>
+        <button class="icon-button" id="exportBtn" type="button" title="导出当前 XAML" aria-label="导出当前 XAML">
+          <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v9m0 0 3.2-3.2M9 11 5.8 7.8M3 12.5v2A1.5 1.5 0 0 0 4.5 16h9a1.5 1.5 0 0 0 1.5-1.5v-2" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </aside>
+
+
+    <section class="stage" id="stage" aria-label="PCL 预览">
+      <div class="stage__topline">
+        <div class="stage__identity">
+          <span class="stage__label">LIVE PREVIEW</span>
+          <span class="stage__source" id="sourceLabel">PCL 原版教程</span>
+        </div>
+        <div class="stage__actions">
+          <span class="render-stats" id="renderStats">等待渲染</span>
+          <button class="stage-icon-button" id="refreshBtn" type="button" title="刷新主页" aria-label="刷新主页">
+            <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M14.6 7.2A5.9 5.9 0 1 0 15 10" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><path d="M14.8 3.2v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="stage-icon-button" id="fitBtn" type="button" title="适应窗口" aria-label="适应窗口">
+            <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 6V3h3M12 3h3v3M15 12v3h-3M6 15H3v-3" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>
+          </button>
+          <button class="stage-icon-button" id="fullscreenBtn" type="button" title="全屏预览" aria-label="全屏预览">
+            <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 7V3h4M11 3h4v4M15 11v4h-4M7 15H3v-4" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="stage__frame" id="stageFrame">
+        <div class="stage__aura" aria-hidden="true"></div>
+        <div class="pcl-scaler" id="pclScaler">
+          <div class="pcl-window" id="pclWindow">
+            <header class="pcl-titlebar" id="pclTitlebar">
+              <div class="pcl-titlebar__logo">
+                <svg class="pcl-titlebar__mark" viewBox="0 0 84 29" preserveAspectRatio="none" role="img" aria-label="Plain Craft Launcher">
+                  <path d="M26,29 v-25 h6 a7,7 180 0 1 0,14 h-6 M62.5,6.5 a10,11.5 180 1 0 0,18 M71,2.5 v24.5 h13.5"
+                        fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
+              <nav class="pcl-nav" id="pclNav" aria-label="PCL 导航">
+                <button class="pcl-nav__item is-active" type="button" data-page="Launch" aria-current="page">
+                  <svg viewBox="40 30 125 145" aria-hidden="true"><path d="M52.1,164.5c-1.4,0-3.1-0.5-4.2-1.3c-2.6-1.7-4-4.2-4-7V43.8c0-2.9,1.6-5.8,4.1-7c1.2-0.8,2.7-1.2,4.1-1.2c1.5,0,2.9,0.4,4.2,1.2L153.1,93c0,0,0.1,0,0.1,0.1c2.6,1.7,4,4.2,4,7c0,3-1.7,5.8-4.2,7.1l-96.8,56.2C55.1,164,53.5,164.5,52.1,164.5z M60.4,142.1l72.1-42.1L60.4,58.2V142.1z" fill="currentColor"/></svg>
+                  <span>启动</span>
+                </button>
+                <button class="pcl-nav__item" type="button" data-page="Download">
+                  <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M955 610h-59c-15 0-29 13-29 29v196c0 15-13 29-29 29h-649c-15 0-29-13-29-29v-196c0-15-13-29-29-29h-59c-15 0-29 13-29 29V905c0 43 35 78 78 78h787c43 0 78-35 78-78V640c0-15-13-29-29-29zM492 740c11 11 29 11 41 0l265-265c11-11 11-29 0-41l-41-41c-11-11-29-11-41 0l-110 110c-11 11-33 3-33-13V68C571 53 555 39 541 39h-59c-15 0-29 13-29 29v417c0 17-21 25-33 13l-110-110c-11-11-29-11-41 0L226 433c-11 11-11 29 0 41L492 740z" fill="currentColor"/></svg>
+                  <span>下载</span>
+                </button>
+
+                <button class="pcl-nav__item" type="button" data-page="Link">
+                  <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M512 817c-48.601 0-88-39.399-88-88s39.399-88 88-88 88 39.399 88 88-39.399 88-88 88zM237.671 565.74C308.335 474.58 397.369 429 504.774 429c118.433 0 214.225 55.421 287.377 166.264l-53.407 30.369c-13.84 7.87-31.362 4.367-41.114-8.219-50.291-64.911-114.577-97.367-192.856-97.367-86.851 0-156.835 40.318-209.95 120.953l-47.995-28.02c-15.263-8.91-20.412-28.507-11.502-43.77a32 32 0 0 1 2.344-3.47zM107.691 419.47C205.24 278.491 337.805 208 505.379 208c178.77 0 317.694 80.224 416.772 240.672l-56.54 31.73c-13.686 7.68-30.922 4.303-40.697-7.975C735.581 360.213 629.07 303.009 505.38 300.815 373.997 298.485 261.637 362.88 168.3 494l-50.116-28.505c-15.362-8.738-20.732-28.275-11.994-43.637a32 32 0 0 1 1.5-2.387z" fill="currentColor"/></svg>
+                  <span>联机</span>
+                </button>
+                <button class="pcl-nav__item" type="button" data-page="Setup">
+                  <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M940.4 463.7L773.3 174.2c-17.3-30-49.2-48.4-83.8-48.4H340.2c-34.6 0-66.5 18.5-83.8 48.4L89.2 463.7c-17.3 30-17.3 66.9 0 96.8L256.4 850c17.3 30 49.2 48.4 83.8 48.4h349.2c34.6 0 66.5-18.5 83.8-48.4l167.2-289.5c17.3-29.9 17.3-66.8 0-96.8z m-94.6 96.8L725.9 768.1c-17.3 30-49.2 48.4-83.8 48.4H387.5c-34.6 0-66.5-18.5-83.8-48.4L183.9 560.5c-17.3-30-17.3-66.9 0-96.8l119.8-207.5c17.3-30 49.2-48.4 83.8-48.4h254.6c34.6 0 66.5 18.5 83.8 48.4l119.8 207.5c17.3 30 17.3 66.9 0.1 96.8z M522.3 321.2c-2.5-0.1-5-0.2-7.5-0.2-119.9 0-214 110.3-186.3 235 15.8 70.9 71.5 126.6 142.4 142.4 17.5 3.9 34.7 5.4 51.4 4.7 102.1-3.9 183.6-87.9 183.6-191 0.1-103-81.5-187-183.6-190.9z m68.6 269.1c-18.5 18-43 28.9-68.6 30.7l-6 0.3c-30.2 0.4-58.6-11.4-79.7-33-19.5-20.1-30.7-47-30.9-75-0.3-29.6 11.1-57.4 32-78.3 20.6-20.6 48-32 77.2-32 2.5 0 5 0.1 7.5 0.3 26.7 1.8 51.5 13.2 70.5 32.5 19.6 20 30.8 46.9 31.2 74.9 0.2 30.2-11.5 58.6-33.2 79.6z" fill="currentColor"/></svg>
+                  <span>设置</span>
+                </button>
+                <button class="pcl-nav__item" type="button" data-page="Other">
+                  <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M364 0h-273C40 0 0 40 0 91v273C0 414 40 455 91 455h273C414 455 455 414 455 364V91C455 40 414 0 364 0zM341 341H113V113h227v227zM933 0h-273C609 0 568 40 568 91v273c0 50 40 91 91 91h273C983 455 1024 414 1024 364V91c0-50-40-91-90-91zM910 341h-227V113h227v227zM364 568h-273C40 568 0 609 0 659v273c0 50 40 91 91 91h273C414 1024 455 983 455 932v-273C455 609 414 568 364 568zM341 910H113v-227h227v227zM933 568h-273c-50 0-91 40-91 91v273c0 50 40 91 91 91h273c50 0 90-40 90-91v-273c0-50-40-90-90-90zM910 910h-227v-227h227v227z" fill="currentColor"/></svg>
+                  <span>更多</span>
+                </button>
+              </nav>
+              <div class="pcl-titlebar__controls">
+                <button class="pcl-window-button" id="winMinBtn" type="button" title="最小化" aria-label="最小化">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+                <button class="pcl-window-button" id="winCloseBtn" type="button" title="关闭" aria-label="关闭">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+              </div>
+            </header>
+
+
+            <div class="pcl-main">
+              <aside class="pcl-sidebar" id="pclSidebar">
+                <div class="pcl-login-badge" id="pclAccountBtn" role="button" tabindex="0" title="切换账户">
+                  <span class="pcl-login-badge__avatar" aria-hidden="true"></span>
+                  <span>离线登录</span>
+                  <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+
+                <div class="pcl-profile">
+                  <div class="pcl-avatar" aria-hidden="true">
+                    <div class="pcl-avatar__face"></div>
+                    <div class="pcl-avatar__hat"></div>
+                    <span class="pcl-avatar__shine"></span>
+                  </div>
+                  <div class="pcl-profile__name">Steve</div>
+                  <div class="pcl-profile__sub">离线账户 · 点击切换</div>
+                </div>
+
+                <button class="pcl-version-card" id="pclVersionCard" type="button">
+                  <span class="pcl-version-card__icon"><img src="assets/pcl/images/Blocks/Grass.png" alt=""></span>
+                  <span class="pcl-version-card__body">
+                    <span class="pcl-version-card__label">当前版本</span>
+                    <strong class="pcl-version-card__name" id="pclVersionName">1.20.1-Fabric</strong>
+                    <span class="pcl-version-card__meta">Fabric 0.15.11 · 今天 14:32</span>
+                  </span>
+                  <span class="pcl-version-card__chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="m3 4.5 3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                </button>
+
+                <div class="pcl-launch-wrap">
+                  <button class="pcl-launch-button" id="pclLaunchButton" type="button">
+                    <span class="pcl-launch-button__text">启动游戏</span>
+                    <span class="pcl-launch-button__version" id="pclLaunchVersion">1.20.1-Fabric</span>
+                  </button>
+                  <div class="pcl-launch-meta">上次启动：今天 14:32</div>
+                </div>
+              </aside>
+
+              <section class="pcl-page-host">
+                <div class="pcl-page" id="pclHomePage">
+                  <div class="pcl-scroll pcl-home-scroll" id="pclHomeScroll">
+                    <div class="pcl-home-root" id="pclHomeRoot">
+                      <div class="pcl-render-placeholder">
+                        <span class="pcl-render-placeholder__spinner"></span>
+                        <span>正在准备主页…</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pcl-page pcl-stub-page" id="pclStubPage" hidden>
+                  <div class="pcl-stub-card">
+                    <span class="pcl-stub-card__eyebrow">PAGE NOT RENDERED</span>
+                    <h2 class="pcl-stub-card__title" id="pclStubTitle">下载</h2>
+                    <p class="pcl-stub-card__text">本工具只渲染“启动”页中的自定义主页，没有实现 PCL 的其他页面。</p>
+                    <button class="pcl-stub-card__button" id="pclStubBack" type="button">返回自定义主页</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="pcl-hint-stack" id="pclHintStack" aria-live="polite" aria-atomic="false"></div>
+
+            <div class="pcl-modal-layer" id="pclModalLayer" hidden>
+              <div class="pcl-modal" role="dialog" aria-modal="true" aria-labelledby="pclModalTitle">
+                <div class="pcl-modal__inner">
+                  <h2 class="pcl-modal__title" id="pclModalTitle">提示</h2>
+                  <div class="pcl-modal__rule" aria-hidden="true"></div>
+                  <div class="pcl-modal__caption" id="pclModalCaption"></div>
+                  <div class="pcl-modal__buttons" id="pclModalButtons"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pcl-loading-layer" id="pclLoadingLayer" hidden>
+              <span class="pcl-loading-ring" aria-hidden="true"></span>
+              <span class="pcl-loading-text" id="pclLoadingText">正在加载主页…</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage__caption">
+          <span class="stage__caption-key">850 × 500</span>
+          <span class="stage__caption-divider"></span>
+          <span>WPF 1:1 视觉规格 · 500px 内容宽度</span>
+          <span class="stage__caption-grow"></span>
+          <span class="stage__caption-zoom" id="zoomLabel">100%</span>
+        </div>
+
+        <div class="stage__empty" id="stageEmpty" hidden>
+          <span class="stage__empty-title">启动器已关闭</span>
+          <span class="stage__empty-text">主页仍在内存中，重新打开即可继续预览。</span>
+          <button class="compact-button compact-button--accent" id="reopenBtn" type="button">重新打开</button>
+        </div>
+      </div>
+
+      <div class="event-strip" id="eventStrip">
+        <span class="event-strip__prompt" aria-hidden="true">&gt;</span>
+        <span class="event-strip__text" id="eventText">事件引擎待命。主页中的按钮可以触发 PCL 自定义事件。</span>
+        <span class="event-strip__grow"></span>
+        <button class="event-strip__more" id="eventLogBtn" type="button">事件日志 <span id="eventCount">0</span></button>
+      </div>
+    </section>
+  </main>
+
+  <input id="fileInput" type="file" accept=".xaml,.xml,.txt,text/xml,application/xml" hidden>
+  <div class="pcl-tooltip" id="pclTooltip" role="tooltip" hidden></div>
+
+  <div class="boot-fallback" id="bootFallback" hidden>
+    <strong>需要通过本地服务器打开</strong>
+    <span>浏览器阻止了 <code>file://</code> 下的 ES Module。请在项目目录运行 <code>node server.js</code>（或 <code>npm start</code>），然后访问 <code>http://localhost:3000</code>。</span>
+  </div>
+
+  <script>
+    (() => {
+      let attempts = 0;
+      const timer = window.setInterval(() => {
+        const ready = Boolean(window.__PCL_RENDERER__);
+        const fallback = document.getElementById("bootFallback");
+        if (ready) {
+          if (fallback) fallback.hidden = true;
+          window.clearInterval(timer);
+          return;
+        }
+        attempts += 1;
+        if (attempts >= 20) {
+          if (fallback) fallback.hidden = false;
+          window.clearInterval(timer);
+        }
+      }, 500);
+    })();
+  </script>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
+

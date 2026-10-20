@@ -1,0 +1,90 @@
+<!-- 控件画廊：用来检查 PCL 自定义主页渲染器的视觉细节。 -->
+<local:MyHint Margin="0,0,0,15" Theme="Blue"
+             Text="这里是控件画廊。每一张卡片都使用 PCL 的自定义主页 XAML 编写。" />
+
+<local:MyCard Title="按钮与图标" Margin="0,0,0,15" CanSwap="True">
+    <StackPanel Margin="25,40,23,15">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,9"
+                   Text="MyButton 的三种 ColorType，以及带图标按钮与纯文本按钮。它们的悬停、按下与配色都遵循 PCL 的 WPF 控件。" />
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,9">
+            <local:MyButton Width="128" Height="35" Margin="0,0,9,0" Padding="13,0,13,0" ColorType="Highlight"
+                            Text="高亮按钮" EventType="弹出提示" EventData="这是 Highlight 配色的按钮。|Blue" />
+            <local:MyButton Width="128" Height="35" Margin="0,0,9,0" Padding="13,0,13,0"
+                            Text="普通按钮" EventType="弹出提示" EventData="这是默认的 Normal 配色。|Green" />
+            <local:MyButton Width="128" Height="35" Padding="13,0,13,0" ColorType="Red"
+                            Text="危险操作" ToolTip="红色按钮常用于不可逆操作"
+                            EventType="弹出窗口" EventData="危险操作|这个按钮使用红色配色，但不会真的删除任何东西。" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,9" Height="30">
+            <local:MyIconTextButton Margin="0,0,12,0" ColorType="Highlight" Text="打开 PCL 仓库"
+                                    Logo="M512 0a512 512 0 1 0 0 1024A512 512 0 0 0 512 0z m0 160a352 352 0 1 1 0 704 352 352 0 0 1 0-704z m0 112a96 96 0 1 0 0 192 96 96 0 0 0 0-192z m0 256a48 48 0 0 1 48 48v240a48 48 0 0 1-96 0V576a48 48 0 0 1 48-48z"
+                                    EventType="打开网页" EventData="https://github.com/Meloong-Git/PCL" />
+            <local:MyIconButton Width="25" Height="25" Margin="0,0,10,0" Theme="Black" LogoScale="1"
+                                Logo="M149 873c47 47 101 83 162 109 63 26 130 40 199 40 69 0 136-13 199-40 61-25 115-62 162-109s83-101 109-162c26-63 40-130 40-199 0-69-13-136-40-199-25-61-62-115-109-162-46-46-101-83-162-109C648 13 580 0 511 0s-136 13-199 40c-61 25-115 62-162 109s-83 101-109 162C13 375 0 442 0 511s13 136 40 199c25 61 62 115 109 162zM97 511c0-228 185-414 414-414 228 0 414 185 414 414S740 926 511 926c-228 0-414-185-414-414z M539 244c-8-4-17-7-27-7-9 0-19 2-27 7-16 9-27 27-27 47 0 30 24 54 54 54 30 0 54-24 54-54 0-19-10-37-27-47zM566 732v-284c0-30-24-54-54-54-30 0-54 24-54 54v284c0 30 24 54 54 54 30 0 54-24 54-54z"
+                                EventType="弹出窗口" EventData="MyIconButton|图标按钮同样支持 EventType 与 EventData。" />
+            <local:MyTextButton Text="一个纯文本按钮 →" HorizontalAlignment="Center"
+                                EventType="弹出提示" EventData="MyTextButton 没有边框，适合放在说明文字旁边。|Green" />
+        </StackPanel>
+        <local:MyListItem Margin="-5,2,-5,0" Logo="pack://application:,,,/images/Blocks/Grass.png"
+                          Title="Minecraft 草方块" Info="列表项会显示标题与灰色副标题"
+                          Type="Clickable" EventType="弹出提示" EventData="你点击了列表项。|Blue" />
+    </StackPanel>
+</local:MyCard>
+
+<local:MyCard Title="提示条主题" Margin="0,0,0,15" CanSwap="True" IsSwapped="True">
+    <StackPanel Margin="25,40,23,15">
+        <local:MyHint Text="Blue：用于普通的说明与提示。" Theme="Blue" />
+        <local:MyHint Margin="0,8,0,0" Text="Yellow：用于需要注意、但不算错误的信息。" Theme="Yellow" />
+        <local:MyHint Margin="0,8,0,0" Text="Red：这是默认主题。如果不写 Theme，提示条就是红色。" />
+        <local:MyHint Margin="0,8,0,0" Text="这条提示可以关闭。关闭状态会保存在浏览器中。" Theme="Blue" CanClose="True" RelativeSetup="GalleryHintClosed" />
+    </StackPanel>
+</local:MyCard>
+
+<local:MyCard Title="Grid 与图片" Margin="0,0,0,15" CanSwap="True" IsSwapped="True">
+    <StackPanel Margin="25,40,23,15">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="Grid 可以让按钮跟随卡片宽度自动伸缩。下面的 1* / 1.6* / 150 三列布局与 PCL 教程一致。" />
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1.6*" MinWidth="150" />
+                <ColumnDefinition Width="150" />
+            </Grid.ColumnDefinitions>
+            <local:MyButton Grid.Column="0" Margin="0,0,8,0" Height="35" ColorType="Highlight"
+                            Text="第一列" EventType="弹出提示" EventData="Grid.Column = 0|Blue" />
+            <local:MyButton Grid.Column="1" Margin="0,0,8,0" Height="35"
+                            Text="第二列（1.6*）" EventType="弹出提示" EventData="这一列会占据更多空间。|Green" />
+            <local:MyButton Grid.Column="2" Height="35" Text="150 px"
+                            EventType="弹出提示" EventData="固定宽度列。|Blue" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Height="44" Margin="0,0,0,6">
+            <local:MyImage Height="40" Margin="0,0,10,0" Source="pack://application:,,,/images/Blocks/Grass.png" />
+            <local:MyImage Height="40" Margin="0,0,10,0" Source="pack://application:,,,/images/Blocks/CommandBlock.png" />
+            <local:MyImage Height="40" Margin="0,0,10,0" Source="pack://application:,,,/images/Blocks/RedstoneLampOn.png" />
+            <Path Width="36" Height="36" Stretch="Uniform" Fill="{DynamicResource ColorBrush3}" VerticalAlignment="Center"
+                  Data="M149 873c47 47 101 83 162 109 63 26 130 40 199 40 69 0 136-13 199-40 61-25 115-62 162-109s83-101 109-162c26-63 40-130 40-199 0-69-13-136-40-199-25-61-62-115-109-162-46-46-101-83-162-109C648 13 580 0 511 0s-136 13-199 40c-61 25-115 62-162 109s-83 101-109 162C13 375 0 442 0 511s13 136 40 199c25 61 62 115 109 162zM97 511c0-228 185-414 414-414 228 0 414 185 414 414S740 926 511 926c-228 0-414-185-414-414z" />
+        </StackPanel>
+        <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8C7721"
+                   Text="MyImage 会从 PCL 的 pack:// 路径或网络地址加载图片；Path 则直接渲染 SVG 几何路径。" />
+    </StackPanel>
+</local:MyCard>
+
+<local:MyCard Title="卡片与主题色" Margin="0,0,0,15" CanSwap="True" IsSwapped="True">
+    <StackPanel Margin="25,40,23,15">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="{variable:GalleryVisits:0} 次访问记录来自 &#123;variable:...&#125; 替换标记。修改左侧主题色，ColorBrush 系列会按 PCL 的 HSL 公式重新计算。" />
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <local:MyButton Height="32" Padding="13,0,13,0" Margin="0,0,8,0" ColorType="Highlight"
+                            Text="标记为已访问" EventType="修改变量" EventData="GalleryVisits|1|-" />
+            <local:MyButton Height="32" Padding="13,0,13,0" Margin="0,0,8,0"
+                            Text="显示当前主题" EventType="弹出窗口" EventData="主题色|打开开发者工具可以看到 --pcl-c1 到 --pcl-c8 的实时值。" />
+            <local:MyButton Height="32" Padding="13,0,13,0" ColorType="Red"
+                            Text="重置访问" EventType="修改变量" EventData="GalleryVisits|0|-" />
+        </StackPanel>
+        <TextBlock Margin="0,10,0,0" Text="ColorBrush1 · 主文本" Foreground="{DynamicResource ColorBrush1}" />
+        <TextBlock Margin="0,3,0,0" Text="ColorBrush2 · 深主题" Foreground="{DynamicResource ColorBrush2}" />
+        <TextBlock Margin="0,3,0,0" Text="ColorBrush3 · 主题色" Foreground="{DynamicResource ColorBrush3}" />
+        <TextBlock Margin="0,3,0,0" Text="ColorBrush4 · 浅主题" Foreground="{DynamicResource ColorBrush4}" />
+    </StackPanel>
+</local:MyCard>
+

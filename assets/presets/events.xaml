@@ -1,0 +1,105 @@
+<!-- 事件测试台：逐个检查 PCL 自定义事件在网页渲染器中的兼容行为。 -->
+<local:MyHint Margin="0,0,0,15" Theme="Blue"
+             Text="点击下面的按钮即可触发 PCL 自定义事件。浏览器无法完成的操作会显示与 PCL 一致的说明弹窗。" />
+
+<local:MyCard Title="常用事件" Margin="0,0,0,15" CanSwap="True">
+    <StackPanel Margin="25,40,23,15">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="这些按钮覆盖了自定义主页最常用的事件。部分事件在网页版中只会模拟或提示。" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <local:MyButton Grid.Row="0" Grid.Column="0" Height="32" Margin="0,0,8,8" Padding="8,0,8,0" ColorType="Highlight"
+                            Text="打开网页" EventType="打开网页" EventData="https://github.com/Meloong-Git/PCL" />
+            <local:MyButton Grid.Row="0" Grid.Column="1" Height="32" Margin="0,0,0,8" Padding="8,0,8,0"
+                            Text="弹出窗口" EventType="弹出窗口" EventData="事件测试台|这是由 弹出窗口 事件创建的 PCL 样式弹窗。\n第二行也能正常显示。" />
+            <local:MyButton Grid.Row="1" Grid.Column="0" Height="32" Margin="0,0,8,8" Padding="8,0,8,0"
+                            Text="弹出提示" EventType="弹出提示" EventData="这是一条绿色提示。|Green" />
+            <local:MyButton Grid.Row="1" Grid.Column="1" Height="32" Margin="0,0,0,8" Padding="8,0,8,0"
+                            Text="复制文本" EventType="复制文本" EventData="PCL 自定义事件：复制文本" />
+            <local:MyButton Grid.Row="2" Grid.Column="0" Height="32" Margin="0,0,8,8" Padding="8,0,8,0"
+                            Text="今日人品" EventType="今日人品" />
+            <local:MyButton Grid.Row="2" Grid.Column="1" Height="32" Margin="0,0,0,8" Padding="8,0,8,0"
+                            Text="内存优化" EventType="内存优化" />
+            <local:MyButton Grid.Row="3" Grid.Column="0" Height="32" Margin="0,0,8,8" Padding="8,0,8,0"
+                            Text="下载文件" ToolTip="会先显示 PCL 风格的安全确认"
+                            EventType="下载文件" EventData="https://raw.githubusercontent.com/Meloong-Git/PCL/main/Plain%20Craft%20Launcher%202/Images/Blocks/Grass.png|Grass.png" />
+            <local:MyButton Grid.Row="3" Grid.Column="1" Height="32" Margin="0,0,0,8" Padding="8,0,8,0"
+                            Text="修改主题色相" ToolTip="写入 UiLauncherHue 设置"
+                            EventType="修改设置" EventData="UiLauncherHue|150" />
+            <local:MyButton Grid.Row="4" Grid.Column="0" Height="32" Margin="0,0,8,8" Padding="8,0,8,0"
+                            Text="切换到下载页" EventType="切换页面" EventData="Download" />
+            <local:MyButton Grid.Row="4" Grid.Column="1" Height="32" Margin="0,0,0,8" Padding="8,0,8,0"
+                            Text="检查更新" EventType="检查更新" />
+            <local:MyButton Grid.Row="5" Grid.Column="0" Height="32" Margin="0,0,8,0" Padding="8,0,8,0"
+                            Text="启动游戏" EventType="启动游戏" EventData="\current" />
+            <local:MyButton Grid.Row="5" Grid.Column="1" Height="32" Padding="8,0,8,0"
+                            Text="打开文件" EventType="打开文件" EventData="notepad" />
+        </Grid>
+    </StackPanel>
+</local:MyCard>
+
+<local:MyCard Title="变量与多事件" Margin="0,0,0,15" CanSwap="True" IsSwapped="{variable:DemoCardSwap:True}">
+    <StackPanel Margin="25,40,23,15">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                   Text="这张卡片的折叠状态由 &#123;variable:DemoCardSwap:True&#125; 控制。下面的按钮会连续触发多个事件，然后刷新页面。" />
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontSize="11" Foreground="#8C7721"
+                   Text="访问状态：{variable:DemoVisited:未访问} · 展开标记：{variable:DemoCardSwap:True}" />
+        <local:MyButton Height="34" HorizontalAlignment="Left" Padding="16,0,16,0" Margin="0,0,0,8" ColorType="Highlight"
+                        Text="记录访问并刷新页面">
+            <local:CustomEventService.Events>
+                <local:CustomEventCollection>
+                    <local:CustomEvent Type="修改变量" Data="DemoVisited|已访问|-" />
+                    <local:CustomEvent Type="刷新页面" Data="-" />
+                </local:CustomEventCollection>
+            </local:CustomEventService.Events>
+        </local:MyButton>
+        <local:MyButton Height="34" HorizontalAlignment="Left" Padding="16,0,16,0" Margin="0,0,0,8"
+                        Text="折叠这张卡片">
+            <local:CustomEventService.Events>
+                <local:CustomEventCollection>
+                    <local:CustomEvent Type="修改变量" Data="DemoCardSwap|True|-" />
+                    <local:CustomEvent Type="刷新页面" Data="-" />
+                </local:CustomEventCollection>
+            </local:CustomEventService.Events>
+        </local:MyButton>
+        <local:MyButton Height="34" HorizontalAlignment="Left" Padding="16,0,16,0"
+                        Text="清空演示变量">
+            <local:CustomEventService.Events>
+                <local:CustomEventCollection>
+                    <local:CustomEvent Type="修改变量" Data="DemoVisited|未访问|-" />
+                    <local:CustomEvent Type="修改变量" Data="DemoCardSwap|False|-" />
+                    <local:CustomEvent Type="刷新页面" Data="-" />
+                </local:CustomEventCollection>
+            </local:CustomEventService.Events>
+        </local:MyButton>
+    </StackPanel>
+</local:MyCard>
+
+<local:MyCard Title="设置与文件夹" Margin="0,0,0,15" CanSwap="True" IsSwapped="True">
+    <StackPanel Margin="25,40,23,15">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                   Text="修改设置事件会写入浏览器 localStorage，并立即参与 &#123;setup:...&#125; 替换标记。当前色相设置：{setup:UiLauncherHue}。" />
+        <StackPanel Orientation="Horizontal">
+            <local:MyButton Height="32" Padding="12,0,12,0" Margin="0,0,8,0" ColorType="Highlight"
+                            Text="色相 210" EventType="修改设置" EventData="UiLauncherHue|210" />
+            <local:MyButton Height="32" Padding="12,0,12,0" Margin="0,0,8,0"
+                            Text="色相 278" EventType="修改设置" EventData="UiLauncherHue|278" />
+            <local:MyButton Height="32" Padding="12,0,12,0"
+                            Text="色相 35" EventType="修改设置" EventData="UiLauncherHue|35" />
+            <local:MyButton Height="32" Padding="12,0,12,0" Margin="8,0,0,0" ColorType="Red"
+                            Text="刷新以查看替换" EventType="刷新页面" />
+        </StackPanel>
+    </StackPanel>
+</local:MyCard>
+

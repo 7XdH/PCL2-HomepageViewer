@@ -1,0 +1,22 @@
+{
+  "name": "pcl-homepage-viewer-third-party",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Third-party Plain Craft Launcher (PCL) Custom.xaml homepage viewer with PCL-compatible visuals and events.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "pcl",
+    "plain-craft-launcher",
+    "xaml",
+    "homepage",
+    "viewer",
+    "minecraft"
+  ],
+  "license": "SEE LICENSE IN LICENCE-PCL.md"
+}

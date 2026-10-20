@@ -1,0 +1,938 @@
+/* Rendered XAML — visual rules adapted from PCL's WPF controls */
+
+.pcl-xaml-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.pcl-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pcl-stack--h {
+  flex-direction: row;
+}
+
+.pcl-grid {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  justify-items: stretch;
+  align-items: stretch;
+}
+
+.pcl-wrap {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pcl-wrap--vertical {
+  flex-direction: column;
+}
+
+.pcl-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.pcl-border {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.pcl-scrollviewer {
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.pcl-scrollviewer--disabled {
+  overflow: hidden;
+}
+
+.pcl-scrollviewer--horizontal {
+  overflow-x: auto;
+}
+
+.pcl-viewbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.pcl-unsupported {
+  display: block;
+  padding: 7px 9px;
+  border: 1px dashed rgba(206, 33, 17, 0.4);
+  border-radius: 3px;
+  color: #bf0b0b;
+  background: rgba(255, 221, 223, 0.5);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* --------------------------------------------------------------------------
+   Text
+   -------------------------------------------------------------------------- */
+
+.pcl-text {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--pcl-c1);
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pcl-text.is-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.pcl-text.is-clip {
+  text-overflow: clip;
+}
+
+.pcl-inline-bold {
+  font-weight: 700;
+}
+
+.pcl-inline-italic {
+  font-style: italic;
+}
+
+.pcl-inline-underline {
+  text-decoration: underline;
+}
+
+.pcl-inline-run {
+  white-space: inherit;
+}
+
+.pcl-inline-link {
+  color: var(--pcl-c3);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pcl-inline-link:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   MyCard
+   -------------------------------------------------------------------------- */
+
+.pcl-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.961);
+  box-shadow:
+    0 1px 3px rgba(52, 61, 74, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.36) inset;
+  overflow: hidden;
+  transition: box-shadow 200ms ease, background-color 200ms ease, height 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pcl-card.has-mouse-animation:hover {
+  box-shadow:
+    0 1px 3px rgba(72, 144, 245, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.42) inset;
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--pcl-c4) 40%, transparent),
+    0 0 0 1px rgba(255, 255, 255, 0.42) inset;
+}
+
+.pcl-card__title {
+  position: absolute;
+  top: 12px;
+  left: 15px;
+  z-index: 2;
+  max-width: calc(100% - 52px);
+  overflow: hidden;
+  color: var(--pcl-c1);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: color 90ms ease;
+}
+
+.pcl-card.has-mouse-animation:hover .pcl-card__title {
+  color: var(--pcl-c2);
+}
+
+.pcl-card__chevron {
+  position: absolute;
+  top: 17px;
+  right: 16px;
+  z-index: 3;
+  width: 10px;
+  height: 6px;
+  color: var(--pcl-c1);
+  pointer-events: none;
+  transform: rotate(180deg);
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), color 90ms ease;
+}
+
+.pcl-card.has-mouse-animation:hover .pcl-card__chevron {
+  color: var(--pcl-c2);
+}
+
+.pcl-card.is-swapped .pcl-card__chevron {
+  transform: rotate(0deg);
+}
+
+.pcl-card.is-swapped.swap-right .pcl-card__chevron {
+  transform: rotate(270deg);
+}
+
+.pcl-card__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pcl-card.is-swapped {
+  height: 40px;
+}
+
+.pcl-card.is-swapped .pcl-card__body {
+  display: none;
+}
+
+.pcl-card__header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 4;
+  height: 34px;
+  cursor: pointer;
+}
+
+.pcl-card.is-swapped .pcl-card__header {
+  height: 40px;
+}
+
+/* --------------------------------------------------------------------------
+   MyHint
+   -------------------------------------------------------------------------- */
+
+.pcl-hint {
+  display: flex;
+  align-items: stretch;
+  min-height: 34px;
+  max-width: 100%;
+  border-left: 3px solid var(--hint-border, #d82929);
+  border-radius: 2px;
+  color: var(--hint-fg, #bf0b0b);
+  background: var(--hint-bg, #ffdddf);
+}
+
+.pcl-hint__text {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  line-height: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pcl-hint__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 7px 8px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--hint-fg, #bf0b0b);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 130ms ease, transform 130ms ease;
+}
+
+.pcl-hint__close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.pcl-hint__close:active {
+  transform: scale(0.82);
+}
+
+.pcl-hint__close svg {
+  width: 10px;
+  height: 10px;
+}
+
+.pcl-hint.is-dismissing {
+  animation: pcl-collapse-out 200ms cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+
+@keyframes pcl-collapse-out {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+    height: 0;
+    min-height: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   MyButton
+   -------------------------------------------------------------------------- */
+
+.pcl-button {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--btn-border, var(--pcl-c1));
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pcl-button__face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--btn-border, var(--pcl-c1));
+  border-radius: 3px;
+  background: var(--pcl-half-white);
+  transform-origin: center;
+  transition:
+    border-color 200ms ease,
+    background-color 100ms ease,
+    box-shadow 160ms ease,
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pcl-button__text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcl-button--normal {
+  --btn-border: var(--pcl-c1);
+}
+
+.pcl-button--normal:hover,
+.pcl-button--normal:focus-visible {
+  --btn-border: var(--pcl-c3);
+}
+
+.pcl-button--normal:hover .pcl-button__face {
+  background: var(--pcl-c7);
+}
+
+.pcl-button--highlight {
+  --btn-border: var(--pcl-c2);
+}
+
+.pcl-button--highlight:hover,
+.pcl-button--highlight:focus-visible {
+  --btn-border: var(--pcl-c3);
+}
+
+.pcl-button--highlight:hover .pcl-button__face {
+  background: var(--pcl-c7);
+}
+
+.pcl-button--red {
+  --btn-border: var(--pcl-red-dark);
+}
+
+.pcl-button--red:hover,
+.pcl-button--red:focus-visible {
+  --btn-border: var(--pcl-red-light);
+}
+
+.pcl-button--red:hover .pcl-button__face {
+  background: var(--pcl-red-back);
+}
+
+.pcl-button__face.is-pressed {
+  transform: scale(0.955);
+  transition-duration: 80ms;
+}
+
+.pcl-button.is-disabled {
+  opacity: 0.52;
+  pointer-events: none;
+}
+
+.pcl-button.is-disabled .pcl-button__face {
+  border-color: var(--pcl-gray4);
+}
+
+/* --------------------------------------------------------------------------
+   MyTextButton
+   -------------------------------------------------------------------------- */
+
+.pcl-textbutton {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  color: var(--pcl-c1);
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition: color 100ms ease;
+}
+
+.pcl-textbutton:hover {
+  color: var(--pcl-c3);
+}
+
+.pcl-textbutton:active {
+  color: var(--pcl-c4);
+  transition-duration: 30ms;
+}
+
+.pcl-textbutton.is-disabled {
+  color: var(--pcl-gray5);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   MyIconButton
+   -------------------------------------------------------------------------- */
+
+.pcl-iconbutton {
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: 5px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ib-fill, var(--pcl-c4));
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms ease, color 120ms ease;
+}
+
+.pcl-iconbutton__face {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.pcl-iconbutton__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: scale(var(--logo-scale, 1));
+  transform-origin: center;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pcl-iconbutton:hover {
+  color: var(--ib-hover, var(--pcl-c2));
+}
+
+.pcl-iconbutton--white {
+  --ib-fill: var(--pcl-c8);
+  --ib-hover: #fff;
+}
+
+.pcl-iconbutton--white:hover {
+  background: rgba(255, 255, 255, 0.196);
+}
+
+.pcl-iconbutton--red {
+  --ib-fill: rgba(255, 76, 76, 0.627);
+  --ib-hover: #ff4c4c;
+}
+
+.pcl-iconbutton--black {
+  --ib-fill: rgba(0, 0, 0, 0.627);
+  --ib-hover: rgba(0, 0, 0, 0.902);
+}
+
+.pcl-iconbutton--color,
+.pcl-iconbutton--custom {
+  background: transparent;
+}
+
+.pcl-iconbutton.is-disabled {
+  color: var(--pcl-gray5);
+  pointer-events: none;
+}
+
+.pcl-iconbutton__face.is-pressed .pcl-iconbutton__svg {
+  transform: scale(0.8) scale(var(--logo-scale, 1));
+  transition-duration: 400ms;
+}
+
+.pcl-iconbutton__face.is-releasing {
+  animation: pcl-icon-bounce 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pcl-icon-bounce {
+  0% { transform: scale(0.8); }
+  58% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* --------------------------------------------------------------------------
+   MyIconTextButton
+   -------------------------------------------------------------------------- */
+
+.pcl-icontextbutton {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 27px;
+  max-height: 27px;
+  padding: 0;
+  border: 0;
+  border-radius: 13.5px;
+  color: var(--itb-color, var(--pcl-c1));
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms ease, color 100ms ease;
+}
+
+.pcl-icontextbutton__logo {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin-left: 12px;
+  overflow: visible;
+  transform: scale(var(--logo-scale, 1));
+  transform-origin: center;
+}
+
+.pcl-icontextbutton__text {
+  margin: 0 12px 1px 7px;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.pcl-icontextbutton--black {
+  --itb-color: var(--pcl-c1);
+}
+
+.pcl-icontextbutton--highlight {
+  --itb-color: var(--pcl-c3);
+}
+
+.pcl-icontextbutton:hover {
+  --itb-color: var(--pcl-c3);
+  background: var(--pcl-bg1);
+}
+
+.pcl-icontextbutton:active {
+  background: var(--pcl-c6);
+}
+
+.pcl-icontextbutton.is-disabled {
+  --itb-color: var(--pcl-gray5);
+  pointer-events: none;
+}
+
+
+/* --------------------------------------------------------------------------
+   MyListItem
+   -------------------------------------------------------------------------- */
+
+.pcl-listitem {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2px 0 38px minmax(0, 1fr) 4px;
+  align-items: center;
+  width: 100%;
+  height: 42px;
+  color: var(--pcl-c1);
+  background: transparent;
+  user-select: none;
+}
+
+.pcl-listitem.is-clickable {
+  cursor: pointer;
+}
+
+.pcl-listitem__back {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--pcl-c6);
+  border-radius: 6px;
+  background: var(--pcl-c7);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8);
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pcl-listitem.is-clickable:hover .pcl-listitem__back,
+.pcl-listitem.is-clickable:focus-visible .pcl-listitem__back {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pcl-listitem__logo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: 3;
+  width: 24px;
+  height: 26px;
+  margin-left: 8px;
+  overflow: hidden;
+}
+
+.pcl-listitem__logo img {
+  display: block;
+  max-width: 24px;
+  max-height: 26px;
+  object-fit: contain;
+}
+
+.pcl-listitem__logo svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  overflow: visible;
+}
+
+.pcl-listitem__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  grid-column: 4;
+  min-width: 0;
+  padding-left: 4px;
+}
+
+.pcl-listitem__title {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcl-listitem__info {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--pcl-gray2);
+  font-size: 12px;
+  line-height: 1.2;
+  opacity: 0.6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcl-listitem.has-info .pcl-listitem__title {
+  margin-bottom: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   MyImage / Image
+   -------------------------------------------------------------------------- */
+
+.pcl-image-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  line-height: 0;
+  overflow: hidden;
+}
+
+.pcl-image-wrap img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: opacity 180ms ease;
+}
+
+.pcl-image-wrap.is-loading img {
+  opacity: 0.55;
+}
+
+.pcl-image-wrap--fill img {
+  width: 100%;
+  height: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   Path and primitive shapes
+   -------------------------------------------------------------------------- */
+
+.pcl-path {
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.pcl-path svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pcl-shape {
+  display: block;
+  flex: none;
+}
+
+.pcl-shape--rect {
+  border-radius: 0;
+}
+
+.pcl-shape--ellipse {
+  border-radius: 50%;
+}
+
+.pcl-shape--line {
+  min-height: 1px;
+}
+
+/* --------------------------------------------------------------------------
+   MyLoading
+   -------------------------------------------------------------------------- */
+
+.pcl-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 36px;
+  color: var(--pcl-c3);
+}
+
+.pcl-loading__ring {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(19, 112, 243, 0.16);
+  border-top-color: var(--pcl-c3);
+  border-radius: 50%;
+  animation: pcl-spin 760ms linear infinite;
+}
+
+.pcl-loading__text {
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Basic check/radio controls (compatibility fallback)
+   -------------------------------------------------------------------------- */
+
+.pcl-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  color: var(--pcl-c1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pcl-check__box {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--pcl-gray4);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.6);
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.pcl-check__box::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border-bottom: 2px solid #fff;
+  border-left: 2px solid #fff;
+  opacity: 0;
+  transform: translateY(-1px) rotate(-45deg);
+  transition: opacity 120ms ease;
+}
+
+.pcl-check.is-checked .pcl-check__box {
+  border-color: var(--pcl-c3);
+  background: var(--pcl-c3);
+}
+
+.pcl-check.is-checked .pcl-check__box::after {
+  opacity: 1;
+}
+
+.pcl-check--radio .pcl-check__box {
+  border-radius: 50%;
+}
+
+.pcl-check--radio .pcl-check__box::after {
+  width: 6px;
+  height: 6px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   FlowDocument (PCL news homepages)
+   -------------------------------------------------------------------------- */
+
+.pcl-flowdoc-scroll,
+.pcl-flowdoc,
+.pcl-flowdoc__section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pcl-flowdoc {
+  color: var(--pcl-c1);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.pcl-flowdoc__paragraph {
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.pcl-flowdoc__list {
+  margin: 6px 0 6px 20px;
+  padding: 0 0 0 22px;
+  list-style-position: outside;
+  list-style-type: disc;
+}
+
+.pcl-flowdoc__listitem {
+  margin: 4px 0;
+  color: var(--pcl-c1);
+}
+
+.pcl-flowdoc__listitem > .pcl-flowdoc__paragraph {
+  margin: 0;
+}
+
+.pcl-flow-separator {
+  display: grid;
+  grid-template-columns: 1fr 100px 1fr;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  margin: 10px 0;
+}
+
+.pcl-flow-separator__line {
+  height: 0;
+  border-top: 1.5px solid var(--pcl-c4);
+}
+
+.pcl-flow-separator__text {
+  overflow: hidden;
+  padding: 0 8px;
+  color: var(--pcl-c4);
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+.pcl-contentcontrol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pcl-inline-code,
+.pcl-textbox {
+  display: inline-block;
+  max-width: 100%;
+  height: 18px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--pcl-c1);
+  background: var(--pcl-c6);
+  font-family: var(--pcl-mono);
+  font-size: 14px;
+  line-height: 18px;
+  vertical-align: -3px;
+  white-space: nowrap;
+}
+
+.pcl-textbox {
+  border: 1px solid var(--pcl-c4);
+  background: rgba(255, 255, 255, 0.55);
+  vertical-align: baseline;
+}
+
