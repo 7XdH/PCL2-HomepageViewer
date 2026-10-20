@@ -1,6 +1,23 @@
 @font-face {
   font-family: "PCL English";
   src: url("../assets/pcl/fonts/PCL-English.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* PCL English 原字体只有常规字重；这里提供由 PCL 字形生成的粗体，
+   避免浏览器合成粗体时数字 2 变成空心轮廓。 */
+@font-face {
+  font-family: "PCL English";
+  src: url("../assets/pcl/fonts/PCL-English-Bold.ttf") format("truetype");
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "PCL English";
+  src: url("../assets/pcl/fonts/PCL-English-Bold.ttf") format("truetype");
+  font-weight: 700;
   font-display: swap;
 }
 
