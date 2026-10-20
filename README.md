@@ -46,6 +46,82 @@ npm run build
 - **Vercel 例外**：仓库已包含 `api/proxy.js`，部署到 Vercel 后会自动生成同源 `/api/proxy`，因此可以加载未开放 CORS 的新闻主页。前端会优先使用它。
 - GitHub Pages 若仓库为私有，需要对应账号计划支持 Pages；公开仓库通常可直接使用。
 
+### Vercel 导入配置
+
+导入仓库后，Vercel 可能把根目录的 `server.js` 自动识别为 Express / Node 应用。请在 **Configure Project** 或 **Settings → Build & Development Settings** 中手动填写：
+
+| 配置项 | 填写值 | 说明 |
+| --- | --- | --- |
+| **Framework Preset**（框架预设） | `Other` | 不要选择 Express、Node.js 或自动识别结果；否则 `server.js` 会被当成 Function，静态页面会 404 |
+| **Root Directory**（根目录） | 留空 / `./` | 必须是包含 `package.json`、`index.html` 和 `api/` 的仓库根目录 |
+| **Build Command**（构建命令） | `npm run build` | 执行 `tools/build-static.mjs`，生成 `dist/` |
+| **Output Directory**（输出目录） | `dist` | 不要填 `public`、`.` 或留空 |
+| **Install Command**（安装命令） | `npm install` | 保持默认即可；项目没有运行时依赖 |
+| **Node.js Version** | `20.x` 或 `22.x` | 项目要求 Node.js 18+；20 / 22 均可 |
+| **Functions** | 不需要手动添加 | `api/proxy.js` 会被自动识别为 `/api/proxy` |
+
+常见错填：
+
+- **Framework Preset** 选成 `Express` / `Node.js`，或保留自动识别结果
+- **Build Command** 填成 `npm start` / `node server.js`
+- **Output Directory** 填成 `public`、`.` 或留空
+- **Root Directory** 填成 `api` 或 `dist`
+
+`vercel.json` 已经包含同样的配置：
+
+```json
+{
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}
+```
+
+Vercel 面板中的值会覆盖 `vercel.json`，所以两边最好保持一致。修改后必须点击 **Redeploy**，只刷新页面不会应用新的构建配置。
+
+构建日志中应能看到：
+
+```text
+Static site built to dist
+```
+
+部署完成后检查：
+
+```text
+/                         → 200
+/index.html               → 200
+/assets/presets/...       → 200
+/api/proxy?url=...        → 200
+/api/health               → 404（正常，旧 server.js 路由不再部署）
+```
+
+如果仍然出现 `NOT_FOUND`，请按下面的“Vercel 显示 NOT_FOUND”一节排查。
+
+### Netlify 配置
+
+Netlify 导入仓库后填写：
+
+| 配置项 | 填写值 |
+| --- | --- |
+| **Base directory** | 留空 |
+| **Build command** | `npm run build` |
+| **Publish directory** | `dist` |
+| **Functions directory** | 留空（本仓库未提供 Netlify Function） |
+
+Netlify 不包含 `/api/proxy`；联网主页只能依赖目标站的 CORS，或改用 Vercel 部署。
+
+### Vercel 环境变量
+
+在 **Settings → Environment Variables** 中添加（Production 和 Preview 都建议设置）：
+
+| 变量 | 是否必填 | 示例 |
+| --- | --- | --- |
+| `PCL_PROXY_ALLOWLIST` | 建议 | `news.bugjump.net,raw.githubusercontent.com` |
+| `PCL_PROXY_UA` | 可选 | `PCL2-Homepage-Viewer` |
+
+设置白名单后，只有列表中的域名（及其子域名）能通过 `/api/proxy`；如果只填 `news.bugjump.net`，示例 GitHub 地址会被拒绝。修改变量后需要重新部署。
+
+
 ### Vercel 代理（`api/proxy`）
 
 `api/proxy.js` 是一个无依赖的 Node Function，和前端同源，前端无需配置额外地址：
