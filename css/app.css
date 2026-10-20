@@ -144,6 +144,23 @@ body {
   height: auto;
 }
 
+.lab-brand__mark--image {
+  position: relative;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lab-brand__mark--image img {
+  display: block;
+  width: auto;
+  height: 36px;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .lab-brand__text {
   display: flex;
   flex-direction: column;
@@ -1355,6 +1372,10 @@ body {
 
   .lab-brand__mark svg {
     width: 22px;
+  }
+
+  .lab-brand__mark--image img {
+    height: 30px;
   }
 
   .lab-brand__eyebrow {
