@@ -8,6 +8,8 @@
 
 这是一个在浏览器里预览 PCL（Plain Craft Launcher 2）自定义主页 `Custom.xaml` 的工具。它按 PCL 的 850 × 500 窗口、300px 左侧栏、25px 页面边距、PCL 字体与主题色阶重绘画布，并实现 PCL 自定义事件在 Web 环境中的对应行为。
 
+> 状态：可运行 · Node.js 18+ · 无需构建步骤 · 原创代码采用 MIT 许可（PCL 素材除外）
+
 ## 快速开始
 
 需要 Node.js 18 或更高版本。
@@ -144,6 +146,35 @@ tools/generate-assets.mjs  重新生成 js/assets.js
 node tools/generate-assets.mjs
 ```
 
-## 许可与署名
+## 致谢
 
-本项目是第三方基于 PCL 独立进行的二次创作，与 PCL 官方无关。项目复制了 PCL 仓库中的界面图片与字体用于视觉预览；这些素材及 PCL 本身遵循 PCL 的分发有限许可，详见 [LICENCE-PCL.md](LICENCE-PCL.md)。使用、分发或修改前请阅读该许可，并保留对**龙腾猫跃**的署名与赞助链接。
+- **龙腾猫跃**：PCL / Plain Craft Launcher 2 的作者，本项目使用了 PCL 的界面素材、字体与视觉规范。
+- **Light-Beacon/PCL2-NewsHomepage**：新闻主页的兼容性测试参考；本项目未内置该主页源码。
+- 所有为 PCL 与相关生态做出贡献的开发者。
+
+## 贡献
+
+欢迎提交 Issue 或 Pull Request。提交前请：
+
+1. 运行 `npm start`，确认四个预设均可正常渲染；
+2. 检查浏览器控制台无新增错误；
+3. 不要提交 PCL 官方未公开素材、账号凭据或本地缓存；
+4. 保持 PCL 风格的尺寸、颜色与事件语义。
+
+## 许可证与署名
+
+本项目是第三方基于 PCL 独立进行的二次创作，与 PCL 官方无关，也未获得 PCL 官方背书。
+
+### 原创代码
+
+本项目中由 WorldHim 编写的源代码与文档采用 **MIT License**，详见 [LICENSE](LICENSE)。
+
+### PCL 素材与衍生内容
+
+项目复制了 PCL 仓库中的界面图片与字体用于视觉预览。这些素材、PCL 名称与相关衍生内容不适用 MIT 许可，仍遵循 PCL 的分发有限许可，详见 [LICENCE-PCL.md](LICENCE-PCL.md)。
+
+使用、分发或修改前请阅读 `LICENCE-PCL.md`，并保留对**龙腾猫跃**的署名与赞助链接。若 `LICENSE` 与 `LICENCE-PCL.md` 在 PCL 相关素材上存在冲突，以 `LICENCE-PCL.md` 为准。
+
+### 第三方名称
+
+Plain Craft Launcher、PCL 及相关名称、图标的权利归其各自权利人所有。本项目名称中的 “PCL” 仅用于说明兼容目标，不代表官方关联。
