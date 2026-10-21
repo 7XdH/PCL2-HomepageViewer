@@ -181,19 +181,8 @@ img {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 58%);
 }
 
-.pcl-titlebar__logo {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.pcl-titlebar__spacer {
   min-width: 0;
-  padding-left: 19px;
-}
-
-.pcl-titlebar__mark {
-  width: 39px;
-  height: 17px;
-  overflow: visible;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
 }
 
 .pcl-nav {
@@ -321,7 +310,6 @@ img {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
 }
 
-.pcl-window.is-subpage .pcl-titlebar__logo,
 .pcl-window.is-subpage .pcl-nav {
   visibility: hidden;
 }
