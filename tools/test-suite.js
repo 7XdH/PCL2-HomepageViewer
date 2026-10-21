@@ -241,6 +241,15 @@ export async function runRegression() {
     if (!Number.isFinite(radius) || Math.abs(radius - expectedRadius) > 0.6) {
       throw new Error(`玻璃衬底圆角没有缩放：${panel.borderTopLeftRadius}，期望 ${expectedRadius.toFixed(2)}px`);
     }
+    const windowEl = document.getElementById("pclWindow");
+    const caption = document.querySelector(".stage__caption");
+    if (windowEl && caption && getComputedStyle(caption).display !== "none") {
+      const panelBottom = windowEl.getBoundingClientRect().bottom - parseFloat(panel.bottom);
+      const captionTop = caption.getBoundingClientRect().top;
+      if (captionTop < panelBottom + 2) {
+        throw new Error(`尺寸文字压在衬底边缘：${captionTop.toFixed(1)} < ${panelBottom.toFixed(1)} + 2`);
+      }
+    }
     return { scale, inset, radius };
   });
 

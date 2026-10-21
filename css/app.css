@@ -1179,6 +1179,7 @@ body {
   gap: 8px;
   flex: none;
   height: 21px;
+  margin-top: 20px;
   color: rgba(52, 61, 74, 0.5);
   font-family: var(--pcl-mono);
   font-size: 8px;

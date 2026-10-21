@@ -531,7 +531,12 @@ function fitStage() {
   const shadowTop = 16;
   const shadowBottom = 88;
   const gutter = 4;
-  const captionHeight = frame.querySelector(".stage__caption")?.getBoundingClientRect().height || 0;
+  const caption = frame.querySelector(".stage__caption");
+  const captionStyle = caption ? window.getComputedStyle(caption) : null;
+  const captionBlock =
+    caption && captionStyle?.display !== "none"
+      ? caption.getBoundingClientRect().height + (parseFloat(captionStyle.marginTop) || 0)
+      : 0;
   const mobile = window.innerWidth <= 820;
   const minScale = mobile ? 0.2 : 0.5;
   const maxScale = 1.35;
@@ -539,7 +544,7 @@ function fitStage() {
   let scale = Math.min(
     maxScale,
     Math.max(1, frame.clientWidth - gutter) / (850 + shadowX * 2),
-    Math.max(1, frame.clientHeight - captionHeight - gutter) / (500 + shadowTop + shadowBottom)
+    Math.max(1, frame.clientHeight - captionBlock - gutter) / (500 + shadowTop + shadowBottom)
   );
   if (scale < minScale) scale = minScale;
   scale = Math.max(0.2, Math.floor(scale * 1000) / 1000);
