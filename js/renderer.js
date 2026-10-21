@@ -584,7 +584,15 @@ export class PclRenderer {
     if (decorations && /underline/i.test(decorations)) node.style.textDecoration = "underline";
     if (decorations && /strikethrough/i.test(decorations)) node.style.textDecoration = "line-through";
     const lineHeight = parseDouble(getProp(props, "LineHeight"));
-    if (lineHeight != null) node.style.lineHeight = `${lineHeight}px`;
+    if (lineHeight != null) {
+      // WPF 的 LineStackingStrategy 默认是 MaxHeight：行框高度取 LineHeight
+      // 与字体实际行高的较大值。直接使用 LineHeight 会让 LineHeight=12、
+      // FontSize=14 的段落发生行间重叠；BlockLineHeight 才严格使用该值。
+      const stacking = String(getProp(props, "LineStackingStrategy") || "MaxHeight").toLowerCase();
+      node.style.lineHeight = stacking === "blocklineheight"
+        ? `${lineHeight}px`
+        : `max(${lineHeight}px, 1.4em)`;
+    }
   }
 
   appendInlines(element, container) {
@@ -1799,7 +1807,11 @@ export class PclRenderer {
     if (node.querySelector(".pcl-inline-code")) {
       node.classList.add("has-inline-code");
       const configured = Number.parseFloat(node.style.lineHeight);
-      if (!Number.isFinite(configured) || configured < 20) node.style.lineHeight = "20px";
+      if (!Number.isFinite(configured)) {
+        node.style.lineHeight = "max(20px, 1.4em)";
+      } else if (configured < 20) {
+        node.style.lineHeight = `max(${configured}px, 20px, 1.4em)`;
+      }
     }
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);

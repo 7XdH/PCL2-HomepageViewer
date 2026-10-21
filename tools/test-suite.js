@@ -167,6 +167,38 @@ export async function runRegression() {
     return { total, filtered: filtered.length };
   });
 
+  await makeCheck(results, "WPF MaxHeight 行高", async () => {
+    const text = "这段文字用于验证换行后的行距不会重叠。WPF 默认 LineStackingStrategy 是 MaxHeight，因此 LineHeight 小于字体行高时应取字体行高。";
+    const xaml = `<FlowDocument FontSize="14"><Paragraph Width="180" LineHeight="12">${text}</Paragraph></FlowDocument>`;
+    const metrics = await renderSource(harness, xaml);
+    const paragraph = harness.root.querySelector('[data-pcl-type="Paragraph"]');
+    if (!paragraph) throw new Error("Paragraph 未渲染");
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    const rects = [...range.getClientRects()].filter(rect => rect.width > 1 && rect.height > 1);
+    const lines = [];
+    for (const rect of rects.sort((a, b) => a.top - b.top)) {
+      const line = lines.find(item => Math.abs(item.top - rect.top) < 2);
+      if (line) line.bottom = Math.max(line.bottom, rect.bottom);
+      else lines.push({ top: rect.top, bottom: rect.bottom });
+    }
+    if (lines.length < 2) throw new Error("测试段落没有发生换行");
+    let minGap = Infinity;
+    for (let index = 1; index < lines.length; index += 1) {
+      minGap = Math.min(minGap, lines[index].top - lines[index - 1].bottom);
+    }
+    if (minGap < -0.5) throw new Error(`行框仍然重叠：${minGap.toFixed(2)}px`);
+
+    const blockXaml = `<FlowDocument FontSize="14"><Paragraph Width="180" LineHeight="12" LineStackingStrategy="BlockLineHeight">${text}</Paragraph></FlowDocument>`;
+    await renderSource(harness, blockXaml);
+    const blockParagraph = harness.root.querySelector('[data-pcl-type="Paragraph"]');
+    const blockLineHeight = Number.parseFloat(getComputedStyle(blockParagraph).lineHeight);
+    if (blockLineHeight !== 12) {
+      throw new Error(`BlockLineHeight 没有保留 12px：${getComputedStyle(blockParagraph).lineHeight}`);
+    }
+    return { ...metrics, lines: lines.length, minGap };
+  });
+
   await makeCheck(results, "GroupBox 与 UniformGrid", async () => {
     const xaml = `
       <StackPanel>

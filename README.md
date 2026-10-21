@@ -221,6 +221,7 @@ Root Directory: 留空
 - **1:1 PCL 外观**：850 × 500 窗口、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。
 - **资源与样式**：支持 `StackPanel.Resources` 中的 `sys:String`、`Style` 与 `{StaticResource}` / `{DynamicResource}` 字符串引用，包含隐式样式、显式 `Style`、`BasedOn` 和 `Setter`。
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线。
+- **WPF 行高语义**：遵循默认 `LineStackingStrategy="MaxHeight"`，行框取 `LineHeight` 与字体实际行高的较大值，避免上游 `LineHeight="12"` 配 `FontSize="14"` 时文字重叠；显式 `BlockLineHeight` 仍严格使用指定值。
 - **PCL 自定义事件**：按钮、卡片、列表项、提示条和 `CustomEventCollection` 都会进入同一个顺序事件队列；支持 PCL 标准替换标记。
 - **安全渲染**：XAML 通过 `DOMParser` 解析，只创建受控 DOM；不执行脚本、不加载 `x:Code`、不打开 `WebBrowser`，并过滤常见危险类型与成员。
 - **联网代理**：运行 `node server.js` 时使用本地 `/api/proxy`；部署到 Vercel 时自动使用 `api/proxy.js`。代理默认 UA 为 `PCL2-Homepage-Viewer`，可通过联网面板、`ua` 参数或 `PCL_PROXY_UA` 环境变量自定义；同时附带 PCL 风格 Referer，支持重定向、gzip / br / deflate，限制 4 MB；文本模式只接受文本 / XAML，`image=1` 模式只接受图片。纯静态部署自动回退到 CORS 直连。

@@ -345,7 +345,7 @@
   flex: 1;
   min-width: 0;
   padding: 9px 12px;
-  line-height: 16px;
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
