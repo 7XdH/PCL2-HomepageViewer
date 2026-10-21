@@ -1,4 +1,4 @@
-import { normalizeExternalUrl } from "./url.js?v=20261021q";
+import { isMinecraftUrl, normalizeExternalUrl } from "./url.js?v=20261021q";
 
 const PAGE_LABELS = {
   Launch: "启动",
@@ -374,6 +374,18 @@ export class PclShell {
   openUrl(url) {
     const target = normalizeExternalUrl(url);
     if (!target) return false;
+    if (isMinecraftUrl(target)) {
+      // Custom protocols are handled by the OS. An anchor click is less likely
+      // to be blocked than window.open() when the launcher is registered.
+      const link = document.createElement("a");
+      link.href = target;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      return true;
+    }
     let win;
     try {
       win = window.open(target, "_blank");

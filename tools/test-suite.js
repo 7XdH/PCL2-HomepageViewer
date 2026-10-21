@@ -8,7 +8,11 @@ import {
   helpJsonTitle,
   helpTitleFromXaml
 } from "../js/help.js";
-import { isOpenableExternalUrl, normalizeExternalUrl } from "../js/url.js";
+import {
+  isOpenableExternalUrl,
+  isMinecraftUrl,
+  normalizeExternalUrl
+} from "../js/url.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -248,6 +252,10 @@ export async function runRegression() {
       ["https://example.com", true],
       ["http://example.com", true],
       ["mailto:test@example.com", true],
+      ["minecraft://", true],
+      ["minecraft-preview://", true],
+      ["minecraft:", false],
+      ["minecraft://?launch=foo", true],
       ["ftp://example.com", false],
       ["steam://run/730", false],
       ["file:///C:/Windows/System32/calc.exe", false],
@@ -261,6 +269,9 @@ export async function runRegression() {
     }
     if (normalizeExternalUrl("https://example.com") !== "https://example.com/") {
       throw new Error(`URL 规范化错误：${normalizeExternalUrl("https://example.com")}`);
+    }
+    if (!isMinecraftUrl("minecraft://") || !isMinecraftUrl("minecraft-preview://")) {
+      throw new Error("Minecraft 启动器协议识别失败");
     }
 
     const modalTitles = [];
@@ -279,13 +290,15 @@ export async function runRegression() {
     try {
       invalidResult = await harness.runtime.handle("打开网页", "javascript://%0Aalert(1)");
       const validResult = await harness.runtime.handle("打开网页", "https://example.com");
+      const minecraftResult = await harness.runtime.handle("打开网页", "minecraft://");
       if (invalidResult !== "invalid-url") throw new Error(`非法协议返回值错误：${invalidResult}`);
       if (validResult !== "https://example.com") throw new Error(`合法协议返回值错误：${validResult}`);
+      if (minecraftResult !== "minecraft://") throw new Error(`Minecraft 协议返回值错误：${minecraftResult}`);
     } finally {
       harness.runtime.shell.showModal = originalModal;
       harness.runtime.shell.openUrl = originalOpenUrl;
     }
-    if (opened !== 1) throw new Error(`非法协议不应打开窗口：实际打开 ${opened} 次`);
+    if (opened !== 2) throw new Error(`合法协议打开次数错误：实际 ${opened} 次`);
     if (!modalTitles.includes("事件执行失败")) throw new Error("非法协议没有显示错误弹窗");
     return { cases: cases.length, opened };
   });

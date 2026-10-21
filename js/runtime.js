@@ -289,8 +289,9 @@ export class PclRuntime {
           await this.shell.showModal({
             title: "事件执行失败",
             caption:
-              "EventData 必须为 http://、https:// 或 mailto: 链接。\n" +
-              "如果想要启动程序，请将 EventType 改为 打开文件。",
+              "EventData 必须为 http://、https://、mailto: 链接，\n" +
+              "或 PCL 支持的 minecraft://、minecraft-preview:// 链接。\n" +
+              "如果想要启动其他程序，请将 EventType 改为 打开文件。",
             buttons: ["确定"],
             warn: true
           });
