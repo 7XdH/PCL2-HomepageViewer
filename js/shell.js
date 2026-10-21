@@ -215,11 +215,15 @@ export class PclShell {
     return this.modalChain;
   }
 
-  openModal({ title = "提示", caption = "", buttons = ["确定"], warn = false } = {}) {
+  openModal({ title = "提示", caption = "", buttons = ["确定"], warn = false, activeIndex = 0 } = {}) {
     const buttonList = (Array.isArray(buttons) ? buttons : [buttons]).map(button =>
       typeof button === "string" ? { label: button } : button
     );
     if (!buttonList.length) buttonList.push({ label: "确定" });
+    const highlightIndex =
+      Number.isInteger(activeIndex) && activeIndex >= 0 && activeIndex < buttonList.length
+        ? activeIndex
+        : 0;
 
     const previousFocus = document.activeElement;
     this.modalTitle.textContent = title;
@@ -269,7 +273,10 @@ export class PclShell {
         const node = document.createElement("button");
         node.type = "button";
         node.className = "pcl-modal__button";
-        if (buttonList.length > 1 && index === 0) node.classList.add("pcl-modal__button--highlight");
+        if (buttonList.length > 1 && index === highlightIndex) {
+          node.classList.add("pcl-modal__button--highlight");
+          node.setAttribute("aria-current", "true");
+        }
         if (warn && index === 0) node.classList.add("pcl-modal__button--red");
         node.textContent = button.label ?? "确定";
         node.addEventListener("click", () => finish(index));
@@ -277,7 +284,11 @@ export class PclShell {
       });
 
       document.addEventListener("keydown", onKeyDown);
-      window.setTimeout(() => this.modalButtons.querySelector("button")?.focus(), 40);
+      window.setTimeout(() => {
+        const activeButton =
+          this.modalButtons.children[highlightIndex] || this.modalButtons.querySelector("button");
+        activeButton?.focus();
+      }, 40);
     });
   }
 
@@ -479,10 +490,12 @@ export class PclShell {
     });
 
     document.getElementById("pclVersionCard")?.addEventListener("click", async () => {
+      const currentIndex = VERSIONS.findIndex(version => version.name === this.version);
       const choice = await this.showModal({
         title: "选择版本",
         caption: "网页渲染器只使用演示版本列表。选择后，左侧启动按钮会同步更新。",
-        buttons: [...VERSIONS.map(version => version.name), "取消"]
+        buttons: [...VERSIONS.map(version => version.name), "取消"],
+        activeIndex: currentIndex >= 0 ? currentIndex : 0
       });
       if (choice < VERSIONS.length) {
         this.setVersion(VERSIONS[choice].name);

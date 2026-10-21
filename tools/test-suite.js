@@ -173,6 +173,43 @@ export async function runRegression() {
     return { total, filtered: filtered.length };
   });
 
+  await makeCheck(results, "版本切换高亮跟随当前版本", async () => {
+    const shell = window.__PCL_RENDERER__?.shell;
+    const card = document.getElementById("pclVersionCard");
+    const versionName = document.getElementById("pclVersionName");
+    if (!shell?.setVersion || !card || !versionName) throw new Error("找不到版本切换入口");
+
+    const initial = versionName.textContent;
+    card.click();
+    await sleep(140);
+    let buttons = [...document.querySelectorAll("#pclModalButtons button")];
+    if (!buttons.length) throw new Error("版本选择弹窗没有打开");
+    let highlighted = buttons.find(button => button.classList.contains("pcl-modal__button--highlight"));
+    if (!highlighted || highlighted.textContent !== initial) {
+      throw new Error(`初始高亮错误：期望 ${initial}，实际 ${highlighted?.textContent || "无"}`);
+    }
+
+    const target = buttons.find(button => button.textContent !== initial && button.textContent !== "取消");
+    if (!target) throw new Error("找不到另一个可切换版本");
+    target.click();
+    await sleep(280);
+    if (versionName.textContent !== target.textContent) {
+      throw new Error(`版本没有切换：期望 ${target.textContent}，实际 ${versionName.textContent}`);
+    }
+
+    card.click();
+    await sleep(140);
+    buttons = [...document.querySelectorAll("#pclModalButtons button")];
+    highlighted = buttons.find(button => button.classList.contains("pcl-modal__button--highlight"));
+    if (!highlighted || highlighted.textContent !== target.textContent) {
+      throw new Error(`切换后高亮错误：期望 ${target.textContent}，实际 ${highlighted?.textContent || "无"}`);
+    }
+    buttons.find(button => button.textContent === "取消")?.click();
+    await sleep(280);
+    shell.setVersion(initial);
+    return { from: initial, to: target.textContent };
+  });
+
   await makeCheck(results, "PCL 帮助页地址与标题", async () => {
     const jsonUrl = "https://mcnews.meloong.com/VersionArchiveList.json";
     const urls = resolveHelpUrls(jsonUrl);
