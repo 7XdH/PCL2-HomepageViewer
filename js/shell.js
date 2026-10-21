@@ -306,7 +306,11 @@ export class PclShell {
     this.commitAbort?.abort();
     const controller = new AbortController();
     this.commitAbort = controller;
-    const timeout = window.setTimeout(() => controller.abort(), COMMIT_TIMEOUT_MS);
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, COMMIT_TIMEOUT_MS);
 
     if (!this.latestCommit && !silent) {
       this.launchMeta.textContent = "最近提交：正在获取…";
@@ -315,6 +319,7 @@ export class PclShell {
 
     try {
       const commit = await fetchLatestCommit(controller.signal);
+      if (this.commitAbort !== controller) return;
       if (commit) {
         this.latestCommit = commit;
         this.renderCommitMeta();
@@ -323,10 +328,10 @@ export class PclShell {
         this.launchMeta.title = COMMIT_ERROR_TITLE;
       }
     } catch (error) {
+      if (this.commitAbort !== controller) return;
       if (!this.latestCommit) {
-        const timeoutFailure = error?.name === "AbortError";
-        this.launchMeta.textContent = timeoutFailure ? "最近提交：获取超时" : "最近提交：获取失败";
-        this.launchMeta.title = timeoutFailure
+        this.launchMeta.textContent = timedOut ? "最近提交：获取超时" : "最近提交：获取失败";
+        this.launchMeta.title = timedOut
           ? "获取最近提交超时，请稍后刷新重试。"
           : COMMIT_ERROR_TITLE;
       }

@@ -1,7 +1,7 @@
 import { PclTheme } from "./theme.js";
 import { PclRenderer } from "./renderer.js?v=20261021k";
 import { PclRuntime } from "./runtime.js?v=20261021q";
-import { PclShell } from "./shell.js?v=20261021q";
+import { PclShell } from "./shell.js?v=20261022a";
 import { substitutePlaceholders } from "./xaml.js?v=20261021c";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js?v=20261021e";
 import { PCL2_PRESETS } from "./pcl-presets.js?v=20261021j";
@@ -60,10 +60,12 @@ const FALLBACK_XAML = `
 
 const presetCache = new Map();
 let renderToken = 0;
+let renderAbort = null;
 let lastRenderedContent = "";
 let codeDirty = false;
 let currentFilter = "";
 let helpToken = 0;
+let helpAbort = null;
 let helpHistory = [];
 let helpReturnFocus = null;
 
@@ -325,7 +327,7 @@ function updateFileMeta() {
   }
 }
 
-async function loadPreset(id, { force = false } = {}) {
+async function loadPreset(id, { force = false, signal } = {}) {
   const preset = PRESETS[id] || PRESETS.tutorial;
   const cacheKey = PRESETS[id] ? id : "tutorial";
   if (preset.kind === "inline") return preset.xaml;
@@ -334,24 +336,30 @@ async function loadPreset(id, { force = false } = {}) {
     if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
     try {
       const text = await fetchRemoteXaml(resolveRemoteUrl(preset.url), {
-        uaCandidates: getProxyUaCandidates(PCL_FALLBACK_UA)
+        uaCandidates: getProxyUaCandidates(PCL_FALLBACK_UA),
+        signal
       });
       presetCache.set(cacheKey, text);
       return text;
     } catch (error) {
+      if (error.name === "AbortError") throw error;
       throw new Error(`无法加载 PCL2 预设「${preset.title}」：${error.message}`);
     }
   }
 
   if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
   try {
-    const response = await fetch(preset.path, { cache: force ? "no-store" : "no-cache" });
+    const response = await fetch(preset.path, {
+      signal,
+      cache: force ? "no-store" : "no-cache"
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     if (!text.trim()) throw new Error("预设内容为空");
     presetCache.set(cacheKey, text);
     return text;
   } catch (error) {
+    if (error.name === "AbortError") throw error;
     if (location.protocol === "file:") {
       presetCache.set(cacheKey, FALLBACK_XAML);
       return FALLBACK_XAML;
@@ -517,11 +525,19 @@ async function fetchRemoteText(
   {
     uaCandidates = getProxyUaCandidates(state.ua),
     expect = "xaml",
-    label = "联网主页"
+    label = "联网主页",
+    signal
   } = {}
 ) {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 22000);
+  let timedOut = false;
+  const abortFromCaller = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 22000);
   let proxyError = null;
   try {
     if (location.protocol === "http:" || location.protocol === "https:") {
@@ -579,10 +595,11 @@ async function fetchRemoteText(
     }
     return assertRemoteResponse(directContent, url, { expect, label });
   } catch (error) {
-    if (error.name === "AbortError") throw new Error("请求超时（22 秒）。");
+    if (error.name === "AbortError" && timedOut) throw new Error("请求超时（22 秒）。");
     throw error;
   } finally {
     window.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromCaller);
   }
 }
 
@@ -596,7 +613,7 @@ function resolveRemoteUrl(url) {
   return substitutePlaceholders(url, runtime.context, { escape: false });
 }
 
-async function resolveCurrentContent({ forceRemote = false } = {}) {
+async function resolveCurrentContent({ forceRemote = false, signal } = {}) {
   if (state.mode === "file") {
     if (!state.fileContent.trim()) throw new Error("尚未选择本地 XAML 文件。");
     return state.fileContent;
@@ -610,15 +627,13 @@ async function resolveCurrentContent({ forceRemote = false } = {}) {
     if (!state.url) throw new Error("尚未填写联网主页地址。");
     if (!state.urlContent || forceRemote) {
       if (forceRemote) state.urlContent = "";
-      shell.setLoading(true, "正在拉取联网主页…");
-      const content = await fetchRemoteXaml(resolveRemoteUrl(state.url));
+      const content = await fetchRemoteXaml(resolveRemoteUrl(state.url), { signal });
       state.urlContent = content;
-      shell.setLoading(false, "");
     }
     if (!state.urlContent.trim()) throw new Error("联网主页返回了空内容。");
     return state.urlContent;
   }
-  return loadPreset(state.preset, { force: forceRemote });
+  return loadPreset(state.preset, { force: forceRemote, signal });
 }
 
 function sourceLabel() {
@@ -634,6 +649,9 @@ function sourceLabel() {
 
 async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
   const token = ++renderToken;
+  renderAbort?.abort();
+  const controller = new AbortController();
+  renderAbort = controller;
   const activePreset = state.mode === "preset" ? PRESETS[state.preset] : null;
   const remotePreset = Boolean(activePreset?.url);
   setRuntime(reason === "initial" ? "正在加载" : "正在渲染", "busy");
@@ -643,10 +661,12 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     (remotePreset && (forceRemote || !presetCache.has(state.preset)));
   if (network) {
     shell.setLoading(true, remotePreset ? `正在拉取 PCL2 预设「${activePreset.title}」…` : "正在拉取联网主页…");
+  } else {
+    shell.setLoading(false, "");
   }
 
   try {
-    const content = await resolveCurrentContent({ forceRemote });
+    const content = await resolveCurrentContent({ forceRemote, signal: controller.signal });
     if (token !== renderToken) return false;
     const result = renderer.render(content);
     if (token !== renderToken) return false;
@@ -665,7 +685,7 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     fitStage();
     return true;
   } catch (error) {
-    if (token !== renderToken) return false;
+    if (token !== renderToken || error.name === "AbortError") return false;
     setRuntime("渲染失败", "error");
     $.renderStats.textContent = "渲染失败";
     $.renderStats.title = error.message || String(error);
@@ -684,8 +704,11 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     });
     return false;
   } finally {
-    if (network) shell.setLoading(false);
-    $.renderBtn.disabled = false;
+    if (renderAbort === controller) {
+      renderAbort = null;
+      shell.setLoading(false);
+      $.renderBtn.disabled = false;
+    }
   }
 }
 
@@ -710,6 +733,9 @@ async function openRemoteHelp(raw) {
   }
 
   const token = ++helpToken;
+  helpAbort?.abort();
+  const controller = new AbortController();
+  helpAbort = controller;
   if (!helpHistory.length) helpReturnFocus = document.activeElement;
   shell.setLoading(true, "正在打开帮助…");
   const uaCandidates = getProxyUaCandidates(PCL_FALLBACK_UA);
@@ -717,12 +743,17 @@ async function openRemoteHelp(raw) {
     const metadata = fetchRemoteText(urls.jsonUrl, {
       uaCandidates,
       expect: "json",
-      label: "帮助信息"
+      label: "帮助信息",
+      signal: controller.signal
     })
       .then(source => helpJsonTitle(source, ""))
       .catch(() => "");
     const [xaml, metadataTitle] = await Promise.all([
-      fetchRemoteXaml(urls.xamlUrl, { uaCandidates, label: "帮助页面" }),
+      fetchRemoteXaml(urls.xamlUrl, {
+        uaCandidates,
+        label: "帮助页面",
+        signal: controller.signal
+      }),
       metadata
     ]);
     if (token !== helpToken) return "cancelled";
@@ -740,7 +771,11 @@ async function openRemoteHelp(raw) {
       throw error;
     }
     return entry.title;
+  } catch (error) {
+    if (token !== helpToken || error.name === "AbortError") return "cancelled";
+    throw error;
   } finally {
+    if (helpAbort === controller) helpAbort = null;
     if (token === helpToken) shell.setLoading(false, "");
   }
 }
@@ -755,6 +790,8 @@ function goBackHelp() {
 }
 
 function resetHelpState() {
+  helpAbort?.abort();
+  helpAbort = null;
   helpToken += 1;
   helpHistory = [];
   $.helpRoot?.replaceChildren();

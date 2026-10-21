@@ -647,6 +647,65 @@ export async function runRegression() {
     return { defaultCandidates, customCandidates, sameCandidates };
   });
 
+  await makeCheck(results, "切换渲染会取消旧请求", async () => {
+    const api = window.__PCL_RENDERER__;
+    if (!api?.renderCurrent || !api.state) throw new Error("找不到渲染器接口");
+    const savedState = {
+      mode: api.state.mode,
+      preset: api.state.preset,
+      url: api.state.url,
+      urlContent: api.state.urlContent
+    };
+    const originalFetch = window.fetch;
+    const signals = [];
+    let proxyCalls = 0;
+    window.fetch = (input, init = {}) => {
+      const target = String(input?.url || input);
+      if (!target.includes("/api/proxy")) return originalFetch(input, init);
+      proxyCalls += 1;
+      signals.push(init.signal);
+      if (proxyCalls === 1) {
+        return new Promise((resolve, reject) => {
+          const rejectAborted = () => reject(new DOMException("Aborted", "AbortError"));
+          if (init.signal?.aborted) rejectAborted();
+          else init.signal?.addEventListener("abort", rejectAborted, { once: true });
+        });
+      }
+      return Promise.resolve(
+        new Response('<StackPanel><TextBlock Text="第二次渲染" /></StackPanel>', {
+          status: 200,
+          headers: { "Content-Type": "application/xml; charset=utf-8" }
+        })
+      );
+    };
+
+    try {
+      api.state.mode = "url";
+      api.state.url = "https://cancellation.invalid/homepage.xaml";
+      api.state.urlContent = "";
+      const first = api.renderCurrent({ reason: "abort-test" });
+      if (proxyCalls !== 1) throw new Error(`旧请求没有发出：${proxyCalls}`);
+      const second = api.renderCurrent({ reason: "abort-test" });
+      await first;
+      const secondOk = await second;
+      if (!signals[0]?.aborted) throw new Error("旧请求没有被 AbortController 取消");
+      if (!secondOk) throw new Error("新请求没有完成渲染");
+      if (!textOf(document.getElementById("pclHomeRoot")).includes("第二次渲染")) {
+        throw new Error("新请求的结果没有显示在预览中");
+      }
+      return { requests: proxyCalls, firstAborted: signals[0].aborted };
+    } finally {
+      window.fetch = originalFetch;
+      const restoreState = { ...savedState };
+      if (restoreState.mode === "url" && !restoreState.urlContent) {
+        restoreState.mode = "preset";
+        restoreState.preset = "tutorial";
+      }
+      Object.assign(api.state, restoreState);
+      await api.renderCurrent({ reason: "restore" });
+    }
+  });
+
   const ok = results.every(item => item.ok);
   window.__PCL_TEST_RESULT__ = { suite: "regression", ok, results };
   return window.__PCL_TEST_RESULT__;
