@@ -199,6 +199,40 @@ export async function runRegression() {
     return { ...metrics, lines: lines.length, minGap };
   });
 
+  await makeCheck(results, "FlowDocument 分隔线长文字", async () => {
+    const content = "这是一个很长很长的分割线标题文字，它应该完整显示并在需要时自动换行，而不是变成省略号。";
+    const xaml = `
+      <FlowDocument FontSize="14">
+        <FlowDocument.Resources>
+          <ControlTemplate x:Key="Sep" TargetType="ContentControl">
+            <Grid>
+              <Line X1="0" X2="10" />
+              <Line X1="0" X2="10" />
+            </Grid>
+          </ControlTemplate>
+        </FlowDocument.Resources>
+        <ContentControl Content="${content}" Template="{StaticResource Sep}" />
+      </FlowDocument>`;
+    const metrics = await renderSource(harness, xaml);
+    const separator = harness.root.querySelector(".pcl-flow-separator__text");
+    if (!separator) throw new Error("分隔线文字未渲染");
+    if (separator.textContent !== content) throw new Error("分隔线文字内容不完整");
+    const style = getComputedStyle(separator);
+    if (style.textOverflow === "ellipsis") throw new Error("分隔线仍然使用省略号");
+    if (separator.scrollWidth > separator.clientWidth + 1) {
+      throw new Error(`分隔线文字发生横向裁切：${separator.scrollWidth} > ${separator.clientWidth}`);
+    }
+    const range = document.createRange();
+    range.selectNodeContents(separator);
+    const lineTops = new Set(
+      [...range.getClientRects()]
+        .filter(rect => rect.width > 1 && rect.height > 1)
+        .map(rect => Math.round(rect.top))
+    );
+    if (lineTops.size < 2) throw new Error("长分隔线文字没有自动换行");
+    return { ...metrics, lines: lineTops.size };
+  });
+
   await makeCheck(results, "GroupBox 与 UniformGrid", async () => {
     const xaml = `
       <StackPanel>

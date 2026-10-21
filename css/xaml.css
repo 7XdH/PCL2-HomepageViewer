@@ -971,28 +971,31 @@
 }
 
 .pcl-flow-separator {
-  display: grid;
-  grid-template-columns: 1fr 100px 1fr;
+  display: flex;
   align-items: center;
-  gap: 0;
   width: 100%;
   margin: 10px 0;
 }
 
 .pcl-flow-separator__line {
+  flex: 1 1 24px;
+  min-width: 16px;
   height: 0;
   border-top: 1.5px solid var(--pcl-c4);
 }
 
 .pcl-flow-separator__text {
-  overflow: hidden;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 32px);
   padding: 0 8px;
   color: var(--pcl-c4);
   font-size: 15px;
   line-height: 1.4;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
 }
 
 .pcl-contentcontrol {
