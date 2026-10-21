@@ -1,6 +1,47 @@
 const VARIABLES_KEY = "pcl.lab.variables.v1";
 const SETTINGS_KEY = "pcl.lab.settings.v1";
 
+const PCL_INFO = Object.freeze({
+  version: "2.99.0.0",
+  versionCode: "414",
+  versionBranch: "快照版",
+  buildType: "Snapshot",
+  branch: "OpenSource",
+  identify: "0000-0000-0000-0000"
+});
+
+const PCL_PATHS = Object.freeze({
+  base: "C:\\Users\\Steve\\AppData\\Roaming\\PCL\\",
+  exe: "C:\\Users\\Steve\\AppData\\Roaming\\PCL\\Plain Craft Launcher 2.exe",
+  temp: "C:\\Users\\Steve\\AppData\\Local\\Temp\\PCL\\",
+  java: "C:\\Program Files\\Java\\jdk-17\\",
+  minecraft: "C:\\Users\\Steve\\AppData\\Roaming\\.minecraft\\"
+});
+
+const pad2 = value => String(value).padStart(2, "0");
+
+const localDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+};
+
+const localTime = () => {
+  const now = new Date();
+  return `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+};
+
+const vanillaVersionName = name => String(name ?? "").match(/^\d+(?:\.\d+){1,3}/)?.[0] || String(name ?? "");
+
+const hasLoader = (name, label) => {
+  const cleaned = label === "forge" ? String(name).replace(/neoforge/gi, "") : String(name);
+  return new RegExp(`(?:^|[-_ ])${label}(?:$|[-_ ])`, "i").test(cleaned);
+};
+
+const loaderVersion = (meta, label) => {
+  const match = String(meta ?? "").match(new RegExp(`\\b${label}\\s+([^\\s·]+)`, "i"));
+  return match?.[1] || "";
+};
+
 export const DEFAULT_SETTINGS = {
   UiLauncherHue: "210",
   UiLauncherTheme: "0",
@@ -105,12 +146,85 @@ export class PclRuntime {
       },
       randomHint: () => HINTS[Math.floor(Math.random() * HINTS.length)],
       randomCave: () => CAVES[Math.floor(Math.random() * CAVES.length)],
+      getPlaceholder: name => this.getPlaceholder(name),
       user: this.user
     };
   }
 
   setUser(partial) {
     Object.assign(this.user, partial);
+  }
+
+  getPlaceholder(name) {
+    const key = String(name ?? "").toLowerCase();
+    const info = this.shell?.getVersionInfo?.() || {
+      name: this.shell?.getVersion?.() || "1.20.1-Fabric",
+      meta: ""
+    };
+    const versionName = String(info.name || "1.20.1-Fabric");
+    const meta = String(info.meta || "");
+    const versionPath = `${PCL_PATHS.minecraft}versions\\${versionName}\\`;
+
+    switch (key) {
+      case "pcl_version":
+        return PCL_INFO.version;
+      case "pcl_version_code":
+        return PCL_INFO.versionCode;
+      case "pcl_version_branch":
+        return PCL_INFO.versionBranch;
+      case "pcl_build_type":
+        return PCL_INFO.buildType;
+      case "pcl_branch":
+        return PCL_INFO.branch;
+      case "identify":
+        return PCL_INFO.identify;
+      case "path":
+        return PCL_PATHS.base;
+      case "path_with_name":
+        return PCL_PATHS.exe;
+      case "path_temp":
+        return PCL_PATHS.temp;
+      case "pcl_md5":
+      case "pcl_sha1":
+        return "";
+      case "date":
+        return localDate();
+      case "time":
+        return localTime();
+      case "java":
+        return PCL_PATHS.java;
+      case "minecraft":
+        return PCL_PATHS.minecraft;
+      case "version_path":
+      case "verpath":
+      case "version_indie":
+      case "verindie":
+        return versionPath;
+      case "name":
+        return versionName;
+      case "version":
+        return vanillaVersionName(versionName);
+      case "forge":
+        return hasLoader(versionName, "forge") ? loaderVersion(meta, "forge") : "";
+      case "fabric":
+        return hasLoader(versionName, "fabric") ? loaderVersion(meta, "fabric") : "";
+      case "neoforge":
+        return hasLoader(versionName, "neoforge") ? loaderVersion(meta, "neoforge") : "";
+      case "liteloader":
+        return hasLoader(versionName, "liteloader") ? "true" : "";
+      case "user":
+        return this.user.name ?? "";
+      case "uuid":
+        return String(this.user.uuid ?? "").toLowerCase();
+      case "login":
+        return this.user.login ?? "";
+      case "hint":
+        return HINTS[Math.floor(Math.random() * HINTS.length)];
+      case "cave":
+        return CAVES[Math.floor(Math.random() * CAVES.length)];
+      default:
+        return "";
+    }
   }
 
   raise(events) {

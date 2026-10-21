@@ -201,11 +201,11 @@ Root Directory: 留空
 - **1:1 PCL 外观**：850 × 500 窗口、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。
 - **资源与样式**：支持 `StackPanel.Resources` 中的 `sys:String`、`Style` 与 `{StaticResource}` / `{DynamicResource}` 字符串引用，包含隐式样式、显式 `Style`、`BasedOn` 和 `Setter`。
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线。
-- **PCL 自定义事件**：按钮、卡片、列表项、提示条和 `CustomEventCollection` 都会进入同一个顺序事件队列；支持变量与设置替换标记。
+- **PCL 自定义事件**：按钮、卡片、列表项、提示条和 `CustomEventCollection` 都会进入同一个顺序事件队列；支持 PCL 标准替换标记。
 - **安全渲染**：XAML 通过 `DOMParser` 解析，只创建受控 DOM；不执行脚本、不加载 `x:Code`、不打开 `WebBrowser`，并过滤常见危险类型与成员。
 - **联网代理**：运行 `node server.js` 时使用本地 `/api/proxy`；部署到 Vercel 时自动使用 `api/proxy.js`。代理默认 UA 为 `PCL2-Homepage-Viewer`，可通过联网面板、`ua` 参数或 `PCL_PROXY_UA` 环境变量自定义；同时附带 PCL 风格 Referer，支持重定向、gzip / br / deflate，限制 4 MB；文本模式只接受文本 / XAML，`image=1` 模式只接受图片。纯静态部署自动回退到 CORS 直连。
 - **远程图片**：远程图片先直连，失败后自动通过 `/api/proxy?image=1` 代理加载，避免 CORP、防盗链等浏览器限制；静态部署没有代理时仍会回退到直连。
-- **联网 URL 替换标记**：联网地址会在请求前解析 `{variable:...}`、`{setup:...}` 等标记，例如 `https://weather-p.kaphia.top/{variable:PCLDailyWeatherPage:choose}.xaml`；输入框仍保留原始模板。
+- **联网 URL 替换标记**：联网地址会在请求前解析 `{variable:...}`、`{setup:...}` 以及 PCL 版本、日期、实例等标记，例如 `https://weather-p.kaphia.top/{variable:PCLDailyWeatherPage:choose}.xaml`；输入框仍保留原始模板。
 - **非 XAML 响应校验**：联网地址返回空内容、JSON、HTML 或纯文本时会直接报错，不再渲染为空白页。
 - **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
 
@@ -243,8 +243,25 @@ Root Directory: 留空
 | `{hint}` | 随机“你知道吗”提示 |
 | `{cave}` | 随机回响洞文本 |
 | `{user}` / `{uuid}` / `{login}` | 当前演示用户信息 |
+| `{pcl_version}` | PCL 版本名，当前为 `2.99.0.0` |
+| `{pcl_version_code}` | PCL 版本号，当前为 `414` |
+| `{pcl_version_branch}` | 版本类型，当前为 `快照版` |
+| `{pcl_build_type}` | 构建类型，当前为 `Snapshot` |
+| `{pcl_branch}` | 代码分支，当前为 `OpenSource` |
+| `{identify}` | 设备识别码；网页版固定为 `0000-0000-0000-0000` |
+| `{date}` / `{time}` | 当前本地日期 `yyyy/M/d` 与时间 `HH:mm:ss` |
+| `{path}` / `{path_with_name}` / `{path_temp}` | 模拟的 PCL 主目录、程序路径和缓存目录 |
+| `{pcl_md5}` / `{pcl_sha1}` | PCL 可执行文件哈希；网页版没有本地文件，返回空值 |
+| `{java}` | 模拟的 Java 目录 |
+| `{minecraft}` | 模拟的 `.minecraft` 目录 |
+| `{version_path}` / `{verpath}` | 当前版本目录 |
+| `{version_indie}` / `{verindie}` | 当前版本隔离目录 |
+| `{name}` / `{version}` | 当前实例名与原版版本号 |
+| `{forge}` / `{fabric}` / `{neoforge}` / `{liteloader}` | 当前实例的加载器版本；没有则为空 |
 
-替换在 XML 解析之前完成，插入的值会做 XML 转义，因此也可以安全地放进属性（例如 `Visibility="{variable:Flag:Visible}"`）。
+替换在 XML 解析之前完成，插入的值会做 XML 转义，因此也可以安全地放进属性（例如 `Visibility="{variable:Flag:Visible}"`）。联网 URL 使用不转义的替换值，便于把变量放入地址。
+
+路径、Java 和识别码使用网页演示值，不会访问或暴露本机文件系统；`{pcl_md5}` / `{pcl_sha1}` 也不会有真实哈希。
 
 ## 自定义事件
 

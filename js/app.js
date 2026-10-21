@@ -1,8 +1,8 @@
 import { PclTheme } from "./theme.js";
-import { PclRenderer } from "./renderer.js?v=20261021b";
-import { PclRuntime } from "./runtime.js";
-import { PclShell } from "./shell.js?v=20261020c";
-import { substitutePlaceholders } from "./xaml.js?v=20261020f";
+import { PclRenderer } from "./renderer.js?v=20261021c";
+import { PclRuntime } from "./runtime.js?v=20261021c";
+import { PclShell } from "./shell.js?v=20261021c";
+import { substitutePlaceholders } from "./xaml.js?v=20261021c";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
@@ -609,7 +609,7 @@ async function showHelp() {
       "Plain Craft Launcher (PCL) Homepage Viewer 是第三方独立作品，在浏览器中复刻 PCL 2 的自定义主页（Custom.xaml）外观与事件，与 PCL 官方无关。\n\n" +
       "1. 在左侧选择本地文件、联网地址、源码，或点击快速预设。\n" +
       "2. 渲染时会解析 PCL 的 WPF XAML 方言，支持 MyCard、MyHint、MyButton、MyTextButton、MyIconButton、MyIconTextButton、MyListItem、MyImage，以及 StackPanel、Grid、UniformGrid、GroupBox、Border、TextBlock、Path 等常用 WPF 控件。\n" +
-      "3. 自定义事件会进入事件引擎：打开网页、弹出窗口、弹出提示、复制文本、刷新主页、修改变量、切换页面等均可工作。修改设置与变量会保存在 localStorage 中，并参与 {variable:...} 与 {setup:...} 替换。\n\n" +
+      "3. 自定义事件会进入事件引擎：打开网页、弹出窗口、弹出提示、复制文本、刷新主页、修改变量、切换页面等均可工作。修改设置与变量会保存在 localStorage 中，并参与 {variable:...} 与 {setup:...} 替换；同时支持 PCL 版本、路径、日期、实例和加载器标记。\n\n" +
       "浏览器限制：打开文件／执行命令、启动游戏、加入房间、导入整合包等操作不会真正执行，渲染器会显示与 PCL 一致的提示或弹窗。\n\n" +
       "快捷键：Ctrl + Enter 渲染，Ctrl + O 打开文件。联网加载建议通过 node server.js 启动本地代理。",
     buttons: ["打开 PCL 仓库", "知道了"]

@@ -340,6 +340,10 @@ export class PclShell {
     return this.version;
   }
 
+  getVersionInfo() {
+    return VERSIONS.find(version => version.name === this.version) || VERSIONS[0];
+  }
+
   setVersion(name) {
     const version = VERSIONS.find(item => item.name === name) || VERSIONS.find(item => item.name === this.version) || VERSIONS[0];
     this.version = version.name;

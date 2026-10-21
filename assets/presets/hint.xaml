@@ -26,8 +26,14 @@
                    Text="当前演示账户：{user}（{login}）" />
         <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" FontSize="11" Foreground="#8C7721"
                    Text="UUID：{uuid}" />
-        <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" FontSize="11"
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" FontSize="11"
                    Text="主题色相：{setup:UiLauncherHue} · 自定义变量：{variable:DemoVisited:未访问}" />
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" FontSize="11" Foreground="#8C7721"
+                   Text="PCL：{pcl_version}（{pcl_version_branch} / {pcl_build_type}） · 识别码：{identify}" />
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" FontSize="11"
+                   Text="当前版本：{name}（{version}） · Fabric：{fabric} · 日期：{date} {time}" />
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" FontSize="11"
+                   Text="版本目录：{version_indie}" />
         <local:MyButton Height="34" HorizontalAlignment="Left" Padding="16,0,16,0" ColorType="Highlight"
                         Text="打开替换标记文档" EventType="打开帮助" EventData="个性化/替换标记.json" />
     </StackPanel>

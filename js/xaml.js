@@ -69,7 +69,40 @@ const BLACKLISTED_TYPES = new Set([
 
 const BLACKLISTED_MEMBERS = new Set(["Code", "FactoryMethod", "Static"]);
 
-const PLACEHOLDER_RE = /\{(?:variable|varible):([^:}]+)(?::([^}]*))?\}|\{setup:([A-Za-z0-9_]+)\}|\{hint\}|\{cave\}|\{user\}|\{uuid\}|\{login\}/gi;
+const SIMPLE_PLACEHOLDERS = new Set([
+  "pcl_version",
+  "pcl_version_code",
+  "pcl_version_branch",
+  "pcl_build_type",
+  "pcl_branch",
+  "identify",
+  "path",
+  "path_with_name",
+  "path_temp",
+  "pcl_md5",
+  "pcl_sha1",
+  "date",
+  "time",
+  "java",
+  "minecraft",
+  "version_path",
+  "verpath",
+  "version_indie",
+  "verindie",
+  "name",
+  "version",
+  "forge",
+  "fabric",
+  "neoforge",
+  "liteloader",
+  "user",
+  "uuid",
+  "login",
+  "hint",
+  "cave"
+]);
+
+const PLACEHOLDER_RE = /\{(?:variable|varible):([^:}]+)(?::([^}]*))?\}|\{setup:([A-Za-z0-9_]+)\}|\{([A-Za-z0-9_]+)\}/gi;
 
 export function escapeXml(value) {
   return String(value ?? "")
@@ -257,26 +290,41 @@ export function readEvents(element) {
   return events;
 }
 
-export function substitutePlaceholders(source, context, { escape = true } = {}) {
-  return source.replace(PLACEHOLDER_RE, (match, variableName, variableFallback, settingName) => {
-    let value = "";
-    if (variableName) {
-      value = context.getVariable?.(variableName, variableFallback ?? "") ?? variableFallback ?? "";
-    } else if (settingName) {
-      value = context.getSetting?.(settingName) ?? "";
-    } else if (match.toLowerCase() === "{hint}") {
-      value = context.randomHint?.() ?? "";
-    } else if (match.toLowerCase() === "{cave}") {
-      value = context.randomCave?.() ?? "";
-    } else if (match.toLowerCase() === "{user}") {
-      value = context.user?.name ?? "Steve";
-    } else if (match.toLowerCase() === "{uuid}") {
-      value = context.user?.uuid ?? "00000000-0000-0000-0000-000000000000";
-    } else if (match.toLowerCase() === "{login}") {
-      value = context.user?.login ?? "离线";
+function resolveSimplePlaceholder(name, context) {
+  switch (name) {
+    case "hint":
+      return context.randomHint?.() ?? "";
+    case "cave":
+      return context.randomCave?.() ?? "";
+    case "user":
+      return context.user?.name ?? "Steve";
+    case "uuid":
+      return context.user?.uuid ?? "00000000-0000-0000-0000-000000000000";
+    case "login":
+      return context.user?.login ?? "离线";
+    default:
+      return "";
+  }
+}
+
+export function substitutePlaceholders(source, context = {}, { escape = true } = {}) {
+  return String(source ?? "").replace(
+    PLACEHOLDER_RE,
+    (match, variableName, variableFallback, settingName, simpleName) => {
+      let value = "";
+      if (variableName) {
+        value = context.getVariable?.(variableName, variableFallback ?? "") ?? variableFallback ?? "";
+      } else if (settingName) {
+        value = context.getSetting?.(settingName) ?? "";
+      } else if (simpleName) {
+        const name = simpleName.toLowerCase();
+        if (!SIMPLE_PLACEHOLDERS.has(name)) return match;
+        value = context.getPlaceholder?.(name);
+        if (value === undefined || value === null) value = resolveSimplePlaceholder(name, context);
+      }
+      return escape ? escapeXml(value) : String(value ?? "");
     }
-    return escape ? escapeXml(value) : String(value ?? "");
-  });
+  );
 }
 
 
