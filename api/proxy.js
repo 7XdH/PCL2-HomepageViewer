@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 import net from "node:net";
 import { isSvgResponse, svgResponseHeaders } from "./proxy-policy.js";
+import { baseSecurityHeaders } from "./security-headers.js";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
@@ -187,8 +188,7 @@ function send(response, status, body, headers = {}) {
   response.statusCode = status;
   response.setHeader("Content-Type", "text/plain; charset=utf-8");
   response.setHeader("Cache-Control", "no-store");
-  response.setHeader("X-Content-Type-Options", "nosniff");
-  for (const [key, value] of Object.entries(headers)) {
+  for (const [key, value] of Object.entries({ ...baseSecurityHeaders(), ...headers })) {
     response.setHeader(key, value);
   }
   response.end(body);

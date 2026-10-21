@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
 import { isSvgResponse, svgResponseHeaders } from "./api/proxy-policy.js";
+import { baseSecurityHeaders, documentSecurityHeaders } from "./api/security-headers.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -53,7 +54,7 @@ const safeDecode = value => {
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, {
-    "X-Content-Type-Options": "nosniff",
+    ...baseSecurityHeaders(),
     "Access-Control-Allow-Origin": "*",
     ...headers
   });
@@ -85,7 +86,8 @@ function serveStatic(req, res, pathname) {
       const cache = [".html", ".css", ".js", ".mjs", ".xaml", ".xml", ".json"].includes(ext)
         ? "no-cache"
         : "public, max-age=3600";
-      send(res, 200, data, { "Content-Type": type, "Cache-Control": cache });
+      const documentHeaders = ext === ".html" ? documentSecurityHeaders() : {};
+      send(res, 200, data, { "Content-Type": type, "Cache-Control": cache, ...documentHeaders });
     });
   });
 }

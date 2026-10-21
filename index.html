@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#1370f3">
   <meta name="description" content="第三方独立作品：在浏览器中渲染 Plain Craft Launcher (PCL) 自定义主页 XAML，并兼容其控件、属性与自定义事件。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https: http:; font-src 'self' data:; connect-src 'self' https: http:; media-src 'self' https: http:; manifest-src 'self'; worker-src 'self' blob:; frame-src 'none'">
   <title>Plain Craft Launcher (PCL) Homepage Viewer（第三方）</title>
   <link rel="icon" href="assets/pcl/images/icon.ico">
   <link rel="stylesheet" href="css/pcl-theme.css?v=20261021p">
@@ -25,8 +26,7 @@
   <header class="lab-header">
     <div class="lab-brand">
       <span class="lab-brand__mark lab-brand__mark--image" aria-hidden="true">
-        <img src="assets/pcl/images/LogoHex.png" width="32" height="36"
-             style="max-width:36px;max-height:36px" alt="">
+        <img src="assets/pcl/images/LogoHex.png" width="32" height="36" alt="">
       </span>
       <span class="lab-brand__text">
         <span class="lab-brand__eyebrow">第三方 · CUSTOM HOMEPAGE VIEWER</span>
@@ -385,26 +385,7 @@
     <span>浏览器阻止了 <code>file://</code> 下的 ES Module。请在项目目录运行 <code>node server.js</code>（或 <code>npm start</code>），然后访问 <code>http://localhost:3000</code>。</span>
   </div>
 
-  <script>
-    (() => {
-      let attempts = 0;
-      const timer = window.setInterval(() => {
-        const ready = Boolean(window.__PCL_RENDERER__);
-        const fallback = document.getElementById("bootFallback");
-        if (ready) {
-          if (fallback) fallback.hidden = true;
-          window.clearInterval(timer);
-          return;
-        }
-        attempts += 1;
-        if (attempts >= 20) {
-          if (fallback) fallback.hidden = false;
-          window.clearInterval(timer);
-        }
-      }, 500);
-    })();
-  </script>
-
+  <script src="js/boot.js?v=20261022a"></script>
   <script type="module" src="js/app.js?v=20261022a"></script>
 </body>
 </html>

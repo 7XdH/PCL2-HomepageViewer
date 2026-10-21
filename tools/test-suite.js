@@ -326,6 +326,42 @@ export async function runRegression() {
     return { csp };
   });
 
+  await makeCheck(results, "CSP 与安全响应头", async () => {
+    const response = await fetch("/", { cache: "no-store" });
+    const csp = response.headers.get("content-security-policy") || "";
+    for (const directive of [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'"
+    ]) {
+      if (!csp.includes(directive)) throw new Error(`CSP 缺少 ${directive}`);
+    }
+    const requiredHeaders = {
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      "referrer-policy": "no-referrer",
+      "cross-origin-opener-policy": "same-origin",
+      "cross-origin-resource-policy": "same-origin"
+    };
+    for (const [name, expected] of Object.entries(requiredHeaders)) {
+      const actual = response.headers.get(name);
+      if (actual !== expected) throw new Error(`${name} 期望 ${expected}，实际 ${actual || "（空）"}`);
+    }
+
+    const html = await response.text();
+    const meta = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/i);
+    if (!meta) throw new Error("index.html 缺少 CSP meta");
+    for (const directive of ["default-src 'self'", "script-src 'self'", "style-src 'self'", "object-src 'none'"]) {
+      if (!meta[1].includes(directive)) throw new Error(`meta CSP 缺少 ${directive}`);
+    }
+    if (/<script(?![^>]*\bsrc=)[^>]*>/i.test(html)) throw new Error("index.html 仍包含内联脚本");
+    if (/\sstyle\s*=/i.test(html)) throw new Error("index.html 仍包含内联样式");
+    if (!/<script[^>]+src="js\/boot\.js[^"]*"/i.test(html)) throw new Error("启动兜底脚本没有外部化");
+    return { csp, metaCsp: meta[1] };
+  });
+
   await makeCheck(results, "PCL 帮助页地址与标题", async () => {
     const jsonUrl = "https://mcnews.meloong.com/VersionArchiveList.json";
     const urls = resolveHelpUrls(jsonUrl);
