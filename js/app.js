@@ -1,10 +1,11 @@
 import { PclTheme } from "./theme.js";
 import { PclRenderer } from "./renderer.js?v=20261021k";
-import { PclRuntime } from "./runtime.js?v=20261021c";
-import { PclShell } from "./shell.js?v=20261021c";
+import { PclRuntime } from "./runtime.js?v=20261021n";
+import { PclShell } from "./shell.js?v=20261021n";
 import { substitutePlaceholders } from "./xaml.js?v=20261021c";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js?v=20261021e";
 import { PCL2_PRESETS } from "./pcl-presets.js?v=20261021j";
+import { resolveHelpUrls, helpJsonTitle, helpTitleFromXaml } from "./help.js?v=20261021n";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
@@ -62,6 +63,9 @@ let renderToken = 0;
 let lastRenderedContent = "";
 let codeDirty = false;
 let currentFilter = "";
+let helpToken = 0;
+let helpHistory = [];
+let helpReturnFocus = null;
 
 const el = id => document.getElementById(id);
 const $ = {
@@ -88,6 +92,8 @@ const $ = {
   pclPresetSearch: el("pclPresetSearch"),
   pclPresetCount: el("pclPresetCount"),
   pclPresetEmpty: el("pclPresetEmpty"),
+  helpScroll: el("pclHelpScroll"),
+  helpRoot: el("pclHelpRoot"),
   eventText: el("eventText"),
   eventCount: el("eventCount"),
   helpBtn: el("helpBtn"),
@@ -123,7 +129,8 @@ shell.onReopen = () => fitStage();
 const runtime = new PclRuntime({
   shell,
   onRefresh: () => renderCurrent({ reason: "event" }),
-  onSettingChange: (key, value) => handleSettingChange(key, value)
+  onSettingChange: (key, value) => handleSettingChange(key, value),
+  onOpenHelp: address => openRemoteHelp(address)
 });
 shell.onAccountChange = user => runtime.setUser(user);
 theme.setHue(Number(runtime.settings.UiLauncherHue));
@@ -134,6 +141,16 @@ const renderer = new PclRenderer({
   getProxyUa: () => state.ua,
   getProxyUas: () => getProxyUaCandidates(state.ua)
 });
+
+const helpRenderer = new PclRenderer({
+  root: $.helpRoot,
+  runtime,
+  getProxyUa: () => state.ua,
+  getProxyUas: () => getProxyUaCandidates(state.ua)
+});
+
+shell.onSubpageBack = () => goBackHelp();
+shell.onSubpageDismiss = () => resetHelpState();
 
 function setRuntime(text, mode = "ready") {
   $.runtimeText.textContent = text;
@@ -463,22 +480,46 @@ function isLikelyXaml(source) {
   return /^<([A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*(?:\s|\/?>)/.test(text);
 }
 
-function assertXamlResponse(content, url) {
-  if (isLikelyXaml(content)) return content;
+function isLikelyJson(source) {
+  const text = String(source ?? "").replace(/^\uFEFF/, "").trim();
+  if (!text || !/^[\[{]/.test(text)) return false;
+  try {
+    const parsed = JSON.parse(text);
+    return Boolean(parsed) && typeof parsed === "object";
+  } catch {
+    return false;
+  }
+}
+
+function responseKind(content) {
   const sample = String(content ?? "").replace(/^\uFEFF/, "").trimStart();
-  const kind = /^[\[{]/.test(sample)
+  return /^[\[{]/.test(sample)
     ? "JSON"
     : /^<!doctype\s+html\b|^<html(?:\s|>)/i.test(sample)
       ? "HTML"
       : sample
         ? "纯文本或其他格式"
         : "空内容";
-  const error = new Error(`无法拉取联网主页：目标地址返回的不是 XAML（${kind}）。\n\n${url}`);
-  error.code = "NOT_XAML";
+}
+
+function assertRemoteResponse(content, url, { expect = "xaml", label = "联网主页" } = {}) {
+  if (expect === "json" ? isLikelyJson(content) : isLikelyXaml(content)) return content;
+  const expected = expect === "json" ? "JSON" : "XAML";
+  const error = new Error(
+    `无法拉取${label}：目标地址返回的不是 ${expected}（${responseKind(content)}）。\n\n${url}`
+  );
+  error.code = expect === "json" ? "NOT_JSON" : "NOT_XAML";
   throw error;
 }
 
-async function fetchRemoteXaml(url, { uaCandidates = getProxyUaCandidates(state.ua) } = {}) {
+async function fetchRemoteText(
+  url,
+  {
+    uaCandidates = getProxyUaCandidates(state.ua),
+    expect = "xaml",
+    label = "联网主页"
+  } = {}
+) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 22000);
   let proxyError = null;
@@ -488,7 +529,7 @@ async function fetchRemoteXaml(url, { uaCandidates = getProxyUaCandidates(state.
         try {
           const content = await fetchViaProxy(url, controller.signal, ua);
           try {
-            return assertXamlResponse(content, url);
+            return assertRemoteResponse(content, url, { expect, label });
           } catch (error) {
             if (error.name === "AbortError") throw error;
             proxyError = error;
@@ -509,7 +550,7 @@ async function fetchRemoteXaml(url, { uaCandidates = getProxyUaCandidates(state.
       proxyError.code === "PROXY_HTML";
     if (!canFallbackToDirect) {
       throw new Error(
-        `无法拉取联网主页：${proxyError.message}\n\n` +
+        `无法拉取${label}：${proxyError.message}\n\n` +
         "请确认地址有效，或检查代理设置是否可用。"
       );
     }
@@ -530,19 +571,23 @@ async function fetchRemoteXaml(url, { uaCandidates = getProxyUaCandidates(state.
           : `代理请求失败（${proxyError.message}）。`
         : "未找到可用的 /api/proxy。";
       throw new Error(
-        `无法拉取联网主页：${error.message}\n\n` +
+        `无法拉取${label}：${error.message}\n\n` +
         proxyHint + "\n" +
         "目标站点未开放 CORS 时，需要可用的服务端代理（例如 Vercel Function /api/proxy），" +
         "或运行 node server.js 使用本地代理。"
       );
     }
-    return assertXamlResponse(directContent, url);
+    return assertRemoteResponse(directContent, url, { expect, label });
   } catch (error) {
     if (error.name === "AbortError") throw new Error("请求超时（22 秒）。");
     throw error;
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+async function fetchRemoteXaml(url, options = {}) {
+  return fetchRemoteText(url, { ...options, expect: "xaml" });
 }
 
 
@@ -642,6 +687,86 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     if (network) shell.setLoading(false);
     $.renderBtn.disabled = false;
   }
+}
+
+function renderHelpEntry(entry) {
+  if (!entry) return;
+  helpRenderer.render(entry.xaml);
+  shell.showHelpPage(entry.title);
+  if ($.helpScroll) $.helpScroll.scrollTop = 0;
+  window.setTimeout(
+    () => document.getElementById("pclSubpageBack")?.focus({ preventScroll: true }),
+    30
+  );
+}
+
+async function openRemoteHelp(raw) {
+  const address = resolveRemoteUrl(String(raw ?? "").trim());
+  const urls = resolveHelpUrls(address);
+  if (!urls) {
+    throw new Error(
+      `这个帮助地址不是可用的 PCL 远程帮助 JSON / XAML 页面。\n\n${address || "（空）"}`
+    );
+  }
+
+  const token = ++helpToken;
+  if (!helpHistory.length) helpReturnFocus = document.activeElement;
+  shell.setLoading(true, "正在打开帮助…");
+  const uaCandidates = getProxyUaCandidates(PCL_FALLBACK_UA);
+  try {
+    const metadata = fetchRemoteText(urls.jsonUrl, {
+      uaCandidates,
+      expect: "json",
+      label: "帮助信息"
+    })
+      .then(source => helpJsonTitle(source, ""))
+      .catch(() => "");
+    const [xaml, metadataTitle] = await Promise.all([
+      fetchRemoteXaml(urls.xamlUrl, { uaCandidates, label: "帮助页面" }),
+      metadata
+    ]);
+    if (token !== helpToken) return "cancelled";
+
+    const entry = {
+      url: urls.xamlUrl,
+      title: metadataTitle || helpTitleFromXaml(xaml),
+      xaml
+    };
+    helpHistory.push(entry);
+    try {
+      renderHelpEntry(entry);
+    } catch (error) {
+      helpHistory.pop();
+      throw error;
+    }
+    return entry.title;
+  } finally {
+    if (token === helpToken) shell.setLoading(false, "");
+  }
+}
+
+function goBackHelp() {
+  if (helpHistory.length > 1) {
+    helpHistory.pop();
+    renderHelpEntry(helpHistory[helpHistory.length - 1]);
+    return;
+  }
+  closeHelp();
+}
+
+function resetHelpState() {
+  helpToken += 1;
+  helpHistory = [];
+  $.helpRoot?.replaceChildren();
+}
+
+function closeHelp() {
+  const focusTarget = helpReturnFocus;
+  helpReturnFocus = null;
+  resetHelpState();
+  shell.closeHelpPage();
+  shell.setLoading(false, "");
+  focusTarget?.focus?.({ preventScroll: true });
 }
 
 function fitStage() {
@@ -871,6 +996,11 @@ function bindUi() {
   });
 
   document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && shell.isHelpPageOpen() && shell.modalLayer.hidden) {
+      event.preventDefault();
+      goBackHelp();
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
       if (document.activeElement === $.codeEditor || !document.querySelector('[data-pane="code"]')?.hidden) {

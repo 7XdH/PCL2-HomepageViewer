@@ -140,6 +140,11 @@ export class PclShell {
     this.homePage = document.getElementById("pclHomePage");
     this.stubPage = document.getElementById("pclStubPage");
     this.stubTitle = document.getElementById("pclStubTitle");
+    this.helpPage = document.getElementById("pclHelpPage");
+    this.titlebarSub = document.getElementById("pclTitlebarSub");
+    this.subpageTitle = document.getElementById("pclSubpageTitle");
+    this.subpageOpen = false;
+    this.subpageBasePage = "Launch";
     this.hintStack = document.getElementById("pclHintStack");
     this.modalLayer = document.getElementById("pclModalLayer");
     this.modalTitle = document.getElementById("pclModalTitle");
@@ -438,6 +443,10 @@ export class PclShell {
     });
     document.getElementById("reopenBtn")?.addEventListener("click", () => this.reopenWindow());
     document.getElementById("pclStubBack")?.addEventListener("click", () => this.switchPage("Launch"));
+    document.getElementById("pclSubpageBack")?.addEventListener("click", event => {
+      event.stopPropagation();
+      this.onSubpageBack?.();
+    });
 
     this.titlebar?.addEventListener("click", event => {
       if (!this.windowEl.classList.contains("is-minimized")) return;
@@ -547,7 +556,53 @@ export class PclShell {
     this.onReopen?.();
   }
 
+  restartPageAnimation(node) {
+    if (!node) return;
+    node.style.animation = "none";
+    void node.offsetWidth;
+    node.style.animation = "";
+  }
+
+  showHelpPage(title = "帮助") {
+    if (!this.subpageOpen) this.subpageBasePage = this.currentPage;
+    this.subpageOpen = true;
+    this.windowEl.classList.add("is-subpage");
+    this.homePage.hidden = true;
+    this.stubPage.hidden = true;
+    if (this.helpPage) {
+      this.helpPage.hidden = false;
+      this.restartPageAnimation(this.helpPage);
+    }
+    if (this.titlebarSub) {
+      this.titlebarSub.hidden = false;
+      this.restartPageAnimation(this.titlebarSub);
+    }
+    if (this.subpageTitle) this.subpageTitle.textContent = String(title || "帮助");
+  }
+
+  dismissSubpage({ notify = true } = {}) {
+    const wasOpen = this.subpageOpen;
+    this.subpageOpen = false;
+    this.windowEl.classList.remove("is-subpage");
+    if (this.helpPage) this.helpPage.hidden = true;
+    if (this.titlebarSub) this.titlebarSub.hidden = true;
+    if (this.subpageTitle) this.subpageTitle.textContent = "";
+    if (wasOpen && notify) this.onSubpageDismiss?.();
+  }
+
+  closeHelpPage() {
+    const page = this.subpageBasePage;
+    this.dismissSubpage({ notify: false });
+    this.subpageBasePage = "Launch";
+    this.switchPage(page);
+  }
+
+  isHelpPageOpen() {
+    return this.subpageOpen;
+  }
+
   switchPage(page, subType = "") {
+    if (this.subpageOpen) this.dismissSubpage({ notify: true });
     const key = PAGE_LABELS[page] ? page : "Launch";
     this.currentPage = key;
     const navPage = NAV_FOR_PAGE[key] || "Launch";
@@ -561,12 +616,10 @@ export class PclShell {
     const isLaunch = key === "Launch";
     this.homePage.hidden = !isLaunch;
     this.stubPage.hidden = isLaunch;
+    if (this.helpPage) this.helpPage.hidden = true;
     if (!isLaunch) {
       this.stubTitle.textContent = PAGE_LABELS[key] || key;
-      const pageNode = this.stubPage;
-      pageNode.style.animation = "none";
-      void pageNode.offsetWidth;
-      pageNode.style.animation = "";
+      this.restartPageAnimation(this.stubPage);
     }
     if (key === "InstanceSetup") {
       this.showHint("版本设置页尚未在网页版中实现。", "Blue");

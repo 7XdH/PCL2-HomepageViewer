@@ -2,6 +2,12 @@ import { PclRenderer } from "../js/renderer.js";
 import { PclRuntime } from "../js/runtime.js";
 import { substitutePlaceholders } from "../js/xaml.js";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../js/ua.js";
+import {
+  resolveHelpUrls,
+  resolveHelpXamlUrl,
+  helpJsonTitle,
+  helpTitleFromXaml
+} from "../js/help.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -165,6 +171,73 @@ export async function runRegression() {
       throw new Error(`内联预设没有正确激活：${source}`);
     }
     return { total, filtered: filtered.length };
+  });
+
+  await makeCheck(results, "PCL 帮助页地址与标题", async () => {
+    const jsonUrl = "https://mcnews.meloong.com/VersionArchiveList.json";
+    const urls = resolveHelpUrls(jsonUrl);
+    if (urls?.xamlUrl !== "https://mcnews.meloong.com/VersionArchiveList.xaml") {
+      throw new Error(`JSON 帮助地址没有转换为 XAML：${urls?.xamlUrl || "（空）"}`);
+    }
+    if (urls?.jsonUrl !== jsonUrl) throw new Error(`帮助 JSON 地址被错误改写：${urls?.jsonUrl}`);
+    if (resolveHelpXamlUrl(jsonUrl) !== urls.xamlUrl) throw new Error("resolveHelpXamlUrl 与解析结果不一致");
+
+    const direct = resolveHelpUrls(
+      "https://mcnews.meloong.com/versions/list/wilderness_bound.xaml?x=1"
+    );
+    if (direct?.xamlUrl !== "https://mcnews.meloong.com/versions/list/wilderness_bound.xaml?x=1") {
+      throw new Error(`XAML 帮助地址被错误改写：${direct?.xamlUrl}`);
+    }
+    if (direct?.jsonUrl !== "https://mcnews.meloong.com/versions/list/wilderness_bound.json?x=1") {
+      throw new Error(`XAML 对应 JSON 地址错误：${direct?.jsonUrl}`);
+    }
+    if (resolveHelpXamlUrl("https://mcnews.meloong.com/versions/list/latest") !== "https://mcnews.meloong.com/versions/list/latest.xaml") {
+      throw new Error("无扩展名帮助地址没有补全 .xaml");
+    }
+    if (resolveHelpUrls("帮助/自定义帮助.json") !== null) throw new Error("相对帮助路径不应被当作远程地址");
+
+    const xamlTitle = helpTitleFromXaml('<StackPanel><local:MyCard Title="版本列表">内容</local:MyCard></StackPanel>');
+    if (xamlTitle !== "版本列表") throw new Error(`XAML 帮助标题解析错误：${xamlTitle}`);
+    const jsonTitle = helpJsonTitle('{"Title":"版本历史记录 | 奔赴荒野 | 26.3"}');
+    if (jsonTitle !== "版本历史记录 | 奔赴荒野 | 26.3") throw new Error(`JSON 帮助标题解析错误：${jsonTitle}`);
+
+    const calls = [];
+    harness.runtime.onOpenHelp = async url => calls.push(url);
+    await harness.runtime.handle("打开帮助", jsonUrl);
+    harness.runtime.onOpenHelp = null;
+    if (calls.length !== 1 || calls[0] !== jsonUrl) throw new Error("远程帮助回调没有触发");
+    return { xamlUrl: urls.xamlUrl, title: jsonTitle };
+  });
+
+  await makeCheck(results, "PCL 帮助页页面栈", async () => {
+    const shell = window.__PCL_RENDERER__?.shell;
+    if (!shell?.showHelpPage) throw new Error("找不到 PCL 页面导航接口");
+    const windowEl = document.getElementById("pclWindow");
+    const helpPage = document.getElementById("pclHelpPage");
+    const homePage = document.getElementById("pclHomePage");
+    const titlebarSub = document.getElementById("pclTitlebarSub");
+    const title = document.getElementById("pclSubpageTitle");
+    if (!windowEl || !helpPage || !homePage || !titlebarSub || !title) {
+      throw new Error("帮助页 DOM 结构不完整");
+    }
+
+    shell.showHelpPage("版本列表");
+    await sleep(40);
+    if (!windowEl.classList.contains("is-subpage")) throw new Error("帮助页没有进入子页面状态");
+    if (helpPage.hidden) throw new Error("帮助页仍然隐藏");
+    if (!homePage.hidden) throw new Error("进入帮助页后主页没有隐藏");
+    if (titlebarSub.hidden) throw new Error("子页面标题栏仍然隐藏");
+    if (title.textContent !== "版本列表") throw new Error(`子页面标题错误：${title.textContent}`);
+    const sidebar = document.getElementById("pclSidebar");
+    if (sidebar && getComputedStyle(sidebar).display !== "none") throw new Error("帮助页没有隐藏侧栏");
+
+    document.getElementById("pclSubpageBack")?.click();
+    await sleep(80);
+    if (windowEl.classList.contains("is-subpage")) throw new Error("返回后仍然停留在子页面");
+    if (!helpPage.hidden) throw new Error("返回后帮助页没有隐藏");
+    if (homePage.hidden) throw new Error("返回后主页没有恢复");
+    if (!titlebarSub.hidden) throw new Error("返回后子页面标题栏没有隐藏");
+    return { title: "版本列表" };
   });
 
   await makeCheck(results, "WPF MaxHeight 行高", async () => {

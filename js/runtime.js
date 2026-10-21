@@ -124,10 +124,11 @@ const hashString = value => {
 };
 
 export class PclRuntime {
-  constructor({ shell, onRefresh, onSettingChange }) {
+  constructor({ shell, onRefresh, onSettingChange, onOpenHelp }) {
     this.shell = shell;
     this.onRefresh = onRefresh;
     this.onSettingChange = onSettingChange;
+    this.onOpenHelp = onOpenHelp;
     this.variables = loadJSON(VARIABLES_KEY, {});
     this.settings = loadJSON(SETTINGS_KEY, DEFAULT_SETTINGS);
     this.queue = Promise.resolve();
@@ -318,6 +319,21 @@ export class PclRuntime {
       }
 
       case "打开帮助": {
+        const target = String(raw ?? "").trim();
+        if (/^https?:\/\//i.test(target) && typeof this.onOpenHelp === "function") {
+          try {
+            await this.onOpenHelp(target);
+            return "help";
+          } catch (error) {
+            await this.shell.showModal({
+              title: "打开帮助失败",
+              caption: `无法加载帮助页面：${String(error?.message || error)}\n\n地址：${target}`,
+              buttons: ["确定"],
+              warn: true
+            });
+            return "error";
+          }
+        }
         const choice = await this.shell.showModal({
           title: "打开帮助",
           caption: `网页渲染器没有打包 PCL 的内置帮助文档。\n\n请求的帮助页面：${raw || "（空）"}\n\n可以在 PCL 帮助文档库中查找对应条目。`,

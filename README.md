@@ -223,6 +223,7 @@ Root Directory: 留空
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线；分隔线文字会按内容伸展并自动换行，不再截成省略号。
 - **WPF 行高语义**：遵循默认 `LineStackingStrategy="MaxHeight"`，行框取 `LineHeight` 与字体实际行高的较大值，避免上游 `LineHeight="12"` 配 `FontSize="14"` 时文字重叠；显式 `BlockLineHeight` 仍严格使用指定值。
 - **PCL 自定义事件**：按钮、卡片、列表项、提示条和 `CustomEventCollection` 都会进入同一个顺序事件队列；支持 PCL 标准替换标记。
+- **PCL 帮助页导航**：`打开帮助` 指向远程帮助 JSON 时，会加载同目录同名 `.xaml`，并按 PCL 的 `PageOtherHelpDetail` 方式替换整个页面内容区；标题栏切换为“返回 + 帮助标题”，侧栏隐藏，支持多级进入、逐级返回和返回主页。
 - **安全渲染**：XAML 通过 `DOMParser` 解析，只创建受控 DOM；不执行脚本、不加载 `x:Code`、不打开 `WebBrowser`，并过滤常见危险类型与成员。
 - **联网代理**：运行 `node server.js` 时使用本地 `/api/proxy`；部署到 Vercel 时自动使用 `api/proxy.js`。代理默认 UA 为 `PCL2-Homepage-Viewer`，可通过联网面板、`ua` 参数或 `PCL_PROXY_UA` 环境变量自定义；同时附带 PCL 风格 Referer，支持重定向、gzip / br / deflate，限制 4 MB；文本模式只接受文本 / XAML，`image=1` 模式只接受图片。纯静态部署自动回退到 CORS 直连。
 - **远程图片**：远程图片先直连，失败后自动通过 `/api/proxy?image=1` 代理加载，避免 CORP、防盗链等浏览器限制；静态部署没有代理时仍会回退到直连。
@@ -305,7 +306,7 @@ Root Directory: 留空
 | `打开文件` / `执行命令` | 显示限制说明，可复制路径（不会执行程序） |
 | `导入整合包` / `安装整合包` | 选择文件后显示限制说明 |
 | `下载文件` | 先显示确认弹窗，再交给浏览器下载 |
-| `打开帮助` | 显示说明，可选择打开 PCL 帮助文档库 |
+| `打开帮助` | 远程 PCL 帮助 JSON / XAML 会在 PCL 窗口内以子页面打开，支持多级进入、返回与标题栏返回按钮；本地内置帮助仍显示说明并可打开 PCL 帮助文档库 |
 | `加入房间` | 显示限制说明，可复制房间信息 |
 | `检查更新` | 显示说明，可选择打开 PCL 下载页 |
 | `刷新帮助` | 显示“已刷新”提示 |
@@ -328,7 +329,7 @@ Root Directory: 留空
 
 - 样式只实现 `Setter` 与 `BasedOn`；`Trigger`、`ItemsControl`、通用 `ControlTemplate`（`ContentControl` 分隔线除外）尚未实现。`DataTemplate` 目前只用于解析 `GroupBox` 的 `HeaderTemplate` / `ContentTemplate` 文本模板。
 - 不支持脚本、WPF 动画时间线、3D、媒体与自定义控件。
-- 不支持 PCL 内部的完整页面（下载、联机、设置等），只提供占位页。
+- 不支持 PCL 内部的完整页面（下载、联机、设置等），只提供占位页；`打开帮助` 仅实现远程帮助页，未打包 PCL 的本地帮助文档。
 - `修改设置` 目前只应用 `UiLauncherHue`；透明度、背景模糊等设置会保存并参与 `{setup:...}`，但不会改变渲染外观。
 - 文本换行、字体度量与 WPF 不是逐像素完全相同；已对齐主要尺寸、边距、颜色与字号。
 - 远程主页中的相对图片路径不会自动按远程 URL 解析。
@@ -340,7 +341,8 @@ index.html                 工具外壳 + 850 × 500 PCL 预览
 css/pcl-theme.css          PCL 窗口、标题栏、侧栏、滚动条、提示、弹窗
 css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
-js/app.js                  来源管理、预设、渲染流程、快捷键
+js/app.js                  来源管理、预设、帮助页导航、渲染流程、快捷键
+js/help.js                 PCL 帮助页地址解析与标题提取
 js/pcl-presets.js          PCL2 25 个预设清单（UI 与测试共用）
 js/xaml.js                 XAML 解析、替换标记、安全过滤
 js/renderer.js             WPF / PCL 控件到 DOM 的渲染器

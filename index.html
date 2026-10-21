@@ -7,7 +7,7 @@
   <meta name="description" content="第三方独立作品：在浏览器中渲染 Plain Craft Launcher (PCL) 自定义主页 XAML，并兼容其控件、属性与自定义事件。">
   <title>Plain Craft Launcher (PCL) Homepage Viewer（第三方）</title>
   <link rel="icon" href="assets/pcl/images/icon.ico">
-  <link rel="stylesheet" href="css/pcl-theme.css?v=20261021i">
+  <link rel="stylesheet" href="css/pcl-theme.css?v=20261021n">
   <link rel="stylesheet" href="css/xaml.css?v=20261021l">
   <link rel="stylesheet" href="css/app.css?v=20261021j">
 </head>
@@ -252,6 +252,12 @@
                   <span>更多</span>
                 </button>
               </nav>
+              <div class="pcl-titlebar__sub" id="pclTitlebarSub" hidden>
+                <button class="pcl-subpage__back" id="pclSubpageBack" type="button" title="返回" aria-label="返回">
+                  <svg viewBox="0 0 1170 1024" aria-hidden="true"><path d="M1097 584 250 584 562 896C591 925 591 972 562 1001 533 1030 487 1030 458 1001L21 565C6 550-0 531 0 511L0 511 0 511C-0 492 6 472 21 457L458 21C487-7 533-7 562 21 591 50 591 97 562 126L250 438 1097 438C1137 438 1170 471 1170 511 1170 551 1137 584 1097 584L1097 584Z" fill="currentColor"/></svg>
+                </button>
+                <span class="pcl-subpage__title" id="pclSubpageTitle"></span>
+              </div>
               <div class="pcl-titlebar__controls">
                 <button class="pcl-window-button" id="winMinBtn" type="button" title="最小化" aria-label="最小化">
                   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -321,6 +327,12 @@
                     <h2 class="pcl-stub-card__title" id="pclStubTitle">下载</h2>
                     <p class="pcl-stub-card__text">本工具只渲染“启动”页中的自定义主页，没有实现 PCL 的其他页面。</p>
                     <button class="pcl-stub-card__button" id="pclStubBack" type="button">返回自定义主页</button>
+                  </div>
+                </div>
+
+                <div class="pcl-page pcl-help-page" id="pclHelpPage" hidden>
+                  <div class="pcl-scroll pcl-help-scroll" id="pclHelpScroll">
+                    <div class="pcl-help-root" id="pclHelpRoot"></div>
                   </div>
                 </div>
               </section>
@@ -398,7 +410,7 @@
     })();
   </script>
 
-  <script type="module" src="js/app.js?v=20261021k"></script>
+  <script type="module" src="js/app.js?v=20261021n"></script>
 </body>
 </html>
 
