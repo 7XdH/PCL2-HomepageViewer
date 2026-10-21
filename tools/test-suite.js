@@ -125,6 +125,48 @@ export async function runRegression() {
     return rows;
   });
 
+  await makeCheck(results, "PCL2 预设面板", async () => {
+    const list = document.getElementById("pclPresetList");
+    const search = document.getElementById("pclPresetSearch");
+    if (!list || !search) throw new Error("找不到 PCL2 预设面板");
+    const total = list.querySelectorAll("[data-preset]").length;
+    if (total !== PCL_PRESETS.length) {
+      throw new Error(`预设数量错误：${total}，期望 ${PCL_PRESETS.length}`);
+    }
+    if (!list.querySelector(".preset-state--blocked")) throw new Error("安全阻止状态没有显示");
+    if (!list.querySelector(".preset-state--warn")) throw new Error("上游不可用状态没有显示");
+
+    search.value = "天气";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    await sleep(60);
+    const filtered = [...list.querySelectorAll("[data-preset]")];
+    if (filtered.length !== 1 || !filtered[0].textContent.includes("Weather")) {
+      throw new Error(`搜索结果不正确：${filtered.map(item => item.textContent.trim()).join(" | ")}`);
+    }
+
+    search.value = "";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    await sleep(60);
+    if (list.querySelectorAll("[data-preset]").length !== PCL_PRESETS.length) {
+      throw new Error("清空搜索后没有恢复完整列表");
+    }
+
+    const inline = list.querySelector('[data-preset="pcl2-0"]');
+    if (!inline) throw new Error("找不到内联预设 #00");
+    inline.click();
+    const started = Date.now();
+    let source = "";
+    while (Date.now() - started < 3000) {
+      source = document.getElementById("sourceLabel")?.textContent || "";
+      if (source.includes("PCL2") && inline.classList.contains("is-active")) break;
+      await sleep(50);
+    }
+    if (!source.includes("PCL2 · 你知道吗") || !inline.classList.contains("is-active")) {
+      throw new Error(`内联预设没有正确激活：${source}`);
+    }
+    return { total, filtered: filtered.length };
+  });
+
   await makeCheck(results, "GroupBox 与 UniformGrid", async () => {
     const xaml = `
       <StackPanel>

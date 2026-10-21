@@ -9,7 +9,7 @@
   <link rel="icon" href="assets/pcl/images/icon.ico">
   <link rel="stylesheet" href="css/pcl-theme.css?v=20261021i">
   <link rel="stylesheet" href="css/xaml.css?v=20261020e">
-  <link rel="stylesheet" href="css/app.css?v=20261021h">
+  <link rel="stylesheet" href="css/app.css?v=20261021j">
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -142,6 +142,21 @@
               <span class="preset-item__arrow" aria-hidden="true">→</span>
             </button>
           </div>
+
+          <div class="preset-subheading">
+            <span>PCL2 启动器预设</span>
+            <span class="preset-subheading__count" id="pclPresetCount">25 个</span>
+          </div>
+          <div class="preset-toolbar">
+            <input class="preset-search" id="pclPresetSearch" type="search" spellcheck="false"
+                   autocomplete="off" aria-label="搜索 PCL2 预设" placeholder="搜索名称或域名">
+          </div>
+          <div class="preset-list preset-list--online" id="pclPresetList" aria-label="PCL2 启动器在线预设"></div>
+          <p class="preset-empty" id="pclPresetEmpty" hidden>没有匹配的预设</p>
+          <p class="field-note preset-note">
+            这 25 项来自 PCL2 启动器内置主页列表。在线项会优先使用 <code>PCL2/2.99.0.0</code> UA；
+            标记为“上游可能不可用”的站点可能已经下线。纯静态部署只能加载允许跨域的源。
+          </p>
         </section>
 
         <section class="panel-section panel-section--about">
@@ -383,7 +398,7 @@
     })();
   </script>
 
-  <script type="module" src="js/app.js?v=20261021h"></script>
+  <script type="module" src="js/app.js?v=20261021j"></script>
 </body>
 </html>
 

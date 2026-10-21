@@ -3,15 +3,40 @@ import { PclRenderer } from "./renderer.js?v=20261021e";
 import { PclRuntime } from "./runtime.js?v=20261021c";
 import { PclShell } from "./shell.js?v=20261021c";
 import { substitutePlaceholders } from "./xaml.js?v=20261021c";
-import { getProxyUaCandidates } from "./ua.js?v=20261021e";
+import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js?v=20261021e";
+import { PCL2_PRESETS } from "./pcl-presets.js?v=20261021j";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
-const PRESETS = {
+const LOCAL_PRESETS = {
   tutorial: { title: "PCL 原版教程", path: "assets/presets/tutorial.xaml" },
   gallery: { title: "控件画廊", path: "assets/presets/gallery.xaml" },
   events: { title: "事件测试台", path: "assets/presets/events.xaml" },
   hint: { title: "你知道吗", path: "assets/presets/hint.xaml" }
+};
+
+const PRESETS = {
+  ...LOCAL_PRESETS,
+  ...Object.fromEntries(
+    PCL2_PRESETS.map(preset => [
+      `pcl2-${preset.id}`,
+      {
+        title: preset.name,
+        kind: preset.kind || "remote",
+        url: preset.url || "",
+        xaml: preset.xaml || "",
+        expected: preset.expected,
+        pclId: preset.id
+      }
+    ])
+  )
+};
+
+const PCL2_OK_COUNT = PCL2_PRESETS.filter(preset => preset.expected === "ok").length;
+const PCL_PRESET_STATES = {
+  ok: { label: "通常可用", className: "ok", hint: "按 PCL2 UA 拉取，已知可以正常渲染。" },
+  unavailable: { label: "上游可能不可用", className: "warn", hint: "上游站点可能已下线；点击后仍会尝试拉取。" },
+  blocked: { label: "会被安全阻止", className: "blocked", hint: "上游主页包含 x:Static 或 x:Code，渲染器会拒绝执行。" }
 };
 
 const FALLBACK_XAML = `
@@ -59,6 +84,10 @@ const $ = {
   codeLines: el("codeLines"),
   varChips: el("varChips"),
   presetList: el("presetList"),
+  pclPresetList: el("pclPresetList"),
+  pclPresetSearch: el("pclPresetSearch"),
+  pclPresetCount: el("pclPresetCount"),
+  pclPresetEmpty: el("pclPresetEmpty"),
   eventText: el("eventText"),
   eventCount: el("eventCount"),
   helpBtn: el("helpBtn"),
@@ -175,9 +204,77 @@ function setActiveTab(tab) {
 }
 
 function setPresetActive(id) {
-  for (const button of $.presetList?.querySelectorAll("[data-preset]") || []) {
+  for (const button of document.querySelectorAll("#presetList [data-preset], #pclPresetList [data-preset]")) {
     button.classList.toggle("is-active", button.dataset.preset === id);
   }
+}
+
+function pclPresetHost(preset) {
+  if (!preset.url) return "内置 XAML";
+  return preset.url.replace(/^https?:\/\//i, "").split(/[/?#]/)[0];
+}
+
+function renderPclPresets(filter = "") {
+  if (!$.pclPresetList) return;
+  const query = filter.trim().toLowerCase();
+  const items = PCL2_PRESETS.filter(preset => {
+    const info = preset.kind === "inline"
+      ? { label: "内置内容" }
+      : PCL_PRESET_STATES[preset.expected] || PCL_PRESET_STATES.unavailable;
+    const haystack = `${preset.name} ${preset.url || ""} ${info.label}`.toLowerCase();
+    return !query || haystack.includes(query);
+  });
+
+  $.pclPresetList.replaceChildren();
+  for (const preset of items) {
+    const key = `pcl2-${preset.id}`;
+    const info = preset.kind === "inline"
+      ? { label: "内置内容", className: "inline", hint: "直接使用内置 XAML，无需联网。" }
+      : PCL_PRESET_STATES[preset.expected] || PCL_PRESET_STATES.unavailable;
+    const host = pclPresetHost(preset);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `preset-item preset-item--pcl preset-item--${info.className}`;
+    button.dataset.preset = key;
+    button.title = `${preset.name}\n${preset.url || "内置 XAML"}\n${info.hint}`;
+    button.setAttribute("aria-label", `${preset.name}，${info.label}`);
+
+    const glyph = document.createElement("span");
+    glyph.className = "preset-item__glyph";
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.textContent = String(preset.id).padStart(2, "0");
+
+    const body = document.createElement("span");
+    body.className = "preset-item__body";
+    const strong = document.createElement("strong");
+    strong.textContent = preset.name;
+    const small = document.createElement("small");
+    const hostSpan = document.createElement("span");
+    hostSpan.className = "preset-host";
+    hostSpan.textContent = host;
+    const stateSpan = document.createElement("span");
+    stateSpan.className = `preset-state preset-state--${info.className}`;
+    stateSpan.textContent = info.label;
+    small.append(hostSpan, stateSpan);
+    body.append(strong, small);
+
+    const arrow = document.createElement("span");
+    arrow.className = "preset-item__arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = "→";
+
+    button.append(glyph, body, arrow);
+    $.pclPresetList.append(button);
+  }
+
+  if ($.pclPresetEmpty) $.pclPresetEmpty.hidden = items.length > 0;
+  if ($.pclPresetCount) {
+    $.pclPresetCount.textContent = query
+      ? `${items.length}/${PCL2_PRESETS.length} 个`
+      : `${PCL2_PRESETS.length} 个 · ${PCL2_OK_COUNT} 可渲染`;
+  }
+  setPresetActive(state.mode === "preset" ? state.preset : null);
 }
 
 function updateLineNumbers() {
@@ -204,7 +301,8 @@ function updateFileMeta() {
   } else if (state.mode === "url" && state.url) {
     $.fileMeta.textContent = `联网来源 · ${state.url.replace(/^https?:\/\//, "").slice(0, 46)}`;
   } else if (state.mode === "preset") {
-    $.fileMeta.textContent = `预设 · ${PRESETS[state.preset]?.title || "未知"}`;
+    const preset = PRESETS[state.preset];
+    $.fileMeta.textContent = `${preset?.url ? "在线预设" : "预设"} · ${preset?.title || "未知"}`;
   } else {
     $.fileMeta.textContent = "尚未选择文件";
   }
@@ -212,17 +310,33 @@ function updateFileMeta() {
 
 async function loadPreset(id, { force = false } = {}) {
   const preset = PRESETS[id] || PRESETS.tutorial;
-  if (!force && presetCache.has(id)) return presetCache.get(id);
+  const cacheKey = PRESETS[id] ? id : "tutorial";
+  if (preset.kind === "inline") return preset.xaml;
+
+  if (preset.url) {
+    if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
+    try {
+      const text = await fetchRemoteXaml(resolveRemoteUrl(preset.url), {
+        uaCandidates: getProxyUaCandidates(PCL_FALLBACK_UA)
+      });
+      presetCache.set(cacheKey, text);
+      return text;
+    } catch (error) {
+      throw new Error(`无法加载 PCL2 预设「${preset.title}」：${error.message}`);
+    }
+  }
+
+  if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
   try {
     const response = await fetch(preset.path, { cache: force ? "no-store" : "no-cache" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     if (!text.trim()) throw new Error("预设内容为空");
-    presetCache.set(id, text);
+    presetCache.set(cacheKey, text);
     return text;
   } catch (error) {
     if (location.protocol === "file:") {
-      presetCache.set(id, FALLBACK_XAML);
+      presetCache.set(cacheKey, FALLBACK_XAML);
       return FALLBACK_XAML;
     }
     throw new Error(`无法加载预设「${preset.title}」：${error.message}`);
@@ -364,13 +478,13 @@ function assertXamlResponse(content, url) {
   throw error;
 }
 
-async function fetchRemoteXaml(url) {
+async function fetchRemoteXaml(url, { uaCandidates = getProxyUaCandidates(state.ua) } = {}) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 22000);
   let proxyError = null;
   try {
     if (location.protocol === "http:" || location.protocol === "https:") {
-      for (const ua of getProxyUaCandidates(state.ua)) {
+      for (const ua of uaCandidates) {
         try {
           const content = await fetchViaProxy(url, controller.signal, ua);
           try {
@@ -459,11 +573,15 @@ async function resolveCurrentContent({ forceRemote = false } = {}) {
     if (!state.urlContent.trim()) throw new Error("联网主页返回了空内容。");
     return state.urlContent;
   }
-  return loadPreset(state.preset);
+  return loadPreset(state.preset, { force: forceRemote });
 }
 
 function sourceLabel() {
-  if (state.mode === "preset") return PRESETS[state.preset]?.title || "PCL 预设";
+  if (state.mode === "preset") {
+    const preset = PRESETS[state.preset];
+    if (!preset) return "PCL 预设";
+    return preset.pclId == null ? preset.title : `PCL2 · ${preset.title}`;
+  }
   if (state.mode === "file") return state.fileName || "本地 XAML";
   if (state.mode === "url") return state.url.replace(/^https?:\/\//, "") || "联网主页";
   return "内联源码";
@@ -471,10 +589,16 @@ function sourceLabel() {
 
 async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
   const token = ++renderToken;
+  const activePreset = state.mode === "preset" ? PRESETS[state.preset] : null;
+  const remotePreset = Boolean(activePreset?.url);
   setRuntime(reason === "initial" ? "正在加载" : "正在渲染", "busy");
   $.renderBtn.disabled = true;
-  let network = state.mode === "url" && (!state.urlContent || forceRemote);
-  if (network) shell.setLoading(true, "正在拉取联网主页…");
+  const network =
+    (state.mode === "url" && (!state.urlContent || forceRemote)) ||
+    (remotePreset && (forceRemote || !presetCache.has(state.preset)));
+  if (network) {
+    shell.setLoading(true, remotePreset ? `正在拉取 PCL2 预设「${activePreset.title}」…` : "正在拉取联网主页…");
+  }
 
   try {
     const content = await resolveCurrentContent({ forceRemote });
@@ -501,12 +625,13 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     $.renderStats.textContent = "渲染失败";
     $.renderStats.title = error.message || String(error);
     shell.setLoading(false);
-    const networkFailure = state.mode === "url" && String(error.message || error).startsWith("无法拉取联网主页");
+    const message = String(error.message || error);
+    const networkFailure = (state.mode === "url" || remotePreset) && message.includes("无法拉取联网主页");
     shell.showModal({
-      title: networkFailure ? "联网主页加载失败" : "加载主页失败",
+      title: networkFailure ? (remotePreset ? "PCL2 预设加载失败" : "联网主页加载失败") : "加载主页失败",
       caption: networkFailure
-        ? String(error.message || error)
-        : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${error.message || error}`,
+        ? message
+        : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${message}`,
       buttons: ["重试", "取消"],
       warn: true
     }).then(choice => {
@@ -554,12 +679,18 @@ function fitStage() {
 
 
 async function loadPresetAndRender(id) {
-  if (!PRESETS[id]) return;
+  const preset = PRESETS[id];
+  if (!preset) return;
   state.mode = "preset";
   state.preset = id;
   codeDirty = false;
   setPresetActive(id);
-  setActiveTab("file");
+  if (preset.url) {
+    $.urlInput.value = preset.url;
+    setActiveTab("url");
+  } else {
+    setActiveTab("file");
+  }
   updateFileMeta();
   await renderCurrent({ reason: "preset" });
 }
@@ -721,6 +852,11 @@ function bindUi() {
   for (const button of $.presetList?.querySelectorAll("[data-preset]") || []) {
     button.addEventListener("click", () => loadPresetAndRender(button.dataset.preset));
   }
+  $.pclPresetSearch?.addEventListener("input", () => renderPclPresets($.pclPresetSearch.value));
+  $.pclPresetList?.addEventListener("click", event => {
+    const button = event.target.closest?.("[data-preset]");
+    if (button) loadPresetAndRender(button.dataset.preset);
+  });
 
   $.renderBtn?.addEventListener("click", () => renderCurrent({ reason: "manual" }));
   $.refreshBtn?.addEventListener("click", () => renderCurrent({ reason: "refresh", forceRemote: true }));
@@ -826,6 +962,7 @@ async function init() {
     setActiveTab("file");
   }
   $.uaInput.value = state.ua;
+  renderPclPresets();
   setPresetActive(state.mode === "preset" ? state.preset : null);
   updateFileMeta();
   bindUi();

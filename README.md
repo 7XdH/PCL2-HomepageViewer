@@ -29,7 +29,7 @@ node server.js
 测试使用本地 `server.js` 和已安装的 Edge / Chrome，通过 CDP pipe 运行，不需要额外 npm 依赖。
 
 ```powershell
-npm test              # 本地预设、GroupBox/UniformGrid、替换标记回归
+npm test              # 本地预设、PCL2 预设面板、GroupBox/UniformGrid、替换标记回归
 npm run test:presets  # PCL 25 个预设批量验收（需要联网）
 npm run test:all      # 同时运行以上两项
 ```
@@ -45,7 +45,7 @@ npm test
 
 ## 部署到静态托管
 
-可以以前端静态方式部署到 GitHub Pages、Netlify、Vercel。核心渲染、预设、本地文件与源码编辑都不依赖后端；只有“联网 URL”的代理能力需要服务器。
+可以以前端静态方式部署到 GitHub Pages、Netlify、Vercel。核心渲染、四个内置预设、本地文件与源码编辑都不依赖后端；PCL2 在线预设与“联网 URL”一样，需要可用的 `/api/proxy`，纯静态部署只能访问允许 CORS 的源。
 
 ```powershell
 npm run build
@@ -216,7 +216,8 @@ Root Directory: 留空
 ## 功能
 
 - **三种来源**：本地 `.xaml` 文件（拖拽或 Ctrl+O）、联网 URL、直接编辑 XAML 源码。
-- **四个预设**：PCL 原版教程、控件画廊、事件测试台、替换标记示例。
+- **四个内置预设**：PCL 原版教程、控件画廊、事件测试台、替换标记示例。
+- **PCL2 预设面板**：接入 PCL2 启动器内置的 25 个主页预设，支持搜索名称 / 域名，标注“通常可用 / 上游可能不可用 / 会被安全阻止”；在线项优先使用 `PCL2/2.99.0.0` UA，并在内存中缓存，刷新按钮可强制重新拉取。
 - **1:1 PCL 外观**：850 × 500 窗口、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。
 - **资源与样式**：支持 `StackPanel.Resources` 中的 `sys:String`、`Style` 与 `{StaticResource}` / `{DynamicResource}` 字符串引用，包含隐式样式、显式 `Style`、`BasedOn` 和 `Setter`。
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线。
@@ -339,6 +340,7 @@ css/pcl-theme.css          PCL 窗口、标题栏、侧栏、滚动条、提示�
 css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
 js/app.js                  来源管理、预设、渲染流程、快捷键
+js/pcl-presets.js          PCL2 25 个预设清单（UI 与测试共用）
 js/xaml.js                 XAML 解析、替换标记、安全过滤
 js/renderer.js             WPF / PCL 控件到 DOM 的渲染器
 js/runtime.js              自定义事件引擎
@@ -353,7 +355,7 @@ tools/generate-assets.mjs  重新生成 js/assets.js
 tools/build-static.mjs     构建 dist/ 静态站点
 tools/regression.mjs       启动临时服务器和浏览器的测试运行器
 tools/test-suite.js        浏览器内回归与批量验收逻辑
-tools/pcl-presets.mjs      PCL 25 个预设清单
+tools/pcl-presets.mjs      测试侧的 PCL2 预设清单转发
 netlify.toml               Netlify 构建与发布配置
 vercel.json                Vercel 构建与发布配置
 .github/workflows/         GitHub Pages 自动部署
@@ -375,7 +377,7 @@ node tools/generate-assets.mjs
 
 欢迎提交 Issue 或 Pull Request。提交前请：
 
-1. 运行 `npm start`，确认四个预设均可正常渲染；
+1. 运行 `npm start`，确认四个内置预设和 PCL2 预设面板均可正常使用；
 2. 检查浏览器控制台无新增错误；
 3. 不要提交 PCL 官方未公开素材、账号凭据或本地缓存；
 4. 保持 PCL 风格的尺寸、颜色与事件语义。
