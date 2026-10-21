@@ -1073,7 +1073,7 @@ function bindUi() {
 
 
 async function init() {
-  window.__PCL_RENDERER__ = { renderer, runtime, shell, theme, renderCurrent, state };
+  window.__PCL_RENDERER__ = { renderer, runtime, shell, theme, renderCurrent, state, ready: false };
   updateVariables(runtime.variables);
 
   const restored = restoreSourceState();
@@ -1098,6 +1098,7 @@ async function init() {
   bindUi();
 
   await renderCurrent({ reason: "initial" });
+  window.__PCL_RENDERER__.ready = true;
   requestAnimationFrame(() => fitStage());
 
   if ("ResizeObserver" in window) {
