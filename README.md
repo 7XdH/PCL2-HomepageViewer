@@ -219,7 +219,7 @@ Root Directory: 留空
 
 ### WPF 布局与绘图
 
-`StackPanel`、`Grid`（含行列定义、`Grid.Row` / `Grid.Column` / Span）、`WrapPanel`、`Canvas`、`Border`、`ScrollViewer`、`Viewbox`、`TextBlock`（含 `Run` / `Bold` / `Italic` / `Underline` / `Span` / `Hyperlink` / `LineBreak`）、`Image`、`Path`、`Rectangle`、`Ellipse`、`Line`、`Polygon`、`Polyline`。
+`StackPanel`、`Grid`（含行列定义、`Grid.Row` / `Grid.Column` / Span）、`UniformGrid`（`Rows` / `Columns` / `FirstColumn`）、`WrapPanel`、`Canvas`、`Border`、`ScrollViewer`、`Viewbox`、`GroupBox`（含 `HeaderTemplate` / `ContentTemplate` 文本模板）、`TextBlock`（含 `Run` / `Bold` / `Italic` / `Underline` / `Span` / `Hyperlink` / `LineBreak`）、`Image`、`Path`、`Rectangle`、`Ellipse`、`Line`、`Polygon`、`Polyline`。
 
 文档流控件：`FlowDocumentScrollViewer`、`FlowDocument`、`Paragraph`、`Section`、`List`、`ListItem`、`ContentControl`（分隔线模板）与行内代码 `TextBox`。
 
@@ -287,7 +287,7 @@ Root Directory: 留空
 
 ## 已知限制
 
-- 样式只实现 `Setter` 与 `BasedOn`；`Trigger`、`DataTemplate`、`ItemsControl`、`ControlTemplate`（`ContentControl` 分隔线除外）尚未实现。
+- 样式只实现 `Setter` 与 `BasedOn`；`Trigger`、`ItemsControl`、通用 `ControlTemplate`（`ContentControl` 分隔线除外）尚未实现。`DataTemplate` 目前只用于解析 `GroupBox` 的 `HeaderTemplate` / `ContentTemplate` 文本模板。
 - 不支持脚本、WPF 动画时间线、3D、媒体与自定义控件。
 - 不支持 PCL 内部的完整页面（下载、联机、设置等），只提供占位页。
 - `修改设置` 目前只应用 `UiLauncherHue`；透明度、背景模糊等设置会保存并参与 `{setup:...}`，但不会改变渲染外观。

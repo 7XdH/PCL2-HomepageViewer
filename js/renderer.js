@@ -285,6 +285,70 @@ export class PclRenderer {
     return this.resources.get(match[1].trim()) || null;
   }
 
+  resolveStyleFor(element) {
+    const styleRef = attributeValue(element, "Style");
+    return this.resolveStyleElement(styleRef) || this.implicitStyles.get(tagName(element).toLowerCase()) || null;
+  }
+
+  findStyleTemplate(style, propertyName) {
+    if (!style) return null;
+    const wanted = String(propertyName).toLowerCase();
+    const setters = [];
+    for (const child of style.children) {
+      if (tagName(child) === "Setter") {
+        setters.push(child);
+      } else if (isPropertyElement(child) && propertyElementName(child).toLowerCase() === "setters") {
+        for (const setter of child.children) {
+          if (tagName(setter) === "Setter") setters.push(setter);
+        }
+      }
+    }
+
+    for (const setter of setters) {
+      if (String(attributeValue(setter, "Property") || "").toLowerCase() !== wanted) continue;
+      const referenced = this.resolveResourceElement(attributeValue(setter, "Value"));
+      if (referenced && tagName(referenced) === "DataTemplate") return referenced;
+      const valueProperty = findPropertyElement(setter, "Value");
+      const template = valueProperty?.children?.[0];
+      if (template) return template;
+    }
+    return null;
+  }
+
+  resolveTemplate(element, props, propertyName) {
+    const referenced = this.resolveResourceElement(getProp(props, propertyName));
+    if (referenced && tagName(referenced) === "DataTemplate") return referenced;
+
+    const direct = findPropertyElement(element, propertyName);
+    const template = direct?.children?.[0];
+    if (template) return template;
+
+    const seen = new Set();
+    let style = this.resolveStyleFor(element);
+    while (style && !seen.has(style)) {
+      seen.add(style);
+      const found = this.findStyleTemplate(style, propertyName);
+      if (found) return found;
+      style = this.resolveStyleElement(attributeValue(style, "BasedOn"));
+    }
+    return null;
+  }
+
+  findTemplateTextBlock(template) {
+    if (!template) return null;
+    if (tagName(template) === "TextBlock") return template;
+    return Array.from(template.querySelectorAll("*")).find(node => tagName(node) === "TextBlock") || null;
+  }
+
+  buildTemplateText(template, text, className, layoutKind) {
+    const textBlock = this.findTemplateTextBlock(template);
+    if (!textBlock) return null;
+    const node = this.buildTextBlock(textBlock, { kind: layoutKind });
+    node.classList.add(className);
+    node.textContent = text ?? "";
+    return node;
+  }
+
   hasAttribute(element, name) {
     const wanted = String(name).toLowerCase();
     return Array.from(element.attributes).some(attribute => attribute.name.toLowerCase() === wanted);
@@ -354,8 +418,10 @@ export class PclRenderer {
       case "StackPanel": return this.buildStackPanel(element, layout);
       case "WrapPanel": return this.buildWrapPanel(element, layout);
       case "Grid": return this.buildGrid(element, layout);
+      case "UniformGrid": return this.buildUniformGrid(element, layout);
       case "Canvas": return this.buildCanvas(element, layout);
       case "Border": return this.buildBorder(element, layout);
+      case "GroupBox": return this.buildGroupBox(element, layout);
       case "ScrollViewer": return this.buildScrollViewer(element, layout);
       case "Viewbox": return this.buildViewbox(element, layout);
       case "TextBlock": return this.buildTextBlock(element, layout);
@@ -449,6 +515,7 @@ export class PclRenderer {
         node.style.alignSelf = h;
         break;
       case "grid":
+      case "uniformgrid":
         node.style.justifySelf = h;
         node.style.alignSelf = v;
         break;
@@ -688,6 +755,144 @@ export class PclRenderer {
       childNode.style.gridRow = `${row + 1} / span ${rowSpan}`;
       node.append(childNode);
     }
+    this.bindEvents(node, element);
+    return node;
+  }
+
+  buildUniformGrid(element, layout) {
+    const props = readProps(element);
+    const children = directContentChildren(element);
+    const node = document.createElement("div");
+    node.className = "pcl-uniformgrid";
+    node.dataset.pclType = "UniformGrid";
+    this.count(node);
+
+    const count = children.length;
+    const firstColumn = Math.max(0, Math.trunc(parseDouble(getProp(props, "FirstColumn"), 0)));
+    let columns = Math.max(0, Math.trunc(parseDouble(getProp(props, "Columns"), 0)));
+    let rows = Math.max(0, Math.trunc(parseDouble(getProp(props, "Rows"), 0)));
+
+    if (count > 0) {
+      if (columns === 0 && rows === 0) {
+        columns = Math.ceil(Math.sqrt(count));
+        rows = Math.ceil((count + firstColumn) / columns);
+      } else if (columns === 0) {
+        columns = Math.max(1, Math.ceil((count + firstColumn) / rows));
+      } else if (rows === 0) {
+        rows = Math.max(1, Math.ceil((count + firstColumn) / columns));
+      }
+    } else {
+      columns = Math.max(1, columns);
+      rows = Math.max(1, rows);
+    }
+
+    node.style.gridTemplateColumns = `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`;
+    node.style.gridTemplateRows = `repeat(${Math.max(1, rows)}, minmax(0, 1fr))`;
+    node.style.gridAutoFlow = "row";
+
+    const background = resolveColor(getProp(props, "Background"));
+    if (background) node.style.background = background;
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+
+    children.forEach((child, index) => {
+      const childNode = this.buildNode(child, { kind: "uniformgrid" });
+      if (!childNode) return;
+      if (index === 0 && firstColumn > 0) childNode.style.gridColumnStart = String(firstColumn + 1);
+      node.append(childNode);
+    });
+    this.bindEvents(node, element);
+    return node;
+  }
+
+  buildGroupBox(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-groupbox";
+    node.dataset.pclType = "GroupBox";
+    this.count(node);
+
+    const background = resolveColor(getProp(props, "Background"));
+    if (background) node.style.background = background;
+    const borderBrush = resolveColor(getProp(props, "BorderBrush"));
+    if (borderBrush) node.style.setProperty("--groupbox-border", borderBrush);
+    const borderThickness = parseThickness(getProp(props, "BorderThickness"));
+    if (borderThickness) {
+      const visible = Math.max(borderThickness.l, borderThickness.t, borderThickness.r, borderThickness.b) > 0;
+      if (visible) {
+        node.style.borderStyle = "solid";
+        node.style.borderWidth = `${borderThickness.t}px ${borderThickness.r}px ${borderThickness.b}px ${borderThickness.l}px`;
+      } else {
+        node.style.border = "0";
+      }
+    }
+    const padding = parseThickness(getProp(props, "Padding"));
+    if (padding) node.style.padding = padding.css;
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+
+    let header = getProp(props, "Header");
+    if (header == null) {
+      const headerProperty = findPropertyElement(element, "Header");
+      if (headerProperty) header = headerProperty.textContent.trim();
+    }
+    if (header != null) {
+      const headerNode = document.createElement("div");
+      headerNode.className = "pcl-groupbox__header";
+      const templated = this.buildTemplateText(
+        this.resolveTemplate(element, props, "HeaderTemplate"),
+        header,
+        "pcl-groupbox__header-text",
+        "groupbox"
+      );
+      if (templated) headerNode.append(templated);
+      else headerNode.textContent = header;
+      node.append(headerNode);
+    }
+
+    const contentProperty = findPropertyElement(element, "Content");
+    const contentSource = contentProperty || element;
+    const contentChildren = directContentChildren(contentSource);
+    let contentText = getProp(props, "Content");
+    if (contentText == null && contentProperty && contentChildren.length === 0) {
+      contentText = contentProperty.textContent.trim();
+    }
+
+    if (contentText != null || contentChildren.length) {
+      const content = document.createElement("div");
+      content.className = "pcl-groupbox__content";
+      const isText = contentText != null && contentChildren.length === 0;
+      if (isText) content.classList.add("is-text");
+
+      if (isText) {
+        const templated = this.buildTemplateText(
+          this.resolveTemplate(element, props, "ContentTemplate"),
+          contentText,
+          "pcl-groupbox__content-text",
+          "groupbox-content"
+        );
+        if (templated) {
+          content.append(templated);
+        } else {
+          const text = document.createElement("div");
+          text.className = "pcl-groupbox__content-text";
+          text.textContent = contentText;
+          content.append(text);
+        }
+      } else {
+        for (const child of contentChildren) {
+          const childNode = this.buildNode(child, { kind: "groupbox-content" });
+          if (childNode) content.append(childNode);
+        }
+      }
+
+      const horizontal = String(getProp(props, "HorizontalContentAlignment") || (isText ? "Center" : "Stretch")).toLowerCase();
+      const vertical = String(getProp(props, "VerticalContentAlignment") || (isText ? "Center" : "Stretch")).toLowerCase();
+      content.style.justifyContent = alignmentMap[horizontal] || (isText ? "center" : "stretch");
+      content.style.alignItems = alignmentMap[vertical] || (isText ? "center" : "stretch");
+      node.append(content);
+    }
+
     this.bindEvents(node, element);
     return node;
   }

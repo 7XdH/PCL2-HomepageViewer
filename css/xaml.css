@@ -27,6 +27,20 @@
   align-items: stretch;
 }
 
+.pcl-uniformgrid {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  justify-items: stretch;
+  align-items: stretch;
+}
+
+.pcl-uniformgrid > * {
+  min-width: 0;
+  min-height: 0;
+}
+
 .pcl-wrap {
   display: flex;
   flex-direction: row;
@@ -253,6 +267,63 @@
 
 .pcl-card.is-swapped .pcl-card__header {
   height: 40px;
+}
+
+/* --------------------------------------------------------------------------
+   GroupBox
+   -------------------------------------------------------------------------- */
+
+.pcl-groupbox {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  padding: 4px 7px 6px;
+  border: 1px solid var(--groupbox-border, var(--pcl-c4));
+  border-radius: 2px;
+  color: var(--pcl-c1);
+  background: transparent;
+}
+
+.pcl-groupbox__header {
+  display: flex;
+  align-items: center;
+  flex: none;
+  min-width: 0;
+  min-height: 16px;
+  line-height: 16px;
+}
+
+.pcl-groupbox__header-text {
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--pcl-c1);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.pcl-groupbox__content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pcl-groupbox__content.is-text {
+  align-items: center;
+  justify-content: center;
+}
+
+.pcl-groupbox__content-text {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--pcl-c1);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 /* --------------------------------------------------------------------------
