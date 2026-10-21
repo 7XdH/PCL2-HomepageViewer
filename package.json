@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "build": "node tools/build-static.mjs"
+    "build": "node tools/build-static.mjs",
+    "test": "node tools/regression.mjs",
+    "test:presets": "node tools/regression.mjs --presets",
+    "test:all": "node tools/regression.mjs --all"
   },
   "engines": {
     "node": ">=18"

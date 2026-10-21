@@ -29,3 +29,6 @@ _bugjump.xaml
 
 # Static build output
 dist/
+
+# Test artifacts
+test-results/

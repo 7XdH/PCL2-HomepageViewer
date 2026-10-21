@@ -24,6 +24,25 @@ node server.js
 
 不要直接双击 `index.html`：项目使用 ES Module、同源 `fetch` 与 `/api/proxy`，通过 `file://` 打开时浏览器会阻止这些请求。
 
+## 自动化测试
+
+测试使用本地 `server.js` 和已安装的 Edge / Chrome，通过 CDP pipe 运行，不需要额外 npm 依赖。
+
+```powershell
+npm test              # 本地预设、GroupBox/UniformGrid、替换标记回归
+npm run test:presets  # PCL 25 个预设批量验收（需要联网）
+npm run test:all      # 同时运行以上两项
+```
+
+如果浏览器不在常见路径，可设置：
+
+```powershell
+$env:PCL_TEST_BROWSER = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+npm test
+```
+
+批量验收会把结果写入 `test-results/preset-audit.json`。已知上游不可用或按安全规则拦截的预设不会导致失败；其他渲染错误、未支持控件或意外状态变化会返回非零退出码。
+
 ## 部署到静态托管
 
 可以以前端静态方式部署到 GitHub Pages、Netlify、Vercel。核心渲染、预设、本地文件与源码编辑都不依赖后端；只有“联网 URL”的代理能力需要服务器。
@@ -331,6 +350,9 @@ server.js                  静态服务器 + 本地文本代理
 api/proxy.js               Vercel Node Function 代理（SSRF 防护 / 白名单）
 tools/generate-assets.mjs  重新生成 js/assets.js
 tools/build-static.mjs     构建 dist/ 静态站点
+tools/regression.mjs       启动临时服务器和浏览器的测试运行器
+tools/test-suite.js        浏览器内回归与批量验收逻辑
+tools/pcl-presets.mjs      PCL 25 个预设清单
 netlify.toml               Netlify 构建与发布配置
 vercel.json                Vercel 构建与发布配置
 .github/workflows/         GitHub Pages 自动部署

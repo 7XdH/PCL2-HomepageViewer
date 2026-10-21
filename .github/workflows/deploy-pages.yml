@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Run regression tests
+        run: npm test
+
       - name: Build static site
         run: npm run build
 
