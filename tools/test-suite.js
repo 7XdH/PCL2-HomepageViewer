@@ -13,6 +13,7 @@ import {
   isMinecraftUrl,
   normalizeExternalUrl
 } from "../js/url.js";
+import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -301,6 +302,28 @@ export async function runRegression() {
     if (opened !== 2) throw new Error(`合法协议打开次数错误：实际 ${opened} 次`);
     if (!modalTitles.includes("事件执行失败")) throw new Error("非法协议没有显示错误弹窗");
     return { cases: cases.length, opened };
+  });
+
+  await makeCheck(results, "远程 SVG 沙箱响应", async () => {
+    if (!isSvgResponse("image/svg+xml; charset=utf-8", "https://example.com/icon.png")) {
+      throw new Error("SVG Content-Type 没有被识别");
+    }
+    if (!isSvgResponse("application/octet-stream", "https://example.com/icon.svg")) {
+      throw new Error("SVG 扩展名没有被识别");
+    }
+    if (isSvgResponse("image/png", "https://example.com/icon.png")) {
+      throw new Error("PNG 被错误识别为 SVG");
+    }
+    const headers = svgResponseHeaders();
+    const csp = headers["Content-Security-Policy"] || "";
+    for (const directive of ["default-src 'none'", "script-src 'none'", "object-src 'none'", "sandbox"]) {
+      if (!csp.includes(directive)) throw new Error(`SVG CSP 缺少 ${directive}`);
+    }
+    headers["Content-Security-Policy"] = "tampered";
+    if (svgResponseHeaders()["Content-Security-Policy"] === "tampered") {
+      throw new Error("SVG 响应头可以被调用方篡改");
+    }
+    return { csp };
   });
 
   await makeCheck(results, "PCL 帮助页地址与标题", async () => {

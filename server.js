@@ -5,6 +5,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
+import { isSvgResponse, svgResponseHeaders } from "./api/proxy-policy.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -246,7 +247,7 @@ async function proxy(req, res, requestUrl) {
         });
         return;
       }
-      send(res, 200, result.body, {
+      const headers = {
         "Content-Type": result.contentType || "application/octet-stream",
         "Cache-Control": "public, max-age=86400",
         "Cross-Origin-Resource-Policy": "cross-origin",
@@ -254,7 +255,11 @@ async function proxy(req, res, requestUrl) {
         "X-PCL-Proxy-Image": "1",
         "X-PCL-Proxy-Ua": encodeURIComponent(userAgent),
         "X-PCL-Proxy-Final-Url": result.finalUrl
-      });
+      };
+      if (isSvgResponse(result.contentType, result.finalUrl)) {
+        Object.assign(headers, svgResponseHeaders());
+      }
+      send(res, 200, result.body, headers);
       return;
     }
     const isText =

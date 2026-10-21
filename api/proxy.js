@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import net from "node:net";
+import { isSvgResponse, svgResponseHeaders } from "./proxy-policy.js";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
@@ -361,6 +362,9 @@ export default async function handler(request, response) {
         "Access-Control-Allow-Origin": "*",
         "X-PCL-Proxy-Image": "1"
       });
+      if (isSvgResponse(result.contentType, result.finalUrl)) {
+        Object.assign(headers, svgResponseHeaders());
+      }
     }
     send(response, 200, result.body, headers);
   } catch (error) {

@@ -321,7 +321,7 @@ Root Directory: 留空
 
 - 不执行 JavaScript、VBScript、`x:Code`、`x:Static`、`ObjectDataProvider`、`XamlReader`、`WebBrowser`、`Frame` 等。
 - 链接只允许 `http` / `https` / `mailto`，以及与 PCL 兼容的 `minecraft://` / `minecraft-preview://`；`打开网页` 与 `下载文件` 会校验协议，`javascript:`、`file:`、`data:`、其他自定义协议等会被拒绝。
-- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 没有 SSRF 防护；Vercel 的 `api/proxy.js` 会拦截本机 / 内网 / 保留地址、非 80 / 443 端口和 HTML 响应，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应。公开部署时仍建议设置白名单并按需限流。
+- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 没有 SSRF 防护；Vercel 的 `api/proxy.js` 会拦截本机 / 内网 / 保留地址、非 80 / 443 端口和 HTML 响应，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应；远程 SVG 仍允许渲染，但会附加沙箱 CSP，禁止脚本、外部资源、对象和导航，避免直接打开代理 SVG 时执行脚本。公开部署时仍建议设置白名单并按需限流。
 - 静态部署时，联网 URL 受目标站点 CORS 策略限制；这属于浏览器安全边界，不是渲染器错误。Vercel 部署可通过同源 `/api/proxy` 获取未开放 CORS 的内容。
 - 远程图片优先直连；失败后通过 `/api/proxy?image=1` 重试，仍失败才使用 `FallbackSource` 或 `NoIcon`。
 
@@ -355,6 +355,7 @@ assets/pcl/                PCL 图片、图标与字体
 assets/presets/            教程 / 画廊 / 事件 / 提示预设
 server.js                  静态服务器 + 本地文本代理
 api/proxy.js               Vercel Node Function 代理（SSRF 防护 / 白名单）
+api/proxy-policy.js        代理图片/SVG 响应策略与安全头
 tools/generate-assets.mjs  重新生成 js/assets.js
 tools/build-static.mjs     构建 dist/ 静态站点
 tools/regression.mjs       启动临时服务器和浏览器的测试运行器
