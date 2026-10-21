@@ -241,7 +241,7 @@ Root Directory: 留空
 | `{variable:Name:Default}` | 自定义变量；不存在时使用默认值 |
 | `{setup:Key}` | PCL 设置；内置默认值包括 `UiLauncherHue`、`UiLauncherTheme` 等 |
 | `{hint}` | 随机“你知道吗”提示 |
-| `{cave}` | 随机回响洞文本 |
+| `{cave}` | 随机“回声洞”文本 |
 | `{user}` / `{uuid}` / `{login}` | 当前演示用户信息 |
 | `{pcl_version}` | PCL 版本名，当前为 `2.99.0.0` |
 | `{pcl_version_code}` | PCL 版本号，当前为 `414` |
