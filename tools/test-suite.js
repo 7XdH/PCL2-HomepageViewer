@@ -193,6 +193,35 @@ export async function runRegression() {
     return { text, ...metrics };
   });
 
+  await makeCheck(results, "窗口阴影安全区", async () => {
+    window.dispatchEvent(new Event("resize"));
+    await sleep(180);
+    const frame = document.getElementById("stageFrame");
+    const windowEl = document.getElementById("pclWindow");
+    if (!frame || !windowEl) throw new Error("找不到预览舞台");
+    const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pcl-scale"));
+    if (!scale) throw new Error("--pcl-scale 未设置");
+    const frameRect = frame.getBoundingClientRect();
+    const windowRect = windowEl.getBoundingClientRect();
+    const margins = {
+      left: windowRect.left - frameRect.left,
+      right: frameRect.right - windowRect.right,
+      top: windowRect.top - frameRect.top,
+      bottom: frameRect.bottom - windowRect.bottom
+    };
+    const required = { left: 36 * scale, right: 36 * scale, top: 16 * scale, bottom: 88 * scale };
+    const epsilon = 1.5;
+    for (const side of Object.keys(required)) {
+      if (margins[side] + epsilon < required[side]) {
+        throw new Error(`${side} 阴影安全区不足：${margins[side].toFixed(1)} < ${required[side].toFixed(1)}`);
+      }
+    }
+    if (frame.scrollWidth > frame.clientWidth + 1 || frame.scrollHeight > frame.clientHeight + 1) {
+      throw new Error(`舞台出现溢出：${frame.scrollWidth}×${frame.scrollHeight} > ${frame.clientWidth}×${frame.clientHeight}`);
+    }
+    return { scale, margins, required };
+  });
+
   await makeCheck(results, "UA fallback 顺序", async () => {
     const defaultCandidates = getProxyUaCandidates("");
     const customCandidates = getProxyUaCandidates("CustomUA/1.0");

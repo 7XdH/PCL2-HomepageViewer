@@ -522,18 +522,27 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
 function fitStage() {
   const frame = $.stageFrame;
   if (!frame) return;
-  const rect = frame.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
+  if (frame.clientWidth <= 0 || frame.clientHeight <= 0) return;
+
+  // .stage__frame 的 padding 与这里保持一致：左右各 36px、上方 16px、下方 88px
+  //（100% 缩放下的阴影扩散量）。阴影随 transform 缩放，所以 padding 也用
+  // --pcl-scale 计算，避免窄屏或矮窗口把阴影裁在 frame 边缘。
+  const shadowX = 36;
+  const shadowTop = 16;
+  const shadowBottom = 88;
+  const gutter = 4;
+  const captionHeight = frame.querySelector(".stage__caption")?.getBoundingClientRect().height || 0;
   const mobile = window.innerWidth <= 820;
-  const horizontalPadding = mobile ? 10 : 30;
-  const verticalPadding = mobile ? 16 : 20;
-  const availableWidth = Math.max(220, rect.width - horizontalPadding);
-  const availableHeight = Math.max(150, rect.height - verticalPadding);
-  const minScale = mobile ? 0.62 : 0.5;
+  const minScale = mobile ? 0.2 : 0.5;
   const maxScale = 1.35;
-  let scale = Math.min(maxScale, availableWidth / 850, availableHeight / 500);
+
+  let scale = Math.min(
+    maxScale,
+    Math.max(1, frame.clientWidth - gutter) / (850 + shadowX * 2),
+    Math.max(1, frame.clientHeight - captionHeight - gutter) / (500 + shadowTop + shadowBottom)
+  );
   if (scale < minScale) scale = minScale;
-  scale = Math.max(0.3, Math.floor(scale * 1000) / 1000);
+  scale = Math.max(0.2, Math.floor(scale * 1000) / 1000);
   document.documentElement.style.setProperty("--pcl-scale", String(scale));
   if ($.zoomLabel) $.zoomLabel.textContent = `${Math.round(scale * 100)}%`;
 }

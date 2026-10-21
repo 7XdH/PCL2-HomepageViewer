@@ -1126,7 +1126,11 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 0;
-  padding: 4px 0 0;
+  /* 为 .pcl-window 的 box-shadow 预留安全区；随预览缩放一起变化。 */
+  padding:
+    calc(16px * var(--pcl-scale))
+    calc(36px * var(--pcl-scale))
+    calc(88px * var(--pcl-scale));
   overflow: hidden;
 }
 
@@ -1409,14 +1413,6 @@ body {
 
   .render-stats {
     display: none;
-  }
-
-  .stage__frame {
-    align-items: flex-start;
-    justify-content: flex-start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-top: 12px;
   }
 
   .stage__frame::before {
