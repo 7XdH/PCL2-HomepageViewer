@@ -222,6 +222,28 @@ export async function runRegression() {
     return { scale, margins, required };
   });
 
+  await makeCheck(results, "玻璃衬底跟随窗口", async () => {
+    const scaler = document.getElementById("pclScaler");
+    if (!scaler) throw new Error("找不到 PCL 缩放容器");
+    const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pcl-scale"));
+    if (!scale) throw new Error("--pcl-scale 未设置");
+    const panel = getComputedStyle(scaler, "::before");
+    if (!panel || panel.content === "none" || panel.content === "normal") {
+      throw new Error("玻璃衬底伪元素不存在");
+    }
+    const inset = parseFloat(panel.top);
+    const radius = parseFloat(panel.borderTopLeftRadius);
+    const expectedInset = -12 * scale;
+    const expectedRadius = 14 * scale;
+    if (!Number.isFinite(inset) || Math.abs(inset - expectedInset) > 0.6) {
+      throw new Error(`玻璃衬底外扩量错误：${panel.top}，期望 ${expectedInset.toFixed(2)}px`);
+    }
+    if (!Number.isFinite(radius) || Math.abs(radius - expectedRadius) > 0.6) {
+      throw new Error(`玻璃衬底圆角没有缩放：${panel.borderTopLeftRadius}，期望 ${expectedRadius.toFixed(2)}px`);
+    }
+    return { scale, inset, radius };
+  });
+
   await makeCheck(results, "UA fallback 顺序", async () => {
     const defaultCandidates = getProxyUaCandidates("");
     const customCandidates = getProxyUaCandidates("CustomUA/1.0");

@@ -1134,18 +1134,20 @@ body {
   overflow: hidden;
 }
 
-.stage__frame::before {
+/* 玻璃衬底跟随实际缩放后的窗口，而不是按 frame 的百分比铺满。 */
+.pcl-scaler::before {
   content: "";
   position: absolute;
-  inset: 6% 4% 4%;
+  inset: calc(-12px * var(--pcl-scale));
+  z-index: -1;
   border: 1px solid rgba(255, 255, 255, 0.32);
-  border-radius: 14px;
+  border-radius: calc(14px * var(--pcl-scale));
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 30%),
     rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    0 40px 90px -60px rgba(52, 61, 74, 0.6);
+    inset 0 calc(1px * var(--pcl-scale)) 0 rgba(255, 255, 255, 0.42),
+    0 calc(40px * var(--pcl-scale)) calc(90px * var(--pcl-scale)) calc(-60px * var(--pcl-scale)) rgba(52, 61, 74, 0.6);
   pointer-events: none;
 }
 
@@ -1316,10 +1318,6 @@ body {
     var(--pcl-page-gradient);
 }
 
-.stage:fullscreen .stage__frame::before {
-  inset: 2% 6% 3%;
-}
-
 .stage:fullscreen .stage__caption {
   height: 24px;
   font-size: 9px;
@@ -1413,10 +1411,6 @@ body {
 
   .render-stats {
     display: none;
-  }
-
-  .stage__frame::before {
-    inset: 2% 1% 2%;
   }
 
   .stage__caption {
