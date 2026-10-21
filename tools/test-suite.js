@@ -8,6 +8,7 @@ import {
   helpJsonTitle,
   helpTitleFromXaml
 } from "../js/help.js";
+import { isOpenableExternalUrl, normalizeExternalUrl } from "../js/url.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -240,6 +241,53 @@ export async function runRegression() {
       ?.click();
     await sleep(280);
     return { captionTop, captionHeight: caption.clientHeight };
+  });
+
+  await makeCheck(results, "外部链接协议白名单", async () => {
+    const cases = [
+      ["https://example.com", true],
+      ["http://example.com", true],
+      ["mailto:test@example.com", true],
+      ["ftp://example.com", false],
+      ["steam://run/730", false],
+      ["file:///C:/Windows/System32/calc.exe", false],
+      ["javascript://%0Aalert(1)", false],
+      ["data:text/html,<script>alert(1)</script>", false]
+    ];
+    for (const [url, expected] of cases) {
+      if (isOpenableExternalUrl(url) !== expected) {
+        throw new Error(`协议判断错误：${url} 应为 ${expected ? "允许" : "拒绝"}`);
+      }
+    }
+    if (normalizeExternalUrl("https://example.com") !== "https://example.com/") {
+      throw new Error(`URL 规范化错误：${normalizeExternalUrl("https://example.com")}`);
+    }
+
+    const modalTitles = [];
+    let opened = 0;
+    const originalModal = harness.runtime.shell.showModal;
+    const originalOpenUrl = harness.runtime.shell.openUrl;
+    harness.runtime.shell.showModal = async options => {
+      modalTitles.push(options.title);
+      return 1;
+    };
+    harness.runtime.shell.openUrl = () => {
+      opened += 1;
+      return true;
+    };
+    let invalidResult;
+    try {
+      invalidResult = await harness.runtime.handle("打开网页", "javascript://%0Aalert(1)");
+      const validResult = await harness.runtime.handle("打开网页", "https://example.com");
+      if (invalidResult !== "invalid-url") throw new Error(`非法协议返回值错误：${invalidResult}`);
+      if (validResult !== "https://example.com") throw new Error(`合法协议返回值错误：${validResult}`);
+    } finally {
+      harness.runtime.shell.showModal = originalModal;
+      harness.runtime.shell.openUrl = originalOpenUrl;
+    }
+    if (opened !== 1) throw new Error(`非法协议不应打开窗口：实际打开 ${opened} 次`);
+    if (!modalTitles.includes("事件执行失败")) throw new Error("非法协议没有显示错误弹窗");
+    return { cases: cases.length, opened };
   });
 
   await makeCheck(results, "PCL 帮助页地址与标题", async () => {

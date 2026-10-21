@@ -1,3 +1,5 @@
+import { normalizeExternalUrl } from "./url.js?v=20261021q";
+
 const PAGE_LABELS = {
   Launch: "启动",
   Download: "下载",
@@ -370,9 +372,11 @@ export class PclShell {
   }
 
   openUrl(url) {
+    const target = normalizeExternalUrl(url);
+    if (!target) return false;
     let win;
     try {
-      win = window.open(url, "_blank");
+      win = window.open(target, "_blank");
     } catch {
       return false;
     }

@@ -1,7 +1,7 @@
 import { PclTheme } from "./theme.js";
 import { PclRenderer } from "./renderer.js?v=20261021k";
-import { PclRuntime } from "./runtime.js?v=20261021n";
-import { PclShell } from "./shell.js?v=20261021o";
+import { PclRuntime } from "./runtime.js?v=20261021q";
+import { PclShell } from "./shell.js?v=20261021q";
 import { substitutePlaceholders } from "./xaml.js?v=20261021c";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js?v=20261021e";
 import { PCL2_PRESETS } from "./pcl-presets.js?v=20261021j";

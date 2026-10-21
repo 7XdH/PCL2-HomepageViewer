@@ -1,3 +1,5 @@
+import { isOpenableExternalUrl } from "./url.js?v=20261021q";
+
 const VARIABLES_KEY = "pcl.lab.variables.v1";
 const SETTINGS_KEY = "pcl.lab.settings.v1";
 
@@ -282,11 +284,13 @@ export class PclRuntime {
   async dispatch(type, raw, args, arg0, arg1) {
     switch (type) {
       case "打开网页": {
-        const url = raw.replaceAll("\\", "/");
-        if (!url.includes("://") || /^file/i.test(url)) {
+        const url = raw.replaceAll("\\", "/").trim();
+        if (!isOpenableExternalUrl(url)) {
           await this.shell.showModal({
             title: "事件执行失败",
-            caption: "EventData 必须为一个网址。\n如果想要启动程序，请将 EventType 改为 打开文件。",
+            caption:
+              "EventData 必须为 http://、https:// 或 mailto: 链接。\n" +
+              "如果想要启动程序，请将 EventType 改为 打开文件。",
             buttons: ["确定"],
             warn: true
           });

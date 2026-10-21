@@ -292,7 +292,7 @@ Root Directory: 留空
 
 | 事件 | 网页版行为 |
 | --- | --- |
-| `打开网页` | 新标签页打开 `http(s)` 地址；被弹窗拦截时提供复制地址 |
+| `打开网页` | 新标签页打开 `http(s)` / `mailto:` 链接；被弹窗拦截时提供复制地址，非法协议会直接拒绝 |
 | `弹出窗口` | 显示 PCL 风格弹窗（标题 / 内容 / 按钮） |
 | `弹出提示` | 显示 PCL 底部渐变色提示条，支持 Blue / Green / Red / Yellow |
 | `复制文本` | 写入剪贴板；需要浏览器允许剪贴板权限 |
@@ -320,7 +320,7 @@ Root Directory: 留空
 ## 安全边界
 
 - 不执行 JavaScript、VBScript、`x:Code`、`x:Static`、`ObjectDataProvider`、`XamlReader`、`WebBrowser`、`Frame` 等。
-- 链接只允许 `http` / `https` / `mailto`；`打开网页` 与 `下载文件` 会校验协议。
+- 链接只允许 `http` / `https` / `mailto`；`打开网页` 与 `下载文件` 会校验协议，`javascript:`、`file:`、`data:`、自定义协议等会被拒绝。
 - `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 没有 SSRF 防护；Vercel 的 `api/proxy.js` 会拦截本机 / 内网 / 保留地址、非 80 / 443 端口和 HTML 响应，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应。公开部署时仍建议设置白名单并按需限流。
 - 静态部署时，联网 URL 受目标站点 CORS 策略限制；这属于浏览器安全边界，不是渲染器错误。Vercel 部署可通过同源 `/api/proxy` 获取未开放 CORS 的内容。
 - 远程图片优先直连；失败后通过 `/api/proxy?image=1` 重试，仍失败才使用 `FallbackSource` 或 `NoIcon`。
@@ -343,6 +343,7 @@ css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
 js/app.js                  来源管理、预设、帮助页导航、渲染流程、快捷键
 js/help.js                 PCL 帮助页地址解析与标题提取
+js/url.js                  外部链接协议白名单与 URL 规范化
 js/pcl-presets.js          PCL2 25 个预设清单（UI 与测试共用）
 js/xaml.js                 XAML 解析、替换标记、安全过滤
 js/renderer.js             WPF / PCL 控件到 DOM 的渲染器
