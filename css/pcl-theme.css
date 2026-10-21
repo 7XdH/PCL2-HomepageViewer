@@ -946,6 +946,8 @@ img {
 }
 
 .pcl-modal {
+  display: flex;
+  flex-direction: column;
   width: min(400px, calc(100% - 50px));
   max-height: calc(100% - 50px);
   overflow: hidden;
@@ -981,12 +983,15 @@ img {
 
 .pcl-modal__inner {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  max-height: calc(560px - 50px);
+  min-height: 0;
+  overflow: hidden;
   padding: 22px 22px 23px;
 }
 
 .pcl-modal__title {
+  flex: none;
   margin: -1px 70px 9px 7px;
   color: var(--pcl-c2);
   font-size: 23px;
@@ -1010,6 +1015,7 @@ img {
 }
 
 .pcl-modal__caption {
+  flex: 1 1 auto;
   min-height: 0;
   margin: 13px 7px 17px;
   overflow-y: auto;
@@ -1032,6 +1038,7 @@ img {
 
 .pcl-modal__buttons {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12px;

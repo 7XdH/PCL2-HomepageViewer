@@ -210,6 +210,38 @@ export async function runRegression() {
     return { from: initial, to: target.textContent };
   });
 
+  await makeCheck(results, "使用说明弹窗滚动布局", async () => {
+    const helpButton = document.getElementById("helpBtn");
+    if (!helpButton) throw new Error("找不到使用说明按钮");
+    helpButton.click();
+    await sleep(420);
+
+    const modal = document.querySelector("#pclModalLayer .pcl-modal");
+    const title = modal?.querySelector(".pcl-modal__title");
+    const caption = modal?.querySelector(".pcl-modal__caption");
+    const buttons = modal?.querySelector(".pcl-modal__buttons");
+    if (!modal || !title || !caption || !buttons) throw new Error("使用说明弹窗结构不完整");
+
+    const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pcl-scale")) || 1;
+    const modalRect = modal.getBoundingClientRect();
+    const titleRect = title.getBoundingClientRect();
+    const captionRect = caption.getBoundingClientRect();
+    const buttonsRect = buttons.getBoundingClientRect();
+    const captionTop = (captionRect.top - modalRect.top) / scale;
+
+    if (modal.scrollTop !== 0) throw new Error(`弹窗被整体滚动：${modal.scrollTop}px`);
+    if (titleRect.top < modalRect.top - 0.5) throw new Error("弹窗标题被裁切到窗口上方");
+    if (captionTop < 40) throw new Error(`正文滚动条顶部离弹窗上边过近：${captionTop.toFixed(1)}px`);
+    if (buttonsRect.bottom > modalRect.bottom + 0.5) throw new Error("弹窗按钮被裁切");
+    if (caption.scrollHeight <= caption.clientHeight) throw new Error("使用说明正文没有产生滚动区域");
+
+    [...document.querySelectorAll("#pclModalButtons button")]
+      .find(button => button.textContent === "知道了")
+      ?.click();
+    await sleep(280);
+    return { captionTop, captionHeight: caption.clientHeight };
+  });
+
   await makeCheck(results, "PCL 帮助页地址与标题", async () => {
     const jsonUrl = "https://mcnews.meloong.com/VersionArchiveList.json";
     const urls = resolveHelpUrls(jsonUrl);
