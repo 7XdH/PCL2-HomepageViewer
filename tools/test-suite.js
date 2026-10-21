@@ -253,6 +253,14 @@ export async function runRegression() {
     return { scale, inset, radius };
   });
 
+  await makeCheck(results, "移动端点击高亮已关闭", async () => {
+    const value = getComputedStyle(document.body).getPropertyValue("-webkit-tap-highlight-color").trim();
+    if (value && value !== "transparent" && !/^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/.test(value)) {
+      throw new Error(`-webkit-tap-highlight-color 仍为 ${value}`);
+    }
+    return value || "transparent";
+  });
+
   await makeCheck(results, "UA fallback 顺序", async () => {
     const defaultCandidates = getProxyUaCandidates("");
     const customCandidates = getProxyUaCandidates("CustomUA/1.0");
