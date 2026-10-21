@@ -14,6 +14,11 @@ import {
   normalizeExternalUrl
 } from "../js/url.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
+import {
+  MAX_SOURCE_BYTES,
+  assertSourceWithinLimit,
+  formatByteSize
+} from "../js/limits.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -135,6 +140,43 @@ export async function runRegression() {
       if (!metrics.controls || !metrics.textLength) throw new Error(`${preset.name} 没有渲染出可见内容`);
     }
     return rows;
+  });
+
+  await makeCheck(results, "现有主页未超过大小上限", async () => {
+    const rows = [];
+    for (const preset of LOCAL_PRESETS) {
+      const source = await fetchText(preset.path);
+      const bytes = new TextEncoder().encode(source).byteLength;
+      if (bytes > MAX_SOURCE_BYTES) {
+        throw new Error(`${preset.name} 为 ${formatByteSize(bytes)}，超过上限`);
+      }
+      rows.push({ name: preset.name, bytes });
+    }
+    return {
+      limit: formatByteSize(MAX_SOURCE_BYTES),
+      max: formatByteSize(Math.max(...rows.map(row => row.bytes))),
+      rows
+    };
+  });
+
+  await makeCheck(results, "大小上限拒绝超限内容", async () => {
+    const oversized = "x".repeat(MAX_SOURCE_BYTES + 1);
+    let error;
+    try {
+      assertSourceWithinLimit(oversized, "测试主页");
+    } catch (caught) {
+      error = caught;
+    }
+    if (!error || error.code !== "SOURCE_TOO_LARGE") {
+      throw new Error("超限内容没有被拒绝");
+    }
+    if (!error.message.includes("超过") || !error.message.includes("4.0 MiB")) {
+      throw new Error(`超限错误信息不完整：${error.message}`);
+    }
+    if (assertSourceWithinLimit("<StackPanel />") !== "<StackPanel />") {
+      throw new Error("未超限内容被错误拒绝");
+    }
+    return { limit: formatByteSize(MAX_SOURCE_BYTES), rejected: true };
   });
 
   await makeCheck(results, "PCL2 预设面板", async () => {
@@ -748,6 +790,7 @@ export async function runPresetAudit() {
       duration: 0,
       stage: "start",
       error: "",
+      bytes: 0,
       metrics: null
     };
 
@@ -758,6 +801,10 @@ export async function runPresetAudit() {
       } else {
         record.stage = "fetch";
         source = await fetchRemoteXaml(preset.url, harness.runtime);
+      }
+      record.bytes = new TextEncoder().encode(source).byteLength;
+      if (record.bytes > MAX_SOURCE_BYTES) {
+        throw new Error(`源内容为 ${formatByteSize(record.bytes)}，超过 ${formatByteSize(MAX_SOURCE_BYTES)} 上限`);
       }
       record.stage = "render";
       record.metrics = await renderSource(harness, source, true);

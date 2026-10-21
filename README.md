@@ -321,6 +321,7 @@ Root Directory: 留空
 
 - 不执行 JavaScript、VBScript、`x:Code`、`x:Static`、`ObjectDataProvider`、`XamlReader`、`WebBrowser`、`Frame` 等。
 - 页面使用严格 CSP：脚本、样式和字体只允许同源资源。启动兜底脚本已放到 `js/boot.js`，页面没有内联脚本或内联样式；远程图片和 XAML 直连仍允许 `http(s)`，`data:` / `blob:` 仅用于图片。`server.js`、Vercel 和 Netlify 会发送 CSP 与 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、COOP 等安全头；GitHub Pages 等无法自定义响应头的静态托管依靠 `index.html` 中的 meta CSP。
+- 本地文件、编辑器源码、远程 XAML / 帮助页统一限制为 **4 MiB**；超限会拒绝渲染并显示实际大小，不会截断 XAML。远程直连响应采用流式累计字节，超过上限立即取消；`localStorage` 只持久化约 **500 KB** 的内容，超过时会提示使用“导出”保存。
 - 链接只允许 `http` / `https` / `mailto`，以及与 PCL 兼容的 `minecraft://` / `minecraft-preview://`；`打开网页` 与 `下载文件` 会校验协议，`javascript:`、`file:`、`data:`、其他自定义协议等会被拒绝。
 - `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 没有 SSRF 防护；Vercel 的 `api/proxy.js` 会拦截本机 / 内网 / 保留地址、非 80 / 443 端口和 HTML 响应，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应；远程 SVG 仍允许渲染，但会附加沙箱 CSP，禁止脚本、外部资源、对象和导航，避免直接打开代理 SVG 时执行脚本。公开部署时仍建议设置白名单并按需限流。
 - 静态部署时，联网 URL 受目标站点 CORS 策略限制；这属于浏览器安全边界，不是渲染器错误。Vercel 部署可通过同源 `/api/proxy` 获取未开放 CORS 的内容。
@@ -344,6 +345,7 @@ css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
 js/app.js                  来源管理、预设、帮助页导航、渲染流程、快捷键
 js/boot.js                 file:// 启动失败兜底提示（外部脚本，兼容严格 CSP）
+js/limits.js               主页大小限制与字节格式化
 js/help.js                 PCL 帮助页地址解析与标题提取
 js/url.js                  外部链接协议白名单与 URL 规范化
 js/pcl-presets.js          PCL2 25 个预设清单（UI 与测试共用）

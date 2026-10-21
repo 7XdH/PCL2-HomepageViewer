@@ -6,6 +6,12 @@ import { substitutePlaceholders } from "./xaml.js?v=20261021c";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js?v=20261021e";
 import { PCL2_PRESETS } from "./pcl-presets.js?v=20261021j";
 import { resolveHelpUrls, helpJsonTitle, helpTitleFromXaml } from "./help.js?v=20261021n";
+import {
+  MAX_SOURCE_BYTES,
+  SOURCE_STATE_PERSIST_LIMIT,
+  assertSourceWithinLimit,
+  sourceLimitError
+} from "./limits.js?v=20261022b";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
@@ -68,6 +74,7 @@ let helpToken = 0;
 let helpAbort = null;
 let helpHistory = [];
 let helpReturnFocus = null;
+let sourceStateWarned = false;
 
 const el = id => document.getElementById(id);
 const $ = {
@@ -342,7 +349,7 @@ async function loadPreset(id, { force = false, signal } = {}) {
       presetCache.set(cacheKey, text);
       return text;
     } catch (error) {
-      if (error.name === "AbortError") throw error;
+      if (error.name === "AbortError" || error.code === "SOURCE_TOO_LARGE") throw error;
       throw new Error(`无法加载 PCL2 预设「${preset.title}」：${error.message}`);
     }
   }
@@ -354,12 +361,12 @@ async function loadPreset(id, { force = false, signal } = {}) {
       cache: force ? "no-store" : "no-cache"
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const text = await response.text();
+    const text = await readResponseTextLimited(response, `预设「${preset.title}」`);
     if (!text.trim()) throw new Error("预设内容为空");
     presetCache.set(cacheKey, text);
     return text;
   } catch (error) {
-    if (error.name === "AbortError") throw error;
+    if (error.name === "AbortError" || error.code === "SOURCE_TOO_LARGE") throw error;
     if (location.protocol === "file:") {
       presetCache.set(cacheKey, FALLBACK_XAML);
       return FALLBACK_XAML;
@@ -379,8 +386,15 @@ function saveSourceState(content) {
       code: state.mode === "code" ? content : "",
       content: state.mode === "preset" ? "" : content
     };
-    if (JSON.stringify(payload).length < 500000) {
-      localStorage.setItem(SOURCE_KEY, JSON.stringify(payload));
+    const serialized = JSON.stringify(payload);
+    if (serialized.length < SOURCE_STATE_PERSIST_LIMIT) {
+      localStorage.setItem(SOURCE_KEY, serialized);
+    } else if (!sourceStateWarned) {
+      sourceStateWarned = true;
+      shell.showHint(
+        "主页内容超过约 500 KB，刷新后不会自动恢复；请使用“导出”保存。",
+        "Yellow"
+      );
     }
   } catch {
     /* ignore quota errors */
@@ -420,13 +434,26 @@ function restoreSourceState() {
 }
 
 async function readFileAsXaml(file) {
+  const label = `文件“${file.name || "Custom.xaml"}”`;
+  if (file.size > MAX_SOURCE_BYTES) throw sourceLimitError(file.size, label);
   const text = await file.text();
-  return text.replace(/^\uFEFF/, "");
+  return assertSourceWithinLimit(text.replace(/^\uFEFF/, ""), label);
 }
 
 async function applyFile(file) {
   if (!file) return;
-  const content = await readFileAsXaml(file);
+  let content;
+  try {
+    content = await readFileAsXaml(file);
+  } catch (error) {
+    shell.showModal({
+      title: "无法打开文件",
+      caption: String(error?.message || error),
+      buttons: ["确定"],
+      warn: true
+    });
+    return;
+  }
   state.mode = "file";
   state.fileName = file.name || "Custom.xaml";
   state.fileContent = content;
@@ -438,23 +465,59 @@ async function applyFile(file) {
   await renderCurrent({ reason: "file" });
 }
 
-async function fetchViaProxy(url, signal, ua = "") {
+async function readResponseTextLimited(response, label = "远程内容") {
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_SOURCE_BYTES) {
+    await response.body?.cancel().catch(() => {});
+    throw sourceLimitError(contentLength, label);
+  }
+  if (!response.body) {
+    return assertSourceWithinLimit(await response.text(), label);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_SOURCE_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw sourceLimitError(total, label);
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      /* The reader may already be released after cancellation. */
+    }
+  }
+}
+
+async function fetchViaProxy(url, signal, ua = "", label = "远程内容") {
   const proxyUrl = new URL("api/proxy", document.baseURI);
   proxyUrl.searchParams.set("url", url);
   if (ua) proxyUrl.searchParams.set("ua", ua);
   const response = await fetch(proxyUrl, { signal, cache: "no-store" });
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   if (!response.ok || contentType.includes("text/html")) {
-    const text = await response.text().catch(() => "");
+    const text = await readResponseTextLimited(response, `${label}错误响应`).catch(() => "");
     const error = new Error(text.trim() || `代理返回 HTTP ${response.status}`);
     error.status = response.status;
     error.code = contentType.includes("text/html") ? "PROXY_HTML" : "PROXY_HTTP";
     throw error;
   }
-  return response.text();
+  return readResponseTextLimited(response, label);
 }
 
-async function fetchDirect(url, signal) {
+async function fetchDirect(url, signal, label = "远程内容") {
   const response = await fetch(url, {
     signal,
     mode: "cors",
@@ -466,7 +529,7 @@ async function fetchDirect(url, signal) {
   if (contentType.includes("text/html")) {
     throw new Error("目标地址返回了 HTML 页面，而不是 XAML。");
   }
-  return response.text();
+  return readResponseTextLimited(response, label);
 }
 
 function isLikelyXaml(source) {
@@ -543,7 +606,7 @@ async function fetchRemoteText(
     if (location.protocol === "http:" || location.protocol === "https:") {
       for (const ua of uaCandidates) {
         try {
-          const content = await fetchViaProxy(url, controller.signal, ua);
+          const content = await fetchViaProxy(url, controller.signal, ua, label);
           try {
             return assertRemoteResponse(content, url, { expect, label });
           } catch (error) {
@@ -573,7 +636,7 @@ async function fetchRemoteText(
 
     let directContent;
     try {
-      directContent = await fetchDirect(url, controller.signal);
+      directContent = await fetchDirect(url, controller.signal, label);
     } catch (error) {
       if (error.name === "AbortError") throw error;
       const proxyMissing =
@@ -668,6 +731,7 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
   try {
     const content = await resolveCurrentContent({ forceRemote, signal: controller.signal });
     if (token !== renderToken) return false;
+    assertSourceWithinLimit(content, sourceLabel());
     const result = renderer.render(content);
     if (token !== renderToken) return false;
 
@@ -691,16 +755,23 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     $.renderStats.title = error.message || String(error);
     shell.setLoading(false);
     const message = String(error.message || error);
+    const sourceTooLarge = error.code === "SOURCE_TOO_LARGE";
     const networkFailure = (state.mode === "url" || remotePreset) && message.includes("无法拉取联网主页");
     shell.showModal({
-      title: networkFailure ? (remotePreset ? "PCL2 预设加载失败" : "联网主页加载失败") : "加载主页失败",
-      caption: networkFailure
+      title: sourceTooLarge
+        ? "主页内容过大"
+        : networkFailure
+          ? (remotePreset ? "PCL2 预设加载失败" : "联网主页加载失败")
+          : "加载主页失败",
+      caption: sourceTooLarge
         ? message
-        : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${message}`,
-      buttons: ["重试", "取消"],
+        : networkFailure
+          ? message
+          : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${message}`,
+      buttons: sourceTooLarge ? ["确定"] : ["重试", "取消"],
       warn: true
     }).then(choice => {
-      if (choice === 0) renderCurrent({ forceRemote: true });
+      if (!sourceTooLarge && choice === 0) renderCurrent({ forceRemote: true });
     });
     return false;
   } finally {

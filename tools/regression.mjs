@@ -417,8 +417,9 @@ const printAudit = result => {
   console.log("\n[PCL 预设批量验收]");
   for (const item of result.results) {
     const metrics = item.metrics ? `controls=${item.metrics.controls} warnings=${item.metrics.warnings.length} broken=${item.metrics.brokenImages}` : "无渲染数据";
+    const bytes = item.bytes ? `bytes=${item.bytes}` : "bytes=0";
     console.log(
-      `${item.pass ? "PASS" : "FAIL"}  #${String(item.id).padStart(2, "0")} ${item.name} [${item.status}] ${item.duration}ms ${metrics}${item.error ? ` — ${item.error}` : ""}`
+      `${item.pass ? "PASS" : "FAIL"}  #${String(item.id).padStart(2, "0")} ${item.name} [${item.status}] ${item.duration}ms ${bytes} ${metrics}${item.error ? ` — ${item.error}` : ""}`
     );
   }
   console.log(`统计：${JSON.stringify(result.counts)}`);
