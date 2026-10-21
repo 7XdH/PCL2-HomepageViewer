@@ -30,7 +30,7 @@ node server.js
 
 ```powershell
 npm test              # 本地预设、PCL2 预设面板、GroupBox/UniformGrid、替换标记回归
-npm run test:presets  # PCL 25 个预设批量验收（需要联网）
+npm run test:presets  # PCL 25 个预设批量验收（需要联网，4 路并发）
 npm run test:all      # 同时运行以上两项
 ```
 

@@ -28,9 +28,12 @@ const LOCAL_PRESETS = [
   { name: "你知道吗", path: "/assets/presets/hint.xaml" }
 ];
 
-const createHarness = () => {
+const PRESET_AUDIT_CONCURRENCY = 4;
+const PRESET_AUDIT_FETCH_TIMEOUT_MS = 15000;
+
+const createHarness = (id = "pclRegressionRoot") => {
   const root = document.createElement("div");
-  root.id = "pclRegressionRoot";
+  root.id = id;
   root.style.cssText = "position:fixed;left:-20000px;top:0;width:500px;";
   document.body.append(root);
 
@@ -101,11 +104,22 @@ const fetchRemoteXaml = async (url, runtime) => {
   const proxy = new URL("/api/proxy", location.origin);
   proxy.searchParams.set("url", substitutePlaceholders(url, runtime.context, { escape: false }));
   proxy.searchParams.set("ua", PCL_TEST_UA);
-  const response = await fetch(proxy, { cache: "no-store" });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`proxy HTTP ${response.status}: ${text.trim().slice(0, 180)}`);
-  if (!/^\s*</.test(text)) throw new Error(`proxy 返回的不是 XAML：${text.trim().slice(0, 100)}`);
-  return text;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), PRESET_AUDIT_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(proxy, { cache: "no-store", signal: controller.signal });
+    const text = await response.text();
+    if (!response.ok) throw new Error(`proxy HTTP ${response.status}: ${text.trim().slice(0, 180)}`);
+    if (!/^\s*</.test(text)) throw new Error(`proxy 返回的不是 XAML：${text.trim().slice(0, 100)}`);
+    return text;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`proxy 请求超时（${PRESET_AUDIT_FETCH_TIMEOUT_MS / 1000} 秒）`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
 };
 
 const renderSource = async (harness, source, images = false) => {
@@ -776,11 +790,13 @@ const classifyPreset = (preset, result) => {
 };
 
 export async function runPresetAudit() {
-  const harness = createHarness();
-  const results = [];
+  const results = new Array(PCL_PRESETS.length);
+  const concurrency = Math.min(PRESET_AUDIT_CONCURRENCY, PCL_PRESETS.length);
+  let nextIndex = 0;
 
-  for (const preset of PCL_PRESETS) {
+  const runOne = async (preset, index) => {
     const started = performance.now();
+    const harness = createHarness(`pclAuditRoot-${preset.id}`);
     const record = {
       id: preset.id,
       name: preset.name,
@@ -811,14 +827,27 @@ export async function runPresetAudit() {
       record.stage = "done";
     } catch (error) {
       record.error = String(error?.message || error);
+    } finally {
+      harness.root.remove();
     }
 
     record.duration = Math.round(performance.now() - started);
     const classification = classifyPreset(preset, record);
     record.status = classification.status;
     record.pass = classification.pass;
-    results.push(record);
-  }
+    results[index] = record;
+  };
+
+  const worker = async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= PCL_PRESETS.length) return;
+      await runOne(PCL_PRESETS[index], index);
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
 
   const counts = results.reduce((acc, item) => {
     acc[item.status] = (acc[item.status] || 0) + 1;
