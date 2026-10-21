@@ -1,6 +1,7 @@
 import { PclRenderer } from "../js/renderer.js";
 import { PclRuntime } from "../js/runtime.js";
 import { substitutePlaceholders } from "../js/xaml.js";
+import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../js/ua.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -27,7 +28,7 @@ const createHarness = () => {
     download: () => {}
   };
   const runtime = new PclRuntime({ shell, onRefresh: () => {}, onSettingChange: () => {} });
-  const renderer = new PclRenderer({ root, runtime });
+  const renderer = new PclRenderer({ root, runtime, getProxyUas: () => getProxyUaCandidates("") });
   return { root, runtime, renderer };
 };
 
@@ -190,6 +191,22 @@ export async function runRegression() {
     if (!text.includes("{unknown}")) throw new Error("未知标记没有保留");
     if (metrics.unsupported || metrics.warnings.length) throw new Error("替换标记页面出现警告");
     return { text, ...metrics };
+  });
+
+  await makeCheck(results, "UA fallback 顺序", async () => {
+    const defaultCandidates = getProxyUaCandidates("");
+    const customCandidates = getProxyUaCandidates("CustomUA/1.0");
+    const sameCandidates = getProxyUaCandidates(PCL_FALLBACK_UA);
+    if (JSON.stringify(defaultCandidates) !== JSON.stringify(["", PCL_FALLBACK_UA])) {
+      throw new Error(`默认 UA 顺序错误：${JSON.stringify(defaultCandidates)}`);
+    }
+    if (JSON.stringify(customCandidates) !== JSON.stringify(["CustomUA/1.0", PCL_FALLBACK_UA])) {
+      throw new Error(`自定义 UA 顺序错误：${JSON.stringify(customCandidates)}`);
+    }
+    if (JSON.stringify(sameCandidates) !== JSON.stringify([PCL_FALLBACK_UA])) {
+      throw new Error(`PCL UA 去重失败：${JSON.stringify(sameCandidates)}`);
+    }
+    return { defaultCandidates, customCandidates, sameCandidates };
   });
 
   const ok = results.every(item => item.ok);

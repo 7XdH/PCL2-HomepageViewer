@@ -160,10 +160,11 @@ function buildPathSvg(data, options = {}) {
 }
 
 export class PclRenderer {
-  constructor({ root, runtime, getProxyUa } = {}) {
+  constructor({ root, runtime, getProxyUa, getProxyUas } = {}) {
     this.root = root;
     this.runtime = runtime;
     this.getProxyUa = getProxyUa;
+    this.getProxyUas = getProxyUas;
     this.warnings = [];
     this.controlCount = 0;
     this.resources = new Map();
@@ -171,21 +172,23 @@ export class PclRenderer {
     this.resourceNodes = new WeakSet();
   }
 
-  proxyImageSource(source) {
+  proxyImageSource(source, ua) {
     if (!/^https?:/i.test(source)) return source;
     if (location.protocol !== "http:" && location.protocol !== "https:") return source;
     const proxy = new URL("api/proxy", document.baseURI);
     proxy.searchParams.set("url", source);
     proxy.searchParams.set("image", "1");
-    const ua = this.getProxyUa?.();
     if (ua) proxy.searchParams.set("ua", ua);
     return proxy.toString();
   }
 
   loadImageSource(source, onLoad, onError) {
     const candidates = [source];
-    const proxied = this.proxyImageSource(source);
-    if (proxied !== source) candidates.push(proxied);
+    const uas = this.getProxyUas?.() ?? [this.getProxyUa?.()];
+    for (const ua of uas) {
+      const proxied = this.proxyImageSource(source, ua);
+      if (proxied !== source && !candidates.includes(proxied)) candidates.push(proxied);
+    }
 
     let index = 0;
     const attempt = () => {

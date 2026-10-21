@@ -1,4 +1,6 @@
-export const PCL_TEST_UA = "PCL2/2.99.0.0";
+import { PCL_FALLBACK_UA } from "../js/ua.js";
+
+export const PCL_TEST_UA = PCL_FALLBACK_UA;
 
 const hintPreset = `
 <local:MyCard Title="你知道吗？" Margin="0,0,0,15">

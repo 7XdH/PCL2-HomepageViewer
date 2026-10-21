@@ -1,8 +1,9 @@
 import { PclTheme } from "./theme.js";
-import { PclRenderer } from "./renderer.js?v=20261021c";
+import { PclRenderer } from "./renderer.js?v=20261021e";
 import { PclRuntime } from "./runtime.js?v=20261021c";
 import { PclShell } from "./shell.js?v=20261021c";
 import { substitutePlaceholders } from "./xaml.js?v=20261021c";
+import { getProxyUaCandidates } from "./ua.js?v=20261021e";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
@@ -101,7 +102,8 @@ theme.setHue(Number(runtime.settings.UiLauncherHue));
 const renderer = new PclRenderer({
   root: $.root,
   runtime,
-  getProxyUa: () => state.ua
+  getProxyUa: () => state.ua,
+  getProxyUas: () => getProxyUaCandidates(state.ua)
 });
 
 function setRuntime(text, mode = "ready") {
@@ -297,10 +299,10 @@ async function applyFile(file) {
   await renderCurrent({ reason: "file" });
 }
 
-async function fetchViaProxy(url, signal) {
+async function fetchViaProxy(url, signal, ua = "") {
   const proxyUrl = new URL("api/proxy", document.baseURI);
   proxyUrl.searchParams.set("url", url);
-  if (state.ua) proxyUrl.searchParams.set("ua", state.ua);
+  if (ua) proxyUrl.searchParams.set("ua", ua);
   const response = await fetch(proxyUrl, { signal, cache: "no-store" });
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
   if (!response.ok || contentType.includes("text/html")) {
@@ -367,16 +369,22 @@ async function fetchRemoteXaml(url) {
   const timeout = window.setTimeout(() => controller.abort(), 22000);
   let proxyError = null;
   try {
-    let proxiedContent = null;
     if (location.protocol === "http:" || location.protocol === "https:") {
-      try {
-        proxiedContent = await fetchViaProxy(url, controller.signal);
-      } catch (error) {
-        if (error.name === "AbortError") throw error;
-        proxyError = error;
+      for (const ua of getProxyUaCandidates(state.ua)) {
+        try {
+          const content = await fetchViaProxy(url, controller.signal, ua);
+          try {
+            return assertXamlResponse(content, url);
+          } catch (error) {
+            if (error.name === "AbortError") throw error;
+            proxyError = error;
+          }
+        } catch (error) {
+          if (error.name === "AbortError") throw error;
+          proxyError = error;
+        }
       }
     }
-    if (proxiedContent !== null) return assertXamlResponse(proxiedContent, url);
 
     const canFallbackToDirect =
       !proxyError ||
