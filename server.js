@@ -7,20 +7,23 @@ import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
 import { isSvgResponse, svgResponseHeaders } from "./api/proxy-policy.js";
 import { baseSecurityHeaders, documentSecurityHeaders } from "./api/security-headers.js";
+import {
+  MAX_BYTES,
+  MAX_REDIRECTS,
+  TIMEOUT_MS,
+  ProxyError,
+  assertPublicTarget,
+  isImageContentType,
+  isTextContentType,
+  normalizeUserAgent,
+  parseTarget,
+  proxyRequestHeaders,
+  resolveRedirect
+} from "./api/proxy-core.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
-const MAX_BYTES = 4 * 1024 * 1024;
-const MAX_REDIRECTS = 5;
-const TIMEOUT_MS = 25000;
-const DEFAULT_USER_AGENT = "PCL2-Homepage-Viewer";
-const MAX_USER_AGENT_LENGTH = 512;
-
-const ENV_USER_AGENT = (process.env.PCL_PROXY_UA || "").trim();
-const EFFECTIVE_DEFAULT_USER_AGENT =
-  ENV_USER_AGENT && /^[\x20-\x7E]{1,512}$/.test(ENV_USER_AGENT)
-    ? ENV_USER_AGENT
-    : DEFAULT_USER_AGENT;
+const ALLOW_LOCAL_PROXY = process.env.PCL_PROXY_ALLOW_LOCAL === "1";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -92,63 +95,41 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-function normalizeUserAgent(rawUserAgent) {
-  const value = String(rawUserAgent ?? "").trim();
-  if (!value) return EFFECTIVE_DEFAULT_USER_AGENT;
-  if (value.length > MAX_USER_AGENT_LENGTH || !/^[\x20-\x7E]+$/.test(value)) {
-    throw new Error("UA 必须是 1-512 个可打印 ASCII 字符");
-  }
-  return value;
-}
+async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, allowLocal = false) {
+  const parsed = parseTarget(url, { allowLocal });
+  await assertPublicTarget(parsed, { allowLocal });
 
-function requestOnce(
-  url,
-  redirectsLeft,
-  userAgent,
-  accept = "text/xml,application/xml,text/plain,*/*"
-) {
   return new Promise((resolve, reject) => {
-    let parsed;
-    try {
-      parsed = new URL(url);
-    } catch {
-      reject(new Error("无效的网址"));
-      return;
-    }
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      reject(new Error("只支持 http:// 与 https://"));
-      return;
-    }
-
     const transport = parsed.protocol === "https:" ? https : http;
     const request = transport.request(
       parsed,
       {
         method: "GET",
-        headers: {
-          "User-Agent": userAgent,
-          Referer: "http://200.open.pcl2.server/",
-          Accept: accept,
-          "Accept-Encoding": "gzip, deflate, br"
-        },
+        headers: proxyRequestHeaders(userAgent, imageMode, { acceptEncoding: true }),
         timeout: TIMEOUT_MS
       },
       response => {
         const status = response.statusCode || 0;
         const location = response.headers.location;
-        if (status >= 300 && status < 400 && location) {
+        if (status >= 300 && status < 400) {
           response.resume();
           if (redirectsLeft <= 0) {
-            reject(new Error("重定向次数过多"));
+            reject(new ProxyError("重定向次数过多", 502));
             return;
           }
-          const next = new URL(location, parsed).toString();
-          resolve(requestOnce(next, redirectsLeft - 1, userAgent, accept));
+          let next;
+          try {
+            next = resolveRedirect(parsed, location, status, { allowLocal }).toString();
+          } catch (error) {
+            reject(error);
+            return;
+          }
+          resolve(requestOnce(next, redirectsLeft - 1, userAgent, imageMode, allowLocal));
           return;
         }
         if (status < 200 || status >= 300) {
           response.resume();
-          reject(new Error(`远程服务器返回 HTTP ${status}`));
+          reject(new ProxyError(`远程服务器返回 HTTP ${status}`, 502));
           return;
         }
 
@@ -163,7 +144,7 @@ function requestOnce(
         stream.on("data", chunk => {
           size += chunk.length;
           if (size > MAX_BYTES) {
-            stream.destroy(new Error("远程文件过大（超过 4 MB）"));
+            stream.destroy(new ProxyError("远程文件过大（超过 4 MB）", 413));
             return;
           }
           chunks.push(chunk);
@@ -179,7 +160,7 @@ function requestOnce(
       }
     );
 
-    request.on("timeout", () => request.destroy(new Error("请求超时")));
+    request.on("timeout", () => request.destroy(new ProxyError("请求超时", 504)));
     request.on("error", reject);
     request.end();
   });
@@ -222,7 +203,9 @@ async function proxy(req, res, requestUrl) {
   try {
     userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
   } catch (error) {
-    send(res, 400, String(error?.message || error), { "Content-Type": "text/plain; charset=utf-8" });
+    send(res, error?.status || 400, String(error?.message || error), {
+      "Content-Type": "text/plain; charset=utf-8"
+    });
     return;
   }
   try {
@@ -230,20 +213,11 @@ async function proxy(req, res, requestUrl) {
       target,
       MAX_REDIRECTS,
       userAgent,
-      imageMode ? "image/*,*/*" : "text/xml,application/xml,text/plain,*/*"
+      imageMode,
+      ALLOW_LOCAL_PROXY
     );
-    let finalPath = "";
-    try {
-      finalPath = new URL(result.finalUrl).pathname.toLowerCase();
-    } catch {
-      finalPath = "";
-    }
     if (imageMode) {
-      const isImage =
-        /^image\//i.test(result.contentType) ||
-        (/octet-stream/i.test(result.contentType) &&
-          /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i.test(finalPath));
-      if (!isImage) {
+      if (!isImageContentType(result.contentType, result.finalUrl)) {
         send(res, 415, "目标不是图片内容，无法加载。", {
           "Content-Type": "text/plain; charset=utf-8"
         });
@@ -264,11 +238,7 @@ async function proxy(req, res, requestUrl) {
       send(res, 200, result.body, headers);
       return;
     }
-    const isText =
-      /xml|text|json|javascript/i.test(result.contentType) ||
-      !result.contentType ||
-      (/octet-stream/i.test(result.contentType) && /\.(xaml|xml|txt)$/i.test(finalPath));
-    if (!isText) {
+    if (!isTextContentType(result.contentType, result.finalUrl)) {
       send(res, 415, "目标不是文本内容，无法作为 XAML 加载。", {
         "Content-Type": "text/plain; charset=utf-8"
       });
@@ -281,7 +251,7 @@ async function proxy(req, res, requestUrl) {
       "X-PCL-Proxy-Final-Url": result.finalUrl
     });
   } catch (error) {
-    send(res, 502, String(error?.message || error), {
+    send(res, error instanceof ProxyError ? error.status : 502, String(error?.message || error), {
       "Content-Type": "text/plain; charset=utf-8"
     });
   }

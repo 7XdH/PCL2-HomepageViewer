@@ -459,6 +459,25 @@ export async function runRegression() {
     return { csp };
   });
 
+  await makeCheck(results, "本地代理 SSRF 防护", async () => {
+    const cases = [
+      ["http://127.0.0.1/", 403],
+      ["http://localhost/", 403],
+      ["http://example.com:8080/", 403]
+    ];
+    for (const [target, expected] of cases) {
+      const response = await fetch(
+        `/api/proxy?url=${encodeURIComponent(target)}`,
+        { cache: "no-store" }
+      );
+      const body = await response.text();
+      if (response.status !== expected) {
+        throw new Error(`${target} 应返回 ${expected}，实际 ${response.status}：${body.slice(0, 120)}`);
+      }
+    }
+    return { cases: cases.length };
+  });
+
   await makeCheck(results, "CSP 与安全响应头", async () => {
     const response = await fetch("/", { cache: "no-store" });
     const csp = response.headers.get("content-security-policy") || "";
