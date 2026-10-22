@@ -105,6 +105,9 @@ export class PclRenderer extends PclDocumentBuilders {
   }
 
   layoutCardBodies() {
+    // Keep a visible gap even when the upstream XAML uses tightly packed
+    // margins; otherwise a text descender can visually touch the button row.
+    const gap = 12;
     for (const body of this.root.querySelectorAll(".pcl-card__body")) {
       const content = Array.from(body.children).filter((node) => this.isCardContentNode(node));
       let previousBottom = -Infinity;
@@ -112,9 +115,9 @@ export class PclRenderer extends PclDocumentBuilders {
         const top = node.offsetTop;
         const height = node.offsetHeight;
         if (!height) continue;
-        if (top < previousBottom) {
+        if (Number.isFinite(previousBottom) && top < previousBottom + gap) {
           const currentMargin = Number.parseFloat(getComputedStyle(node).marginTop) || 0;
-          node.style.marginTop = `${currentMargin + previousBottom - top + 2}px`;
+          node.style.marginTop = `${currentMargin + previousBottom + gap - top}px`;
         }
         previousBottom = Math.max(previousBottom, node.offsetTop + node.offsetHeight);
       }
