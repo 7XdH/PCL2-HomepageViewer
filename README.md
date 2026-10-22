@@ -29,9 +29,10 @@ node server.js
 测试使用本地 `server.js` 和已安装的 Edge / Chrome，通过 CDP pipe 运行，不需要额外 npm 依赖。
 
 ```powershell
-npm test              # 本地预设、PCL2 预设面板、GroupBox/UniformGrid、替换标记回归
+npm test              # Node 单元测试 + 浏览器回归
+npm run test:unit     # 仅运行 Node 单元测试（xaml / theme / help / URL / 代理策略）
 npm run test:presets  # PCL 25 个预设批量验收（需要联网，4 路并发）
-npm run test:all      # 同时运行以上两项
+npm run test:all      # 单元测试 + 浏览器回归 + 预设验收
 ```
 
 如果浏览器不在常见路径，可设置：

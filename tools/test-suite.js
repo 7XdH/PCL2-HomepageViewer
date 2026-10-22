@@ -1,6 +1,6 @@
 import { PclRenderer } from "../js/renderer.js";
 import { PclRuntime } from "../js/runtime.js";
-import { substitutePlaceholders } from "../js/xaml.js";
+import { PclXamlError, parseXaml, substitutePlaceholders } from "../js/xaml.js";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../js/ua.js";
 import {
   resolveHelpUrls,
@@ -517,6 +517,29 @@ export async function runRegression() {
       }
     }
     return { cases: cases.length };
+  });
+
+  await makeCheck(results, "XAML 安全过滤", async () => {
+    const blocked = [
+      '<local:WebBrowser />',
+      '<local:MyCard Code="alert(1)" />',
+      '<TextBlock Text="{x:Static local:Evil.Value}" />',
+      '<local:Frame />'
+    ];
+    for (const source of blocked) {
+      try {
+        parseXaml(source);
+        throw new Error(`危险 XAML 未被拒绝：${source}`);
+      } catch (error) {
+        if (error.message.startsWith("危险 XAML 未被拒绝")) throw error;
+        if (!(error instanceof PclXamlError)) throw error;
+      }
+    }
+    const root = parseXaml('<StackPanel><TextBlock Text="安全内容" /></StackPanel>');
+    if (!root.querySelector("TextBlock") && !root.querySelector("*")) {
+      throw new Error("合法 XAML 没有解析出节点");
+    }
+    return { blocked: blocked.length };
   });
 
   await makeCheck(results, "CSP 与安全响应头", async () => {

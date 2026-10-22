@@ -7,9 +7,10 @@
   "scripts": {
     "start": "node server.js",
     "build": "node tools/build-static.mjs",
-    "test": "node tools/regression.mjs",
+    "test:unit": "node --test tools/unit-tests.mjs",
+    "test": "npm run test:unit && node tools/regression.mjs",
     "test:presets": "node tools/regression.mjs --presets",
-    "test:all": "node tools/regression.mjs --all"
+    "test:all": "npm run test:unit && node tools/regression.mjs --all"
   },
   "engines": {
     "node": ">=18"
