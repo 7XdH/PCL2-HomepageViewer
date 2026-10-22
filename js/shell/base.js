@@ -13,6 +13,7 @@ export class PclShellBase {
     this.currentPage = "Launch";
     this.tooltipTimer = 0;
     this.tooltipTarget = null;
+    this.tooltipAnchor = null;
     this.lastPointer = { x: 0, y: 0 };
 
     this.windowEl = document.getElementById("pclWindow");

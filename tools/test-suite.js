@@ -587,6 +587,36 @@ export async function runRegression() {
     return { title: "版本列表" };
   });
 
+  await makeCheck(results, "Tooltip 支持键盘焦点", async () => {
+    const shell = window.__PCL_RENDERER__?.shell;
+    const tooltip = document.getElementById("pclTooltip");
+    if (!shell?.hideTooltip || !tooltip || !shell.tooltip) {
+      throw new Error("找不到 Tooltip 接口");
+    }
+    shell.hideTooltip();
+    await sleep(170);
+    const target = document.createElement("button");
+    target.type = "button";
+    target.dataset.tooltip = "键盘提示";
+    target.style.cssText = "position:fixed;left:12px;top:12px;width:24px;height:24px;";
+    document.body.append(target);
+    try {
+      target.focus({ preventScroll: true });
+      await sleep(40);
+      if (tooltip.hidden || tooltip.textContent !== "键盘提示") {
+        throw new Error("键盘焦点没有显示 Tooltip");
+      }
+      target.blur();
+      await sleep(180);
+      if (!tooltip.hidden) throw new Error("失焦后 Tooltip 没有消失");
+    } finally {
+      target.remove();
+      shell.hideTooltip();
+      await sleep(170);
+    }
+    return { text: "键盘提示" };
+  });
+
   await makeCheck(results, "WPF MaxHeight 行高", async () => {
     const text = "这段文字用于验证换行后的行距不会重叠。WPF 默认 LineStackingStrategy 是 MaxHeight，因此 LineHeight 小于字体行高时应取字体行高。";
     const xaml = `<FlowDocument FontSize="14"><Paragraph Width="180" LineHeight="12">${text}</Paragraph></FlowDocument>`;

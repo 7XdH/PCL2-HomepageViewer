@@ -250,13 +250,29 @@ export class PclShellNavigation extends PclShellBase {
       this.hideTooltip();
     });
 
+    document.addEventListener("focusin", event => {
+      const target = event.target.closest?.("[data-tooltip]");
+      if (!target) return;
+      this.tooltipTarget = target;
+      window.clearTimeout(this.tooltipTimer);
+      this.showTooltip(target, { anchor: target });
+    });
+
+    document.addEventListener("focusout", event => {
+      const target = event.target.closest?.("[data-tooltip]");
+      if (!target || target !== this.tooltipTarget) return;
+      if (event.relatedTarget && target.contains(event.relatedTarget)) return;
+      this.hideTooltip();
+    });
+
     document.addEventListener("scroll", () => this.hideTooltip(), true);
     document.addEventListener("click", () => this.hideTooltip(), true);
   }
 
-  showTooltip(target) {
+  showTooltip(target, { anchor = null } = {}) {
     const text = target?.dataset?.tooltip;
     if (!text) return;
+    this.tooltipAnchor = anchor;
     this.tooltip.textContent = text;
     this.tooltip.hidden = false;
     this.tooltip.classList.remove("is-visible");
@@ -268,6 +284,17 @@ export class PclShellNavigation extends PclShellBase {
     if (this.tooltip.hidden) return;
     const rect = this.tooltip.getBoundingClientRect();
     const padding = 10;
+    if (this.tooltipAnchor?.isConnected) {
+      const anchor = this.tooltipAnchor.getBoundingClientRect();
+      let left = anchor.left + anchor.width / 2 - rect.width / 2;
+      let top = anchor.top - rect.height - 8;
+      if (top < padding) top = anchor.bottom + 8;
+      left = Math.max(padding, Math.min(left, window.innerWidth - rect.width - padding));
+      top = Math.max(padding, Math.min(top, window.innerHeight - rect.height - padding));
+      this.tooltip.style.left = `${left}px`;
+      this.tooltip.style.top = `${top}px`;
+      return;
+    }
     let left = this.lastPointer.x + 14;
     let top = this.lastPointer.y + 18;
     if (left + rect.width > window.innerWidth - padding) left = this.lastPointer.x - rect.width - 12;
@@ -279,6 +306,7 @@ export class PclShellNavigation extends PclShellBase {
   hideTooltip() {
     window.clearTimeout(this.tooltipTimer);
     this.tooltipTarget = null;
+    this.tooltipAnchor = null;
     this.tooltip.classList.remove("is-visible");
     window.setTimeout(() => {
       if (!this.tooltip.classList.contains("is-visible")) this.tooltip.hidden = true;
