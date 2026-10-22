@@ -138,6 +138,25 @@ test("limits: source size rejection", () => {
   );
 });
 
+test("assets: favicon and logo are optimized", () => {
+  const icon = fs.readFileSync(new URL("../assets/pcl/images/icon.ico", import.meta.url));
+  assert.ok(icon.length < 20_000, `icon.ico is ${icon.length} bytes`);
+  const frameCount = icon.readUInt16LE(4);
+  const sizes = [];
+  for (let index = 0; index < frameCount; index += 1) {
+    const entry = 6 + index * 16;
+    sizes.push(icon[entry] || 256);
+    assert.equal(icon.readUInt16LE(entry + 6), 32, "favicon frame must be 32bpp");
+  }
+  assert.deepEqual(sizes, [16, 32, 48]);
+
+  const logo = fs.readFileSync(new URL("../assets/pcl/images/LogoHex.png", import.meta.url));
+  assert.ok(logo.length < 15_000, `LogoHex.png is ${logo.length} bytes`);
+  assert.equal(logo.subarray(1, 4).toString("ascii"), "PNG");
+  assert.equal(logo.readUInt32BE(16), 64);
+  assert.equal(logo.readUInt32BE(20), 72);
+});
+
 test("styles: Firefox scrollbar fallbacks", () => {
   const css = fs.readFileSync(new URL("../css/pcl-theme.css", import.meta.url), "utf8");
   assert.match(css, /\.pcl-scroll\s*\{[^}]*scrollbar-width:\s*thin;[^}]*scrollbar-color:[^;]+;/s);

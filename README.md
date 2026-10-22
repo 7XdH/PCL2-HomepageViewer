@@ -223,6 +223,7 @@ Root Directory: 留空
 - **PCL2 预设面板**：接入 PCL2 启动器内置的 25 个主页预设，支持搜索名称 / 域名，标注“通常可用 / 上游可能不可用 / 会被安全阻止”；在线项优先使用 `PCL2/2.99.0.0` UA，并在内存中缓存，刷新按钮可强制重新拉取。
 - **1:1 PCL 外观**：850 × 500 窗口、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。
 - **跨浏览器滚动条**：Chromium 使用 8px WebKit 滚动条，Firefox 使用标准 `scrollbar-width: thin` / `scrollbar-color`，保持透明轨道和半透明滑块。
+- **静态资源优化**：favicon 仅保留 16 / 32 / 48 三个 32bpp 帧，`LogoHex.png` 按 2× 显示尺寸输出为 64 × 72 PNG，减少首屏资源体积。
 - **资源与样式**：支持 `StackPanel.Resources` 中的 `sys:String`、`Style` 与 `{StaticResource}` / `{DynamicResource}` 字符串引用，包含隐式样式、显式 `Style`、`BasedOn` 和 `Setter`。
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线；分隔线文字会按内容伸展并自动换行，不再截成省略号。
 - **WPF 行高语义**：遵循默认 `LineStackingStrategy="MaxHeight"`，行框取 `LineHeight` 与字体实际行高的较大值，避免上游 `LineHeight="12"` 配 `FontSize="14"` 时文字重叠；显式 `BlockLineHeight` 仍严格使用指定值。
