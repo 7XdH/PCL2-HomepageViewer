@@ -500,21 +500,25 @@ export class PclLayoutBuilders {
     this.count(node);
 
     const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    // Two layers, like the template: an unmasked background border and a
+    // masked outline border. The converter only erases the outline.
+    const fill = document.createElement("div");
+    fill.className = "pcl-groupbox__fill";
+    if (background) fill.style.background = background;
+    const frame = document.createElement("div");
+    frame.className = "pcl-groupbox__frame";
+    node.append(fill, frame);
     const borderBrush = resolveColor(getProp(props, "BorderBrush"));
     if (borderBrush) node.style.setProperty("--groupbox-border", borderBrush);
     const borderThickness = parseThickness(getProp(props, "BorderThickness"));
     if (borderThickness) {
       const visible = Math.max(borderThickness.l, borderThickness.t, borderThickness.r, borderThickness.b) > 0;
-      if (visible) {
-        node.style.borderStyle = "solid";
-        node.style.borderWidth = `${borderThickness.t}px ${borderThickness.r}px ${borderThickness.b}px ${borderThickness.l}px`;
-      } else {
-        node.style.border = "0";
-      }
+      node.style.setProperty(
+        "--groupbox-thickness",
+        visible ? `${borderThickness.t}px ${borderThickness.r}px ${borderThickness.b}px ${borderThickness.l}px` : "0"
+      );
     }
     const padding = parseThickness(getProp(props, "Padding"));
-    if (padding) node.style.padding = padding.css;
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
 
@@ -581,6 +585,8 @@ export class PclLayoutBuilders {
       ).toLowerCase();
       content.style.justifyContent = alignmentMap[horizontal] || (isText ? "center" : "stretch");
       content.style.alignItems = alignmentMap[vertical] || (isText ? "center" : "stretch");
+      // The Aero2 template wraps the content presenter in Margin="{TemplateBinding Padding}".
+      if (padding) content.style.margin = padding.css;
       node.append(content);
     }
 

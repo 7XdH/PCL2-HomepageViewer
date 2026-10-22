@@ -810,7 +810,11 @@ export async function runRegression() {
       throw new Error(`右对齐按钮被下推：顶部 ${buttonRect.top}，应保持 66`);
     }
     const subtitleRect = subtitle.getBoundingClientRect();
-    if (buttonRect.top > subtitleRect.bottom) {
+    // WPF draws the TextBlock's own line box (13px * 1.1509) below its margin,
+    // so the button row can start a fraction of a pixel below that box while
+    // still sitting on the same row. Allow a small tolerance instead of the
+    // old 1.32em line height that happened to overlap.
+    if (buttonRect.top > subtitleRect.bottom + 2) {
       throw new Error(`右对齐按钮应与左侧副标题同区：${buttonRect.top} > ${subtitleRect.bottom}`);
     }
     return { buttonTop: buttonRect.top, subtitleBottom: subtitleRect.bottom };
@@ -1047,10 +1051,137 @@ export async function runRegression() {
     const group = harness.root.querySelector('[data-pcl-type="GroupBox"]');
     const grid = harness.root.querySelector('[data-pcl-type="UniformGrid"]');
     if (group?.innerText.replace(/\s+/g, " ").trim() !== "状态 42") throw new Error("GroupBox 内容不正确");
+    // Without HeaderTemplate/ContentTemplate the header and content fall back
+    // to PCL's global TextBlock style (13px, 1.1509em line box).
+    const fallbacks = [
+      [".pcl-groupbox__header", "Header"],
+      [".pcl-groupbox__content-text", "Content"]
+    ];
+    for (const [selector, label] of fallbacks) {
+      const node = group.querySelector(selector);
+      if (!node) throw new Error(`${label} 默认文本未渲染`);
+      const style = getComputedStyle(node);
+      if (style.fontSize !== "13px") throw new Error(`${label} 默认字号：期望 13px，实际 ${style.fontSize}`);
+      const lineHeight = Number.parseFloat(style.lineHeight);
+      if (Math.abs(lineHeight - 13 * 1.1509) > 0.2) {
+        throw new Error(`${label} 默认行高：期望 ${(13 * 1.1509).toFixed(2)}，实际 ${lineHeight}`);
+      }
+    }
     if (!grid) throw new Error("UniformGrid 未渲染");
     const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean);
     if (columns.length !== 2) throw new Error(`UniformGrid 没有形成两列：${columns.join(" ")}`);
     if (metrics.unsupported || metrics.warnings.length) throw new Error("组件渲染出现警告");
+    return metrics;
+  });
+
+  await makeCheck(results, "GroupBox 按 WPF Aero2 模板布局", async () => {
+    const xaml = `
+      <StackPanel.Resources>
+        <Style TargetType="GroupBox">
+          <Setter Property="Margin" Value="5" />
+          <Setter Property="MinWidth" Value="90" />
+          <Setter Property="MinHeight" Value="60" />
+          <Setter Property="HeaderTemplate">
+            <Setter.Value>
+              <DataTemplate><TextBlock Text="{Binding}" FontSize="12" /></DataTemplate>
+            </Setter.Value>
+          </Setter>
+          <Setter Property="ContentTemplate">
+            <Setter.Value>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" FontSize="22" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </DataTemplate>
+            </Setter.Value>
+          </Setter>
+        </Style>
+      </StackPanel.Resources>
+      <WrapPanel>
+        <GroupBox Header="优先级低" Content="66" />
+      </WrapPanel>`;
+    const metrics = await renderSource(harness, xaml);
+    const group = harness.root.querySelector('[data-pcl-type="GroupBox"]');
+    if (!group) throw new Error("GroupBox 未渲染");
+    const box = group.getBoundingClientRect();
+    const rel = (node) => {
+      if (!node) throw new Error("GroupBox 缺少模板部件");
+      const rect = node.getBoundingClientRect();
+      return { x: rect.x - box.x, y: rect.y - box.y, w: rect.width, h: rect.height };
+    };
+    const near = (actual, expected, label, tolerance = 0.7) => {
+      if (Math.abs(actual - expected) > tolerance) {
+        throw new Error(`${label}：期望 ${expected}，实际 ${actual.toFixed(2)}`);
+      }
+    };
+
+    near(box.width, 90, "GroupBox 宽度");
+    near(box.height, 60, "GroupBox 高度");
+
+    const header = rel(group.querySelector(".pcl-groupbox__header"));
+    const headerText = rel(group.querySelector(".pcl-groupbox__header-text"));
+    const content = rel(group.querySelector(".pcl-groupbox__content"));
+    const contentText = rel(group.querySelector(".pcl-groupbox__content-text"));
+
+    // Aero2: 6px side columns, header in the Auto column with 3,1,3,0 padding.
+    near(header.x, 6, "Header 左内边距");
+    near(header.y, 0, "Header 顶部位置");
+    near(header.w, 54, "Header 宽度");
+    near(headerText.x, 9, "Header 文本左位置");
+    near(headerText.y, 1, "Header 文本顶部位置");
+    near(headerText.h, 13.81, "Header 文本行高", 0.4);
+
+    // Two Auto rows of half the header height, 6px bottom row, content below.
+    near(content.x, 6, "内容区左内边距");
+    near(content.y, header.h, "内容区顶部位置", 0.3);
+    near(content.w, 78, "内容区宽度");
+    near(content.h, 60 - header.h - 6, "内容区高度", 0.3);
+    near(contentText.x + contentText.w / 2, content.x + content.w / 2, "内容文本水平居中", 0.5);
+    near(contentText.y + contentText.h / 2, content.y + content.h / 2, "内容文本垂直居中", 0.5);
+
+    const frameTop = Number.parseFloat(getComputedStyle(group.querySelector(".pcl-groupbox__frame")).top);
+    near(frameTop, header.h / 2, "框线顶部位置", 0.3);
+
+    // BorderGapMaskConverter(7, header width, frame height) erases the outline
+    // from 7px to 7px + header width, down to half the frame height, so the
+    // outline never crosses the title.
+    const frame = group.querySelector(".pcl-groupbox__frame");
+    const gapWidth = Number.parseFloat(getComputedStyle(group).getPropertyValue("--groupbox-gap-width"));
+    near(gapWidth, header.w, "缺口宽度");
+    const clip = getComputedStyle(frame).clipPath;
+    if (!clip.includes("polygon")) throw new Error(`框线缺少缺口遮罩：${clip}`);
+    const gapRight = 7 + header.w;
+    const gapRightPattern = new RegExp(`${String(+gapRight.toFixed(2)).replace(".", "\\.")}px`);
+    if (!gapRightPattern.test(clip)) throw new Error(`缺口右边界异常：${clip}`);
+    return metrics;
+  });
+
+  await makeCheck(results, "GroupBox 的 Padding 与 BorderThickness 遵循模板", async () => {
+    const xaml = `
+      <WrapPanel>
+        <GroupBox Header="A" Content="1" MinWidth="90" MinHeight="60" Padding="10" BorderThickness="2" />
+      </WrapPanel>`;
+    const metrics = await renderSource(harness, xaml);
+    const group = harness.root.querySelector('[data-pcl-type="GroupBox"]');
+    if (!group) throw new Error("GroupBox 未渲染");
+    const box = group.getBoundingClientRect();
+    const header = group.querySelector(".pcl-groupbox__header").getBoundingClientRect();
+    const content = group.querySelector(".pcl-groupbox__content").getBoundingClientRect();
+    const frame = group.querySelector(".pcl-groupbox__frame");
+
+    // Padding is a margin around the content presenter, not inner padding.
+    const left = content.x - box.x;
+    const top = content.y - box.y - header.height;
+    if (Math.abs(left - 16) > 0.7) throw new Error(`Padding 左内缩：期望 16，实际 ${left.toFixed(2)}`);
+    if (Math.abs(top - 10) > 0.7) throw new Error(`Padding 上内缩：期望 10，实际 ${top.toFixed(2)}`);
+    if (Math.abs(content.width - 58) > 0.7) {
+      throw new Error(`Padding 后内容宽度：期望 58，实际 ${content.width.toFixed(2)}`);
+    }
+    // All three nested frame borders use the property value.
+    if (getComputedStyle(frame).borderTopWidth !== "2px") {
+      throw new Error(`外框厚度：期望 2px，实际 ${getComputedStyle(frame).borderTopWidth}`);
+    }
+    const inner = getComputedStyle(frame, "::before").borderTopWidth;
+    if (inner !== "2px") throw new Error(`内框厚度：期望 2px，实际 ${inner}`);
     return metrics;
   });
 

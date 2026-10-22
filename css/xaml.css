@@ -112,9 +112,10 @@
   max-width: 100%;
   color: var(--pcl-c1);
   font-size: 13px;
-  /* WPF TextBlock line height = the font's own metrics: Microsoft YaHei is
-     1.32em (measured with a WPF probe: 18px -> 23.757, 11px -> 14.517). */
-  line-height: 1.32;
+  /* PCL's TextBlock style uses "PCL English, Microsoft YaHei UI"; a WPF probe
+     with that font reports a constant 1.1509em line spacing (11px -> 12.66,
+     12px -> 13.813, 18px -> 20.717, 22px -> 25.323). */
+  line-height: 1.1509;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -192,7 +193,7 @@
   color: var(--pcl-c1);
   font-size: 13px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.1509;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
@@ -282,36 +283,109 @@
    GroupBox
    -------------------------------------------------------------------------- */
 
+/* PCL never styles GroupBox, so it keeps the WPF Aero2 template:
+   - a 6px column on both sides, a 6px row at the bottom and nothing above
+     the header;
+   - the header presenter spans two rows of half its height, so the frame
+     starts at the middle of the header;
+   - the frame is three nested 1px borders: white, BorderBrush, white;
+   - a BorderGapMaskConverter mask erases the frame behind the header: the
+     gap starts 7px in, is as wide as the "Header" border and half as tall as
+     the frame, which is what makes the title sit on a break in the outline;
+   - Padding is applied as a margin around the content presenter. */
 .pcl-groupbox {
+  position: relative;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   min-width: 0;
   min-height: 0;
   max-width: 100%;
-  padding: 4px 7px 6px;
-  border: 1px solid var(--groupbox-border, var(--pcl-c4));
-  border-radius: 2px;
+  padding: 0 6px 6px;
   color: var(--pcl-c1);
   background: transparent;
+  /* PCL's global TextBlock style: 13px with the font's own 1.1509 line box. */
+  font-size: 13px;
+  line-height: 1.1509;
+}
+
+/* Background sits on its own layer so the gap mask below only erases the
+   outline, exactly like the template's separate background border. */
+.pcl-groupbox__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--groupbox-frame-top, 7.4px);
+  border-radius: 4px;
+  background-clip: padding-box;
+  pointer-events: none;
+}
+
+.pcl-groupbox__frame {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--groupbox-frame-top, 7.4px);
+  border-width: var(--groupbox-thickness, 1px);
+  border-style: solid;
+  border-color: #ffffff;
+  border-radius: 4px;
+  pointer-events: none;
+  /* BorderGapMaskConverter(7, header width, frame height): the header area of
+     the frame is masked out down to half the frame height. */
+  clip-path: polygon(
+    0 0,
+    7px 0,
+    7px 50%,
+    calc(7px + var(--groupbox-gap-width, 0px)) 50%,
+    calc(7px + var(--groupbox-gap-width, 0px)) 0,
+    100% 0,
+    100% 100%,
+    0 100%
+  );
+}
+
+.pcl-groupbox__frame::before,
+.pcl-groupbox__frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pcl-groupbox__frame::before {
+  border-width: var(--groupbox-thickness, 1px);
+  border-style: solid;
+  border-color: var(--groupbox-border, var(--pcl-c4));
+  border-radius: 3px;
+}
+
+.pcl-groupbox__frame::after {
+  inset: var(--groupbox-thickness, 1px);
+  border-width: var(--groupbox-thickness, 1px);
+  border-style: solid;
+  border-color: #ffffff;
+  border-radius: 2px;
 }
 
 .pcl-groupbox__header {
+  position: relative;
+  z-index: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex: none;
+  align-self: flex-start;
   min-width: 0;
-  min-height: 16px;
-  line-height: 16px;
+  max-width: 100%;
+  padding: 1px 3px 0;
 }
 
 .pcl-groupbox__header-text {
-  flex: none;
   min-width: 0;
   max-width: 100%;
   color: var(--pcl-c1);
-  font-size: 12px;
-  line-height: 16px;
 }
 
 .pcl-groupbox__content {
@@ -330,9 +404,6 @@
   min-width: 0;
   max-width: 100%;
   color: var(--pcl-c1);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.2;
 }
 
 /* --------------------------------------------------------------------------
@@ -354,7 +425,9 @@
   flex: 1;
   min-width: 0;
   padding: 9px 12px;
-  line-height: 1.45;
+  /* PCL's MyHint template sets LineHeight="16"; the default MaxHeight stacking
+     strategy keeps the larger of that and the font's own line height. */
+  line-height: max(16px, 1.1509em);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -447,7 +520,7 @@
   overflow: hidden;
   color: inherit;
   font-size: 13px;
-  line-height: 1.2;
+  line-height: 1.1509;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -518,7 +591,7 @@
   color: var(--pcl-c1);
   background: transparent;
   font-size: 13px;
-  line-height: 1.32;
+  line-height: 1.1509;
   text-align: left;
   /* WPF stretches the button's TextBlock to the row height and draws the text
      from its top; Chrome centers button content vertically by default, which
@@ -660,7 +733,7 @@
   margin: 0 12px 1px 7px;
   color: inherit;
   font-size: 13px;
-  line-height: 1.2;
+  line-height: 1.1509;
   white-space: nowrap;
 }
 
@@ -767,7 +840,7 @@
 .pcl-listitem__title {
   overflow: hidden;
   font-size: 14px;
-  line-height: 1.2;
+  line-height: 1.1509;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -777,7 +850,7 @@
   margin-top: 1px;
   color: var(--pcl-gray2);
   font-size: 12px;
-  line-height: 1.2;
+  line-height: 1.1509;
   opacity: 0.6;
   text-overflow: ellipsis;
   white-space: nowrap;

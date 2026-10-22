@@ -233,6 +233,7 @@ Root Directory: 留空
 - **资源与样式**：支持 `StackPanel.Resources` 中的 `sys:String`、`Style` 与 `{StaticResource}` / `{DynamicResource}` 字符串引用，包含隐式样式、显式 `Style`、`BasedOn` 和 `Setter`。
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线；分隔线文字会按内容伸展并自动换行，不再截成省略号。
 - **WPF 行高语义**：遵循默认 `LineStackingStrategy="MaxHeight"`，行框取 `LineHeight` 与字体实际行高的较大值，避免上游 `LineHeight="12"` 配 `FontSize="14"` 时文字重叠；显式 `BlockLineHeight` 仍严格使用指定值。
+- **GroupBox 模板语义**：PCL 没有覆盖 `GroupBox` 样式，因此按 WPF Aero2 模板渲染——左右与底部各 6px、Header 跨两行、`BorderGapMaskConverter` 在标题处挖掉框线（缺口从 7px 开始、宽度为 Header 宽度、高度为框高的一半，所以标题坐在框线断口上）、三层嵌套边框（白 / `BorderBrush` / 白）、`Padding` 作为内容周围的外边距、`BorderThickness` 同时作用于三层边框；无模板时文本沿用 PCL 全局 13px / 1.1509em 行高。
 - **PCL 自定义事件**：按钮、卡片、列表项、提示条和 `CustomEventCollection` 都会进入同一个顺序事件队列；支持 PCL 标准替换标记。
 - **PCL 帮助页导航**：`打开帮助` 指向远程帮助 JSON 时，会加载同目录同名 `.xaml`，并按 PCL 的 `PageOtherHelpDetail` 方式替换整个页面内容区；标题栏切换为“返回 + 帮助标题”，侧栏隐藏，支持多级进入、逐级返回和返回主页。
 - **安全渲染**：XAML 通过 `DOMParser` 解析，只创建受控 DOM；不执行脚本、不加载 `x:Code`、不打开 `WebBrowser`，并过滤常见危险类型与成员。

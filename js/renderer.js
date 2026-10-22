@@ -71,10 +71,28 @@ export class PclRenderer extends PclDocumentBuilders {
     }
 
     this.root.replaceChildren(stack);
+    this.syncGroupBoxFrames();
     this.clampCardTexts();
     this.root.scrollTop = 0;
     const duration = Math.max(1, Math.round(performance.now() - started));
     return { controls: this.controlCount, duration, warnings: this.warnings.slice() };
+  }
+
+  syncGroupBoxFrames() {
+    // WPF's Aero2 GroupBox template spans the header presenter over two rows
+    // that are each half of its height, so the frame's top edge cuts through
+    // the middle of the header. Header height depends on the font, so measure
+    // it once the subtree is attached instead of hard-coding a value.
+    for (const box of this.root.querySelectorAll(".pcl-groupbox")) {
+      const header = box.querySelector(".pcl-groupbox__header");
+      const headerStyle = header ? getComputedStyle(header) : null;
+      const height = headerStyle ? Number.parseFloat(headerStyle.height) : 0;
+      const width = headerStyle ? Number.parseFloat(headerStyle.width) : 0;
+      box.style.setProperty("--groupbox-frame-top", `${Number.isFinite(height) ? height / 2 : 0}px`);
+      // BorderGapMaskConverter uses the "Header" border's ActualWidth and a
+      // fixed 7px offset for the left edge of the erased gap.
+      box.style.setProperty("--groupbox-gap-width", `${Number.isFinite(width) ? width : 0}px`);
+    }
   }
 
   clampCardTexts() {
