@@ -456,6 +456,19 @@ const main = async () => {
       const result = await loadSuite(browser.cdp, browser.sessionId, baseUrl, "runRegression");
       printRegression(result);
       if (!result.ok) failed = true;
+
+      await browser.cdp.send(
+        "Emulation.setDeviceMetricsOverride",
+        { width: 375, height: 667, deviceScaleFactor: 1, mobile: true },
+        browser.sessionId
+      );
+      try {
+        const mobileResult = await loadSuite(browser.cdp, browser.sessionId, baseUrl, "runMobileRegression");
+        printRegression(mobileResult);
+        if (!mobileResult.ok) failed = true;
+      } finally {
+        await browser.cdp.send("Emulation.clearDeviceMetricsOverride", {}, browser.sessionId);
+      }
     }
 
     if (WANT_PRESETS) {

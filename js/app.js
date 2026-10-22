@@ -457,7 +457,9 @@ function fitStage() {
       ? caption.getBoundingClientRect().height + (parseFloat(captionStyle.marginTop) || 0)
       : 0;
   const mobile = window.innerWidth <= 820;
-  const minScale = mobile ? 0.2 : 0.5;
+  // 移动端保持可读的最小缩放，并让 .stage__frame 横向滚动；不再把
+  // 850×500 的 PCL 窗口压到 20% 左右。
+  const minScale = mobile ? 0.55 : 0.5;
   const maxScale = 1.35;
 
   let scale = Math.min(
@@ -466,9 +468,13 @@ function fitStage() {
     Math.max(1, frame.clientHeight - captionBlock - gutter) / (500 + shadowTop + shadowBottom)
   );
   if (scale < minScale) scale = minScale;
-  scale = Math.max(0.2, Math.floor(scale * 1000) / 1000);
+  scale = Math.max(minScale, Math.floor(scale * 1000) / 1000);
   document.documentElement.style.setProperty("--pcl-scale", String(scale));
   if ($.zoomLabel) $.zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+
+  const scaler = $.scaler;
+  const pannable = Boolean(mobile && scaler && scaler.scrollWidth > frame.clientWidth);
+  if ($.stage) $.stage.classList.toggle("is-pannable", pannable);
 }
 
 async function loadPresetAndRender(id) {

@@ -23,6 +23,7 @@ import {
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || "127.0.0.1";
 const ALLOW_LOCAL_PROXY = process.env.PCL_PROXY_ALLOW_LOCAL === "1";
 const COMMIT_CACHE_MS = 30_000;
 let commitCache = null;
@@ -330,11 +331,17 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res, requestUrl.pathname);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
+  const displayHost = HOST === "0.0.0.0" || HOST === "::" ? "localhost" : HOST;
   console.log("");
   console.log("  Plain Craft Launcher (PCL) Homepage Viewer (第三方)");
-  console.log(`  http://localhost:${PORT}`);
+  console.log(`  http://${displayHost}:${PORT}`);
   console.log("");
+  if (HOST === "0.0.0.0" || HOST === "::") {
+    console.log("  已监听所有网卡，可通过局域网地址访问；请勿在不可信网络中公开使用。");
+  } else {
+    console.log(`  仅监听 ${HOST}；需要局域网访问时请设置 HOST=0.0.0.0。`);
+  }
   console.log("  联网主页将通过 /api/proxy 代理，远程图片失败时通过 image=1 模式重试。");
   console.log("  默认 UA：PCL2-Homepage-Viewer。");
   console.log("  按 Ctrl + C 停止服务器。");

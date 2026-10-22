@@ -20,7 +20,13 @@ node server.js
 # 或 npm start
 ```
 
-然后访问 <http://localhost:3000>。
+然后访问 <http://localhost:3000>。服务器默认只监听 `127.0.0.1`；需要从局域网访问时，显式监听所有网卡：
+
+```powershell
+$env:HOST = "0.0.0.0"; node server.js
+```
+
+请只在可信网络中使用 `HOST=0.0.0.0`。
 
 不要直接双击 `index.html`：项目使用 ES Module、同源 `fetch` 与 `/api/proxy`，通过 `file://` 打开时浏览器会阻止这些请求。
 

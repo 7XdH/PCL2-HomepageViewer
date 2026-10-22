@@ -1340,6 +1340,16 @@ body {
   background: rgba(52, 61, 74, 0.18);
 }
 
+.stage__caption-scroll {
+  display: none;
+  color: var(--pcl-c2);
+  white-space: nowrap;
+}
+
+.stage.is-pannable .stage__caption-scroll {
+  display: inline;
+}
+
 .stage__caption-grow {
   flex: 1;
   max-width: 34px;
@@ -1549,6 +1559,31 @@ body {
     min-height: 470px;
   }
 
+  /* 移动端不再把 850px 窗口压到不可读的尺寸。显示比例由 fitStage()
+     限制为至少 55%，超出的部分在预览框内横向滚动。 */
+  .stage.is-pannable .stage__frame {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(52, 61, 74, 0.24) transparent;
+  }
+
+  .stage.is-pannable .pcl-scaler {
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .stage.is-pannable .stage__frame::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .stage.is-pannable .stage__frame::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: rgba(52, 61, 74, 0.22);
+  }
+
   .stage__label {
     display: none;
   }
@@ -1616,7 +1651,8 @@ body {
     gap: 0;
   }
 
-  .stage__caption > span:not(.stage__caption-key):not(.stage__caption-zoom) {
+  .stage__caption
+    > span:not(.stage__caption-key):not(.stage__caption-zoom):not(.stage__caption-scroll) {
     display: none;
   }
 

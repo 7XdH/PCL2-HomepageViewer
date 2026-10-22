@@ -962,6 +962,45 @@ export async function runRegression() {
   return window.__PCL_TEST_RESULT__;
 }
 
+export async function runMobileRegression() {
+  const results = [];
+
+  await makeCheck(results, "375px 移动端预览横向滚动", async () => {
+    const started = Date.now();
+    const stage = document.getElementById("stage");
+    const frame = document.getElementById("stageFrame");
+    const scaler = document.getElementById("pclScaler");
+    if (!stage || !frame || !scaler) throw new Error("缺少预览舞台节点");
+    if (window.innerWidth > 820) throw new Error(`移动端视口宽度为 ${window.innerWidth}`);
+
+    while (Date.now() - started < 3000 && !stage.classList.contains("is-pannable")) {
+      await sleep(50);
+    }
+    if (!stage.classList.contains("is-pannable")) throw new Error("移动端没有启用横向滚动模式");
+
+    const scale = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pcl-scale"));
+    if (!(scale >= 0.55)) throw new Error(`移动端缩放 ${scale} 低于可读下限`);
+    if (frame.scrollWidth <= frame.clientWidth) {
+      throw new Error(`预览未溢出：${frame.scrollWidth} <= ${frame.clientWidth}`);
+    }
+    if (getComputedStyle(frame).overflowX !== "auto") {
+      throw new Error("预览框没有设置 overflow-x: auto");
+    }
+    if (scaler.getBoundingClientRect().left < frame.getBoundingClientRect().left) {
+      throw new Error("横向滚动内容被居中裁切，无法从左侧开始阅读");
+    }
+    const hint = document.querySelector(".stage__caption-scroll");
+    if (!hint || getComputedStyle(hint).display === "none") {
+      throw new Error("移动端缺少横向滑动提示");
+    }
+    return { scale, clientWidth: frame.clientWidth, scrollWidth: frame.scrollWidth };
+  });
+
+  const ok = results.every((item) => item.ok);
+  window.__PCL_TEST_RESULT__ = { suite: "mobile", ok, results };
+  return window.__PCL_TEST_RESULT__;
+}
+
 const classifyPreset = (preset, result) => {
   const expected = preset.expected;
   const error = result.error || "";
