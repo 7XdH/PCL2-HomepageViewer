@@ -205,14 +205,14 @@ export class PclShellNavigation extends PclShellBase {
 
   pushEvent(entry) {
     if (entry.status === "run") {
-      this.eventText.textContent = `${timeString(entry.time)} · ${entry.type}${entry.data ? ` → ${entry.data.slice(0, 42)}` : ""} …`;
+      this.eventText.textContent = `${timeString(entry.time)} · ${entry.type}${entry.data ? ` → ${entry.data}` : ""} …`;
       this.eventText.dataset.status = "run";
       return;
     }
     this.events.push(entry);
     if (this.events.length > 100) this.events.splice(0, this.events.length - 100);
     if (this.eventCount) this.eventCount.textContent = String(this.events.length);
-    const detail = entry.data ? ` → ${entry.data.slice(0, 48)}` : "";
+    const detail = entry.data ? ` → ${entry.data}` : "";
     const message = entry.status === "error" ? ` × ${entry.message}` : entry.message ? ` · ${entry.message}` : "";
     this.eventText.textContent = `${timeString(entry.time)} · ${entry.type}${detail}${message}`;
     this.eventText.dataset.status = entry.status;

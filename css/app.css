@@ -1399,9 +1399,9 @@ body {
   align-items: center;
   gap: 8px;
   flex: none;
-  height: 32px;
-  padding: 0 10px;
-  overflow: hidden;
+  min-height: 32px;
+  padding: 6px 10px;
+  overflow: visible;
   border: 1px solid rgba(255, 255, 255, 0.66);
   border-radius: 5px;
   color: var(--pcl-gray2);
@@ -1420,10 +1420,13 @@ body {
 }
 
 .event-strip__text {
+  flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
 }
 
 .event-strip__grow {

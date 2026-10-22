@@ -241,7 +241,7 @@ Root Directory: 留空
 - **UA 自动回退**：联网主页或远程图片代理请求失败、返回 HTML/JSON 等非 XAML 内容时，会自动使用 `PCL2/2.99.0.0` 再尝试一次；自定义 UA 始终优先。
 - **联网 URL 替换标记**：联网地址会在请求前解析 `{variable:...}`、`{setup:...}` 以及 PCL 版本、日期、实例等标记，例如 `https://weather-p.kaphia.top/{variable:PCLDailyWeatherPage:choose}.xaml`；输入框仍保留原始模板。
 - **非 XAML 响应校验**：联网地址返回空内容、JSON、HTML 或纯文本时会直接报错，不再渲染为空白页。
-- **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
+- **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；底部事件条会完整显示 EventData 并自动换行，不再截断长日志；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
 - **弹窗无障碍**：弹窗打开时会锁定背景区域的 `inert`，Tab / Shift+Tab 在弹窗按钮间循环，关闭动画结束后恢复背景并回到原焦点；弹窗通过 `aria-describedby` 关联正文。
 - **版本与账户记忆**：窗口内切换的演示版本和 Steve / Alex 账户会保存到 `localStorage`（`pcl.lab.shell.v1`），下次打开自动恢复；存储不可用或数据损坏时回退默认值。
 

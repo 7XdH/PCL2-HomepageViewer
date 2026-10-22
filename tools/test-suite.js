@@ -464,6 +464,51 @@ export async function runRegression() {
     return { cases: cases.length, opened };
   });
 
+  await makeCheck(results, "事件日志不截断长内容", async () => {
+    const shell = window.__PCL_RENDERER__?.shell;
+    if (!shell) throw new Error("找不到 Shell");
+    const eventText = document.getElementById("eventText");
+    const eventCount = document.getElementById("eventCount");
+    if (!eventText) throw new Error("找不到事件条");
+
+    const savedEvents = shell.events.slice();
+    const savedText = eventText.textContent;
+    const savedStatus = eventText.dataset.status;
+    const savedCount = eventCount?.textContent;
+    const longData = `长事件数据-${"内容".repeat(160)}-END`;
+    try {
+      shell.pushEvent({
+        type: "长事件测试",
+        data: longData,
+        status: "ok",
+        message: "完整保留",
+        time: Date.now()
+      });
+      const rendered = eventText.textContent;
+      if (!rendered.includes(longData)) throw new Error("底部事件条截断了长数据");
+      if (!shell.formatEventLog().includes(longData)) throw new Error("事件日志弹窗截断了长数据");
+      const style = getComputedStyle(eventText);
+      if (style.whiteSpace === "nowrap" || style.textOverflow === "ellipsis") {
+        throw new Error(`事件条仍使用截断样式：white-space=${style.whiteSpace}, text-overflow=${style.textOverflow}`);
+      }
+      const strip = eventText.closest(".event-strip");
+      if (!strip) throw new Error("找不到事件条容器");
+      if (strip.scrollHeight > strip.clientHeight + 1 || strip.scrollWidth > strip.clientWidth + 1) {
+        throw new Error(
+          `事件条发生裁切：${strip.scrollWidth}×${strip.scrollHeight} > ${strip.clientWidth}×${strip.clientHeight}`
+        );
+      }
+      if (strip.getBoundingClientRect().height <= 32) throw new Error("长事件没有撑高事件条");
+      return { length: longData.length, height: strip.getBoundingClientRect().height };
+    } finally {
+      shell.events.splice(0, shell.events.length, ...savedEvents);
+      eventText.textContent = savedText;
+      if (savedStatus) eventText.dataset.status = savedStatus;
+      else delete eventText.dataset.status;
+      if (eventCount && savedCount != null) eventCount.textContent = savedCount;
+    }
+  });
+
   await makeCheck(results, "远程 SVG 沙箱响应", async () => {
     if (!isSvgResponse("image/svg+xml; charset=utf-8", "https://example.com/icon.png")) {
       throw new Error("SVG Content-Type 没有被识别");
