@@ -160,11 +160,12 @@ function buildPathSvg(data, options = {}) {
 }
 
 export class PclRenderer {
-  constructor({ root, runtime, getProxyUa, getProxyUas } = {}) {
+  constructor({ root, runtime, getProxyUa, getProxyUas, lazyImages = true } = {}) {
     this.root = root;
     this.runtime = runtime;
     this.getProxyUa = getProxyUa;
     this.getProxyUas = getProxyUas;
+    this.lazyImages = lazyImages;
     this.warnings = [];
     this.controlCount = 0;
     this.resources = new Map();
@@ -182,7 +183,7 @@ export class PclRenderer {
     return proxy.toString();
   }
 
-  loadImageSource(source, onLoad, onError) {
+  loadImageSource(source, onLoad, onError, target = null) {
     const candidates = [source];
     const uas = this.getProxyUas?.() ?? [this.getProxyUa?.()];
     for (const ua of uas) {
@@ -197,7 +198,9 @@ export class PclRenderer {
         return;
       }
       const candidate = candidates[index++];
-      const image = new Image();
+      // Keep the legacy preload path for eager/test renderers; the visible
+      // element is used directly only when native lazy loading is enabled.
+      const image = target && this.lazyImages ? target : new Image();
       image.referrerPolicy = "no-referrer";
       image.onload = () => onLoad?.(candidate);
       image.onerror = attempt;
@@ -1452,7 +1455,10 @@ export class PclRenderer {
         img.alt = "";
         img.draggable = false;
         img.referrerPolicy = "no-referrer";
+        img.loading = this.lazyImages ? "lazy" : "eager";
+        img.decoding = "async";
         const resolvedLogo = resolveImageSource(logoSource) || NO_ICON;
+        logo.append(img);
         if (/^https?:/i.test(resolvedLogo)) {
           this.loadImageSource(
             resolvedLogo,
@@ -1461,7 +1467,8 @@ export class PclRenderer {
             },
             () => {
               img.src = NO_ICON;
-            }
+            },
+            img
           );
         } else {
           img.src = resolvedLogo;
@@ -1469,7 +1476,6 @@ export class PclRenderer {
             img.src = NO_ICON;
           }, { once: true });
         }
-        logo.append(img);
       } else {
         const { svg } = buildPathSvg(logoSource, { stretch: "Uniform", fill: "currentColor" });
         logo.append(svg);
@@ -1547,6 +1553,8 @@ export class PclRenderer {
       img.alt = "";
       img.draggable = false;
       img.referrerPolicy = "no-referrer";
+      img.loading = this.lazyImages ? "lazy" : "eager";
+      img.decoding = "async";
       img.style.objectFit = objectFit;
       if (width != null && height != null) {
         node.classList.add("pcl-image-wrap--fill");
@@ -1557,6 +1565,7 @@ export class PclRenderer {
       } else if (width != null) {
         img.style.width = `${width}px`;
       }
+      node.append(img);
 
       const useFallback = () => {
         if (fallback) {
@@ -1567,7 +1576,8 @@ export class PclRenderer {
             },
             () => {
               img.src = NO_ICON;
-            }
+            },
+            img
           );
         } else {
           img.src = NO_ICON;
@@ -1587,7 +1597,8 @@ export class PclRenderer {
             node.classList.remove("is-loading");
             useFallback();
             this.warn(`图片加载失败：${source}`);
-          }
+          },
+          img
         );
       } else {
         img.src = resolved;
@@ -1596,7 +1607,6 @@ export class PclRenderer {
           this.warn(`图片加载失败：${source}`);
         }, { once: true });
       }
-      node.append(img);
     }
 
     this.applyBox(node, props);

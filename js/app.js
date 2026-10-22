@@ -1,5 +1,5 @@
 import { PclTheme } from "./theme.js";
-import { PclRenderer } from "./renderer.js?v=20261021k";
+import { PclRenderer } from "./renderer.js?v=20261022a";
 import { PclRuntime } from "./runtime.js?v=20261021q";
 import { PclShell } from "./shell.js?v=20261022a";
 import { substitutePlaceholders } from "./xaml.js?v=20261021c";

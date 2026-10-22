@@ -31,7 +31,7 @@ const LOCAL_PRESETS = [
 const PRESET_AUDIT_CONCURRENCY = 4;
 const PRESET_AUDIT_FETCH_TIMEOUT_MS = 15000;
 
-const createHarness = (id = "pclRegressionRoot") => {
+const createHarness = (id = "pclRegressionRoot", { lazyImages = false } = {}) => {
   const root = document.createElement("div");
   root.id = id;
   root.style.cssText = "position:fixed;left:-20000px;top:0;width:500px;";
@@ -48,7 +48,12 @@ const createHarness = (id = "pclRegressionRoot") => {
     download: () => {}
   };
   const runtime = new PclRuntime({ shell, onRefresh: () => {}, onSettingChange: () => {} });
-  const renderer = new PclRenderer({ root, runtime, getProxyUas: () => getProxyUaCandidates("") });
+  const renderer = new PclRenderer({
+    root,
+    runtime,
+    getProxyUas: () => getProxyUaCandidates(""),
+    lazyImages
+  });
   return { root, runtime, renderer };
 };
 
@@ -171,6 +176,26 @@ export async function runRegression() {
       max: formatByteSize(Math.max(...rows.map(row => row.bytes))),
       rows
     };
+  });
+
+  await makeCheck(results, "远程图片懒加载属性", async () => {
+    const lazyHarness = createHarness("pclLazyImageTest", { lazyImages: true });
+    try {
+      lazyHarness.renderer.render(
+        '<StackPanel><Image Width="16" Height="16" Source="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" /></StackPanel>'
+      );
+      const image = lazyHarness.root.querySelector("img");
+      if (!image) throw new Error("图片节点没有创建");
+      if (image.loading !== "lazy" || image.getAttribute("loading") !== "lazy") {
+        throw new Error(`loading 属性错误：${image.getAttribute("loading")}`);
+      }
+      if (image.decoding !== "async" || image.getAttribute("decoding") !== "async") {
+        throw new Error(`decoding 属性错误：${image.getAttribute("decoding")}`);
+      }
+      return { loading: image.loading, decoding: image.decoding };
+    } finally {
+      lazyHarness.root.remove();
+    }
   });
 
   await makeCheck(results, "大小上限拒绝超限内容", async () => {
