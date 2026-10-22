@@ -677,6 +677,51 @@ export async function runRegression() {
     return { lineClamp: style.webkitLineClamp, textHeight: textRect.height, buttonTop: buttonRect.top };
   });
 
+  await makeCheck(results, "MyCard 按钮行与图标底部齐平且无多余空白", async () => {
+    harness.renderer.render(`
+      <local:MyCard Margin="0" Width="500">
+        <Image Height="75" Margin="8,8,5,8" Source="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" />
+        <TextBlock Margin="89,8,5,4" FontSize="18" Text="卡片标题" />
+        <TextBlock Margin="90,13,0,0" FontSize="11" TextWrapping="Wrap" Height="36"
+          Text="这是一段很长的测试描述文本，用来验证卡片内容保持紧凑：标题与正文、正文与按钮之间不留大片空白，按钮行底部与左侧图标底部齐平，卡片左下方不会出现空白区域。" />
+        <StackPanel Margin="86,66,0,0" Orientation="Horizontal">
+          <local:MyTextButton Text="按钮" />
+        </StackPanel>
+      </local:MyCard>
+    `);
+    const body = harness.root.querySelector(".pcl-card__body");
+    const image = body?.querySelector(".pcl-image-wrap");
+    const texts = [...harness.root.querySelectorAll(".pcl-text")];
+    const title = texts.find((node) => node.textContent === "卡片标题");
+    const desc = texts.find((node) => node.textContent.includes("很长的测试描述"));
+    const button = harness.root.querySelector(".pcl-textbutton");
+    if (!body || !image || !title || !desc || !button) throw new Error("MyCard 内容没有完整渲染");
+    const imageRect = image.getBoundingClientRect();
+    const titleRect = title.getBoundingClientRect();
+    const descRect = desc.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    const cardRect = body.closest(".pcl-card").getBoundingClientRect();
+    if (descRect.top - titleRect.bottom > 3) {
+      throw new Error(`标题与正文之间空白过大：${descRect.top - titleRect.bottom}`);
+    }
+    if (buttonRect.top - descRect.bottom > 3) {
+      throw new Error(`正文与按钮之间空白过大：${buttonRect.top - descRect.bottom}`);
+    }
+    if (Math.abs(buttonRect.bottom - imageRect.bottom) > 2.5) {
+      throw new Error(`按钮行没有与图标底部齐平：按钮 ${buttonRect.bottom} vs 图标 ${imageRect.bottom}`);
+    }
+    if (cardRect.height > imageRect.height + 18) {
+      throw new Error(`卡片左下方留白过大：卡片高 ${cardRect.height}`);
+    }
+    return {
+      imageBottom: imageRect.bottom,
+      buttonBottom: buttonRect.bottom,
+      titleDescGap: descRect.top - titleRect.bottom,
+      descButtonGap: buttonRect.top - descRect.bottom,
+      cardHeight: cardRect.height
+    };
+  });
+
   await makeCheck(results, "静态 HEAD 请求", async () => {
     const response = await fetch("/", { method: "HEAD", cache: "no-store" });
     if (!response.ok) throw new Error(`HEAD / 返回 HTTP ${response.status}`);

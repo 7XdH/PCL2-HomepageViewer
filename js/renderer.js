@@ -105,12 +105,16 @@ export class PclRenderer extends PclDocumentBuilders {
   }
 
   layoutCardBodies() {
-    // Keep a visible gap even when the upstream XAML uses tightly packed
-    // margins; otherwise a text descender can visually touch the button row.
-    const gap = 12;
+    // Only correct actual collisions with a minimal gap, so the authored
+    // geometry survives: the button row (e.g. Margin="86,66") is designed to
+    // end flush with the icon bottom, and large forced gaps would stretch the
+    // content column and leave blank space at the bottom-left of the card.
+    const gap = 2;
     for (const body of this.root.querySelectorAll(".pcl-card__body")) {
       this.clampFixedHeightCardText(body);
-      const content = Array.from(body.children).filter((node) => this.isCardContentNode(node));
+      const content = Array.from(body.children).filter(
+        (node) => this.isCardContentNode(node) && !this.isInvisibleTextNode(node)
+      );
       let previousBottom = -Infinity;
       for (const node of content) {
         const top = node.offsetTop;
@@ -123,6 +127,13 @@ export class PclRenderer extends PclDocumentBuilders {
         previousBottom = Math.max(previousBottom, node.offsetTop + node.offsetHeight);
       }
     }
+  }
+
+  isInvisibleTextNode(node) {
+    // Whitespace-only TextBlocks keep their authored box but draw nothing, so
+    // they must not push the following rows (e.g. the button row) out of the
+    // position the author aligned with the card icon.
+    return node.dataset.pclType === "TextBlock" && !node.textContent.trim() && !node.firstElementChild;
   }
 
   clampFixedHeightCardText(body) {
