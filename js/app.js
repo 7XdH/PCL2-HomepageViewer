@@ -61,7 +61,6 @@ let renderToken = 0;
 let renderAbort = null;
 let lastRenderedContent = "";
 let codeDirty = false;
-let currentFilter = "";
 let helpNavigation = null;
 let sourceStateWarned = false;
 
@@ -173,14 +172,6 @@ function setRuntime(text, mode = "ready") {
   $.runtimeText.textContent = text;
   $.runtimePill.classList.toggle("is-busy", mode === "busy");
   $.runtimePill.classList.toggle("is-error", mode === "error");
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }
 
 function handleSettingChange(key, value) {
