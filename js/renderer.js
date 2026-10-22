@@ -1,33 +1,6 @@
-import {
-  parseXaml,
-  tagName,
-  isPropertyElement,
-  propertyElementName,
-  readEvents,
-  resolveColor,
-  parseDouble,
-  parseBool,
-  parseThickness,
-  parseCornerRadius,
-  parseFontWeight,
-  resolveImageSource,
-  extractText,
-  attributeValue
-} from "./xaml.js";
+import { parseXaml, tagName, isPropertyElement, propertyElementName, attributeValue } from "./xaml.js";
 import { PclDocumentBuilders } from "./renderer/builders/document.js";
-import {
-  RESOURCE_REF_RE,
-  getProp,
-  hasProp,
-  readProps,
-  alignmentMap,
-  parseSize,
-  appendTextNode,
-  findPropertyElement,
-  directContentChildren,
-  measurePath,
-  buildPathSvg
-} from "./renderer/helpers.js";
+import { RESOURCE_REF_RE, getProp, findPropertyElement } from "./renderer/helpers.js";
 
 export class PclRenderer extends PclDocumentBuilders {
   constructor({ root, runtime, getProxyUa, getProxyUas, lazyImages = true } = {}) {
@@ -118,7 +91,7 @@ export class PclRenderer extends PclDocumentBuilders {
     this.implicitStyles = new Map();
     this.resourceNodes = new WeakSet();
 
-    const register = resource => {
+    const register = (resource) => {
       this.markResource(resource);
       const key = attributeValue(resource, "x:Key", "Key");
       if (key) {
@@ -126,7 +99,9 @@ export class PclRenderer extends PclDocumentBuilders {
         return;
       }
       if (tagName(resource) === "Style") {
-        const target = String(attributeValue(resource, "TargetType") || "").split(":").pop();
+        const target = String(attributeValue(resource, "TargetType") || "")
+          .split(":")
+          .pop();
         if (target) this.implicitStyles.set(target.toLowerCase(), resource);
       }
     };
@@ -214,7 +189,7 @@ export class PclRenderer extends PclDocumentBuilders {
   findTemplateTextBlock(template) {
     if (!template) return null;
     if (tagName(template) === "TextBlock") return template;
-    return Array.from(template.querySelectorAll("*")).find(node => tagName(node) === "TextBlock") || null;
+    return Array.from(template.querySelectorAll("*")).find((node) => tagName(node) === "TextBlock") || null;
   }
 
   buildTemplateText(template, text, className, layoutKind) {
@@ -228,7 +203,7 @@ export class PclRenderer extends PclDocumentBuilders {
 
   hasAttribute(element, name) {
     const wanted = String(name).toLowerCase();
-    return Array.from(element.attributes).some(attribute => attribute.name.toLowerCase() === wanted);
+    return Array.from(element.attributes).some((attribute) => attribute.name.toLowerCase() === wanted);
   }
 
   applyStyles(root) {
@@ -288,5 +263,4 @@ export class PclRenderer extends PclDocumentBuilders {
       }
     }
   }
-
 }

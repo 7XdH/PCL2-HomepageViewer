@@ -1,8 +1,6 @@
 import {
   tagName,
   isPropertyElement,
-  propertyElementName,
-
   readEvents,
   resolveColor,
   parseDouble,
@@ -10,70 +8,91 @@ import {
   parseThickness,
   parseCornerRadius,
   parseFontWeight,
-  resolveImageSource,
-  extractText,
-  attributeValue
+  extractText
 } from "../../xaml.js";
 import {
-  SVG_NS,
-  NO_ICON,
-  RESOURCE_REF_RE,
   getProp,
-  hasProp,
   readProps,
   alignmentMap,
   parseSize,
   appendTextNode,
   findPropertyElement,
-  directContentChildren,
-  normalizeFillRule,
-  fallbackBBox,
-  measurePath,
-  buildPathSvg
+  directContentChildren
 } from "../helpers.js";
 
 export class PclLayoutBuilders {
   buildNode(element, layout) {
     const name = tagName(element);
     switch (name) {
-      case "StackPanel": return this.buildStackPanel(element, layout);
-      case "WrapPanel": return this.buildWrapPanel(element, layout);
-      case "Grid": return this.buildGrid(element, layout);
-      case "UniformGrid": return this.buildUniformGrid(element, layout);
-      case "Canvas": return this.buildCanvas(element, layout);
-      case "Border": return this.buildBorder(element, layout);
-      case "GroupBox": return this.buildGroupBox(element, layout);
-      case "ScrollViewer": return this.buildScrollViewer(element, layout);
-      case "Viewbox": return this.buildViewbox(element, layout);
-      case "TextBlock": return this.buildTextBlock(element, layout);
+      case "StackPanel":
+        return this.buildStackPanel(element, layout);
+      case "WrapPanel":
+        return this.buildWrapPanel(element, layout);
+      case "Grid":
+        return this.buildGrid(element, layout);
+      case "UniformGrid":
+        return this.buildUniformGrid(element, layout);
+      case "Canvas":
+        return this.buildCanvas(element, layout);
+      case "Border":
+        return this.buildBorder(element, layout);
+      case "GroupBox":
+        return this.buildGroupBox(element, layout);
+      case "ScrollViewer":
+        return this.buildScrollViewer(element, layout);
+      case "Viewbox":
+        return this.buildViewbox(element, layout);
+      case "TextBlock":
+        return this.buildTextBlock(element, layout);
       case "Image":
-      case "MyImage": return this.buildImage(element, layout);
-      case "Path": return this.buildPath(element, layout);
+      case "MyImage":
+        return this.buildImage(element, layout);
+      case "Path":
+        return this.buildPath(element, layout);
       case "Rectangle":
       case "Ellipse":
       case "Line":
       case "Polygon":
-      case "Polyline": return this.buildShape(element, layout, name);
-      case "MyCard": return this.buildMyCard(element, layout);
-      case "MyHint": return this.buildMyHint(element, layout);
-      case "MyButton": return this.buildMyButton(element, layout);
-      case "MyTextButton": return this.buildMyTextButton(element, layout);
-      case "MyIconButton": return this.buildMyIconButton(element, layout);
-      case "MyIconTextButton": return this.buildMyIconTextButton(element, layout);
-      case "MyListItem": return this.buildMyListItem(element, layout);
-      case "MyLoading": return this.buildMyLoading(element, layout);
-      case "FlowDocumentScrollViewer": return this.buildFlowDocumentScrollViewer(element, layout);
-      case "FlowDocument": return this.buildFlowDocument(element, layout);
-      case "Paragraph": return this.buildFlowParagraph(element, layout);
-      case "Section": return this.buildFlowSection(element, layout);
-      case "List": return this.buildFlowList(element, layout);
-      case "ListItem": return this.buildFlowListItem(element, layout);
-      case "ContentControl": return this.buildContentControl(element, layout);
-      case "TextBox": return this.buildTextBox(element, layout);
+      case "Polyline":
+        return this.buildShape(element, layout, name);
+      case "MyCard":
+        return this.buildMyCard(element, layout);
+      case "MyHint":
+        return this.buildMyHint(element, layout);
+      case "MyButton":
+        return this.buildMyButton(element, layout);
+      case "MyTextButton":
+        return this.buildMyTextButton(element, layout);
+      case "MyIconButton":
+        return this.buildMyIconButton(element, layout);
+      case "MyIconTextButton":
+        return this.buildMyIconTextButton(element, layout);
+      case "MyListItem":
+        return this.buildMyListItem(element, layout);
+      case "MyLoading":
+        return this.buildMyLoading(element, layout);
+      case "FlowDocumentScrollViewer":
+        return this.buildFlowDocumentScrollViewer(element, layout);
+      case "FlowDocument":
+        return this.buildFlowDocument(element, layout);
+      case "Paragraph":
+        return this.buildFlowParagraph(element, layout);
+      case "Section":
+        return this.buildFlowSection(element, layout);
+      case "List":
+        return this.buildFlowList(element, layout);
+      case "ListItem":
+        return this.buildFlowListItem(element, layout);
+      case "ContentControl":
+        return this.buildContentControl(element, layout);
+      case "TextBox":
+        return this.buildTextBox(element, layout);
       case "MyCheckBox":
       case "MyRadioBox":
-      case "MyRadioButton": return this.buildCheck(element, layout, name);
-      default: return this.buildUnsupported(element, layout, name);
+      case "MyRadioButton":
+        return this.buildCheck(element, layout, name);
+      default:
+        return this.buildUnsupported(element, layout, name);
     }
   }
 
@@ -116,7 +135,6 @@ export class PclLayoutBuilders {
 
     return { width, height };
   }
-
 
   applyAlignment(node, props, layout, defaults = {}) {
     const horizontal = (getProp(props, "HorizontalAlignment") || defaults.horizontal || "Stretch").toLowerCase();
@@ -172,7 +190,7 @@ export class PclLayoutBuilders {
     if (!events.length) return events;
     node.__pclEvents = events;
     node.classList.add("has-pcl-events");
-    node.addEventListener("click", event => {
+    node.addEventListener("click", (event) => {
       if (stopPropagation) event.stopPropagation();
       this.runtime.raise(events, node);
     });
@@ -185,7 +203,6 @@ export class PclLayoutBuilders {
     const background = resolveColor(getProp(props, "Background"));
     if (background) node.style.background = background;
   }
-
 
   applyInlineStyles(node, props) {
     const foreground = resolveColor(getProp(props, "Foreground"));
@@ -207,9 +224,7 @@ export class PclLayoutBuilders {
       // 与字体实际行高的较大值。直接使用 LineHeight 会让 LineHeight=12、
       // FontSize=14 的段落发生行间重叠；BlockLineHeight 才严格使用该值。
       const stacking = String(getProp(props, "LineStackingStrategy") || "MaxHeight").toLowerCase();
-      node.style.lineHeight = stacking === "blocklineheight"
-        ? `${lineHeight}px`
-        : `max(${lineHeight}px, 1.4em)`;
+      node.style.lineHeight = stacking === "blocklineheight" ? `${lineHeight}px` : `max(${lineHeight}px, 1.4em)`;
     }
   }
 
@@ -319,7 +334,6 @@ export class PclLayoutBuilders {
     this.bindEvents(node, element);
     return node;
   }
-
 
   buildGridTrack(raw, min, max) {
     const text = String(raw ?? "1*").trim();
@@ -515,8 +529,12 @@ export class PclLayoutBuilders {
         }
       }
 
-      const horizontal = String(getProp(props, "HorizontalContentAlignment") || (isText ? "Center" : "Stretch")).toLowerCase();
-      const vertical = String(getProp(props, "VerticalContentAlignment") || (isText ? "Center" : "Stretch")).toLowerCase();
+      const horizontal = String(
+        getProp(props, "HorizontalContentAlignment") || (isText ? "Center" : "Stretch")
+      ).toLowerCase();
+      const vertical = String(
+        getProp(props, "VerticalContentAlignment") || (isText ? "Center" : "Stretch")
+      ).toLowerCase();
       content.style.justifyContent = alignmentMap[horizontal] || (isText ? "center" : "stretch");
       content.style.alignItems = alignmentMap[vertical] || (isText ? "center" : "stretch");
       node.append(content);
@@ -544,7 +562,6 @@ export class PclLayoutBuilders {
     this.bindEvents(node, element);
     return node;
   }
-
 
   buildCanvas(element, layout) {
     const props = readProps(element);
@@ -652,6 +669,4 @@ export class PclLayoutBuilders {
     this.bindEvents(node, element);
     return node;
   }
-
-
 }

@@ -162,9 +162,12 @@ export function parseBool(value, fallback = false) {
 
 export function parseThickness(value) {
   if (value == null || value === "") return null;
-  const parts = String(value).split(/[,\s]+/).map(part => part.trim()).filter(Boolean);
+  const parts = String(value)
+    .split(/[,\s]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
   if (!parts.length) return null;
-  const numbers = parts.map(part => parseDouble(part, 0));
+  const numbers = parts.map((part) => parseDouble(part, 0));
   let l;
   let t;
   let r;
@@ -186,11 +189,16 @@ export function parseThickness(value) {
 
 export function parseCornerRadius(value) {
   if (value == null || value === "") return null;
-  const parts = String(value).split(/[,\s]+/).map(part => parseDouble(part, 0));
+  const parts = String(value)
+    .split(/[,\s]+/)
+    .map((part) => parseDouble(part, 0));
   if (parts.length === 1) return `${parts[0]}px`;
   if (parts.length === 2) return `${parts[0]}px ${parts[1]}px`;
   if (parts.length === 3) return `${parts[0]}px ${parts[1]}px ${parts[2]}px`;
-  return parts.slice(0, 4).map(number => `${number}px`).join(" ");
+  return parts
+    .slice(0, 4)
+    .map((number) => `${number}px`)
+    .join(" ");
 }
 
 export function parseFontWeight(value) {
@@ -209,7 +217,7 @@ export function parseFontWeight(value) {
 
 export function attributeValue(element, ...names) {
   if (!element?.attributes) return null;
-  const wanted = new Set(names.map(name => name.toLowerCase()));
+  const wanted = new Set(names.map((name) => name.toLowerCase()));
   for (const attribute of element.attributes) {
     if (wanted.has(attribute.name.toLowerCase())) return attribute.value;
   }
@@ -262,7 +270,7 @@ export function extractText(element) {
 
 export function readEvents(element) {
   const events = [];
-  const pushEvent = node => {
+  const pushEvent = (node) => {
     const type = attributeValue(node, "Type", "EventType");
     if (!type || type === "None") return;
     events.push({
@@ -327,7 +335,6 @@ export function substitutePlaceholders(source, context = {}, { escape = true } =
   );
 }
 
-
 function verifySecurity(root) {
   for (const element of root.querySelectorAll("*")) {
     const name = tagName(element);
@@ -348,7 +355,9 @@ function verifySecurity(root) {
 
 export function parseXaml(source, context = {}) {
   if (source == null) throw new PclXamlError("主页内容为空。");
-  let content = String(source).replace(/^\uFEFF/, "").trim();
+  let content = String(source)
+    .replace(/^\uFEFF/, "")
+    .trim();
   if (!content) throw new PclXamlError("主页内容为空。");
 
   content = content.replace(/<\?xml[\s\S]*?\?>/gi, "");
@@ -389,4 +398,3 @@ export function parseXaml(source, context = {}) {
   verifySecurity(root);
   return root;
 }
-

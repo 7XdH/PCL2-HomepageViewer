@@ -1,10 +1,13 @@
-const decodeXmlText = value => {
+const decodeXmlText = (value) => {
   const area = document.createElement("textarea");
   area.innerHTML = String(value ?? "");
   return area.value;
 };
 
-const normalizeHelpAddress = raw => String(raw ?? "").trim().replaceAll("\\", "/");
+const normalizeHelpAddress = (raw) =>
+  String(raw ?? "")
+    .trim()
+    .replaceAll("\\", "/");
 
 /**
  * PCL 的“打开帮助”事件通常指向帮助 JSON；真正的页面内容是同目录下同名 .xaml。

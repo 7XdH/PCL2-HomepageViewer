@@ -1,35 +1,23 @@
 import { PclLayoutBuilders } from "./layout.js";
 import {
   tagName,
-  isPropertyElement,
-  propertyElementName,
-
   readEvents,
   resolveColor,
   parseDouble,
   parseBool,
   parseThickness,
   parseCornerRadius,
-  parseFontWeight,
-  resolveImageSource,
-  extractText,
-  attributeValue
+  resolveImageSource
 } from "../../xaml.js";
 import {
   SVG_NS,
   NO_ICON,
-  RESOURCE_REF_RE,
   getProp,
   hasProp,
   readProps,
-  alignmentMap,
   parseSize,
-  appendTextNode,
   findPropertyElement,
   directContentChildren,
-  normalizeFillRule,
-  fallbackBBox,
-  measurePath,
   buildPathSvg
 } from "../helpers.js";
 
@@ -65,7 +53,10 @@ export class PclControlBuilders extends PclLayoutBuilders {
     if (canSwap) {
       const chevron = document.createElement("div");
       chevron.className = "pcl-card__chevron";
-      const { svg } = buildPathSvg("M2,4 l-2,2 10,10 10,-10 -2,-2 -8,8 -8,-8 z", { stretch: "Uniform", fill: "currentColor" });
+      const { svg } = buildPathSvg("M2,4 l-2,2 10,10 10,-10 -2,-2 -8,8 -8,-8 z", {
+        stretch: "Uniform",
+        fill: "currentColor"
+      });
       svg.setAttribute("viewBox", "0 4 20 12");
       svg.setAttribute("preserveAspectRatio", "none");
       chevron.append(svg);
@@ -87,7 +78,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const events = readEvents(element);
     if (events.length) card.__pclEvents = events;
 
-    const setSwapped = target => {
+    const setSwapped = (target) => {
       if (!canSwap) return;
       const currently = card.classList.contains("is-swapped");
       if (target === currently) return;
@@ -103,7 +94,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
       const startHeight = card.offsetHeight;
       card.style.height = `${startHeight}px`;
 
-      const onHeightTransition = (finish) => event => {
+      const onHeightTransition = (finish) => (event) => {
         if (event.target !== card || event.propertyName !== "height") return;
         finish();
       };
@@ -154,13 +145,21 @@ export class PclControlBuilders extends PclLayoutBuilders {
       card.classList.add("is-swapped");
     }
 
-    card.addEventListener("click", event => {
-      if (event.target.closest("button, a, .pcl-button, .pcl-textbutton, .pcl-iconbutton, .pcl-icontextbutton, .pcl-listitem, .pcl-hint__close")) return;
+    card.addEventListener("click", (event) => {
+      if (
+        event.target.closest(
+          "button, a, .pcl-button, .pcl-textbutton, .pcl-iconbutton, .pcl-icontextbutton, .pcl-listitem, .pcl-hint__close"
+        )
+      ) {
+        return;
+      }
       const collapsed = card.classList.contains("is-swapped");
       const rect = card.getBoundingClientRect();
       const scale = card.offsetHeight ? rect.height / card.offsetHeight : 1;
       const y = scale ? (event.clientY - rect.top) / scale : 0;
-      if (canSwap && (collapsed || y <= 34)) setSwapped(!collapsed);
+      if (canSwap && (collapsed || y <= 34)) {
+        setSwapped(!collapsed);
+      }
       if (events.length) this.runtime.raise(events, card);
     });
 
@@ -168,7 +167,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
       card.tabIndex = 0;
       card.setAttribute("role", "button");
       card.setAttribute("aria-expanded", String(!isSwapped));
-      card.addEventListener("keydown", event => {
+      card.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         const collapsed = card.classList.contains("is-swapped");
@@ -179,7 +178,6 @@ export class PclControlBuilders extends PclLayoutBuilders {
 
     return card;
   }
-
 
   buildMyHint(element, layout) {
     const props = readProps(element);
@@ -228,9 +226,12 @@ export class PclControlBuilders extends PclLayoutBuilders {
       close.className = "pcl-hint__close";
       close.title = "不再提示";
       close.setAttribute("aria-label", "不再提示");
-      const { svg } = buildPathSvg("F1 M2,0 L0,2 8,10 0,18 2,20 10,12 18,20 20,18 12,10 20,2 18,0 10,8 2,0Z", { stretch: "Uniform", fill: "currentColor" });
+      const { svg } = buildPathSvg("F1 M2,0 L0,2 8,10 0,18 2,20 10,12 18,20 20,18 12,10 20,2 18,0 10,8 2,0Z", {
+        stretch: "Uniform",
+        fill: "currentColor"
+      });
       close.append(svg);
-      close.addEventListener("click", event => {
+      close.addEventListener("click", (event) => {
         event.stopPropagation();
         if (storageKey) {
           try {
@@ -250,7 +251,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const events = readEvents(element);
     if (events.length) {
       node.__pclEvents = events;
-      node.addEventListener("click", event => {
+      node.addEventListener("click", (event) => {
         if (event.target.closest(".pcl-hint__close")) return;
         this.runtime.raise(events, node);
       });
@@ -319,7 +320,6 @@ export class PclControlBuilders extends PclLayoutBuilders {
     this.bindEvents(node, element);
     return node;
   }
-
 
   buildMyIconButton(element, layout) {
     const props = readProps(element);
@@ -414,7 +414,6 @@ export class PclControlBuilders extends PclLayoutBuilders {
     return node;
   }
 
-
   buildMyListItem(element, layout) {
     const props = readProps(element);
     const node = document.createElement("div");
@@ -457,7 +456,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
         if (/^https?:/i.test(resolvedLogo)) {
           this.loadImageSource(
             resolvedLogo,
-            loaded => {
+            (loaded) => {
               img.src = loaded;
             },
             () => {
@@ -467,9 +466,13 @@ export class PclControlBuilders extends PclLayoutBuilders {
           );
         } else {
           img.src = resolvedLogo;
-          img.addEventListener("error", () => {
-            img.src = NO_ICON;
-          }, { once: true });
+          img.addEventListener(
+            "error",
+            () => {
+              img.src = NO_ICON;
+            },
+            { once: true }
+          );
         }
       } else {
         const { svg } = buildPathSvg(logoSource, { stretch: "Uniform", fill: "currentColor" });
@@ -511,12 +514,12 @@ export class PclControlBuilders extends PclLayoutBuilders {
     if (clickable) {
       node.tabIndex = 0;
       node.setAttribute("role", "button");
-      const activate = event => {
+      const activate = (event) => {
         event.stopPropagation();
         if (events.length) this.runtime.raise(events, node);
       };
       node.addEventListener("click", activate);
-      node.addEventListener("keydown", event => {
+      node.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         activate(event);
@@ -524,7 +527,6 @@ export class PclControlBuilders extends PclLayoutBuilders {
     }
     return node;
   }
-
 
   buildImage(element, layout) {
     const props = readProps(element);
@@ -541,7 +543,8 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const resolved = resolveImageSource(source);
     const fallback = resolveImageSource(fallbackSource);
     const stretch = String(getProp(props, "Stretch") || "Uniform").toLowerCase();
-    const objectFit = stretch === "fill" ? "fill" : stretch === "uniformtofill" ? "cover" : stretch === "none" ? "none" : "contain";
+    const objectFit =
+      stretch === "fill" ? "fill" : stretch === "uniformtofill" ? "cover" : stretch === "none" ? "none" : "contain";
 
     if (source != null && resolved) {
       const img = document.createElement("img");
@@ -566,7 +569,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
         if (fallback) {
           this.loadImageSource(
             fallback,
-            loaded => {
+            (loaded) => {
               img.src = loaded;
             },
             () => {
@@ -584,7 +587,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
         node.classList.add("is-loading");
         this.loadImageSource(
           resolved,
-          loaded => {
+          (loaded) => {
             img.src = loaded;
             node.classList.remove("is-loading");
           },
@@ -597,10 +600,14 @@ export class PclControlBuilders extends PclLayoutBuilders {
         );
       } else {
         img.src = resolved;
-        img.addEventListener("error", () => {
-          useFallback();
-          this.warn(`图片加载失败：${source}`);
-        }, { once: true });
+        img.addEventListener(
+          "error",
+          () => {
+            useFallback();
+            this.warn(`图片加载失败：${source}`);
+          },
+          { once: true }
+        );
       }
     }
 
@@ -638,8 +645,8 @@ export class PclControlBuilders extends PclLayoutBuilders {
 
     const width = parseSize(getProp(props, "Width"));
     const height = parseSize(getProp(props, "Height"));
-    if (width != null && height == null) node.style.height = `${width * box.height / box.width}px`;
-    else if (height != null && width == null) node.style.width = `${height * box.width / box.height}px`;
+    if (width != null && height == null) node.style.height = `${(width * box.height) / box.width}px`;
+    else if (height != null && width == null) node.style.width = `${(height * box.width) / box.height}px`;
     else if (width == null && height == null) {
       node.style.width = `${box.width}px`;
       node.style.height = `${box.height}px`;
@@ -650,7 +657,6 @@ export class PclControlBuilders extends PclLayoutBuilders {
     this.bindEvents(node, element);
     return node;
   }
-
 
   buildShape(element, layout, kind) {
     const props = readProps(element);
@@ -690,7 +696,10 @@ export class PclControlBuilders extends PclLayoutBuilders {
 
     if (kind === "Polygon" || kind === "Polyline") {
       const points = getProp(props, "Points") || "";
-      const values = points.split(/[,\s]+/).map(Number).filter(Number.isFinite);
+      const values = points
+        .split(/[,\s]+/)
+        .map(Number)
+        .filter(Number.isFinite);
       const xs = values.filter((_, index) => index % 2 === 0);
       const ys = values.filter((_, index) => index % 2 === 1);
       const minX = xs.length ? Math.min(...xs) : 0;
@@ -746,5 +755,4 @@ export class PclControlBuilders extends PclLayoutBuilders {
     this.bindEvents(node, element);
     return node;
   }
-
 }

@@ -1,8 +1,4 @@
-import {
-  MAX_SOURCE_BYTES,
-  assertSourceWithinLimit,
-  sourceLimitError
-} from "../limits.js";
+import { MAX_SOURCE_BYTES, assertSourceWithinLimit, sourceLimitError } from "../limits.js";
 
 export async function readResponseTextLimited(response, label = "远程内容") {
   const contentLength = Number(response.headers.get("content-length"));
@@ -72,7 +68,9 @@ export async function fetchDirect(url, signal, label = "远程内容") {
 }
 
 export function isLikelyXaml(source) {
-  let text = String(source ?? "").replace(/^\uFEFF/, "").trim();
+  let text = String(source ?? "")
+    .replace(/^\uFEFF/, "")
+    .trim();
   if (!text) return false;
 
   // Allow an XML declaration, processing instructions and comments before the root.
@@ -91,8 +89,10 @@ export function isLikelyXaml(source) {
 }
 
 export function isLikelyJson(source) {
-  const text = String(source ?? "").replace(/^\uFEFF/, "").trim();
-  if (!text || !/^[\[{]/.test(text)) return false;
+  const text = String(source ?? "")
+    .replace(/^\uFEFF/, "")
+    .trim();
+  if (!text || (text[0] !== "[" && text[0] !== "{")) return false;
   try {
     const parsed = JSON.parse(text);
     return Boolean(parsed) && typeof parsed === "object";
@@ -102,8 +102,10 @@ export function isLikelyJson(source) {
 }
 
 export function responseKind(content) {
-  const sample = String(content ?? "").replace(/^\uFEFF/, "").trimStart();
-  return /^[\[{]/.test(sample)
+  const sample = String(content ?? "")
+    .replace(/^\uFEFF/, "")
+    .trimStart();
+  return sample[0] === "[" || sample[0] === "{"
     ? "JSON"
     : /^<!doctype\s+html\b|^<html(?:\s|>)/i.test(sample)
       ? "HTML"
@@ -115,10 +117,7 @@ export function responseKind(content) {
 export function assertRemoteResponse(content, url, { expect = "xaml", label = "联网主页" } = {}) {
   if (expect === "json" ? isLikelyJson(content) : isLikelyXaml(content)) return content;
   const expected = expect === "json" ? "JSON" : "XAML";
-  const error = new Error(
-    `无法拉取${label}：目标地址返回的不是 ${expected}（${responseKind(content)}）。\n\n${url}`
-  );
+  const error = new Error(`无法拉取${label}：目标地址返回的不是 ${expected}（${responseKind(content)}）。\n\n${url}`);
   error.code = expect === "json" ? "NOT_JSON" : "NOT_XAML";
   throw error;
 }
-

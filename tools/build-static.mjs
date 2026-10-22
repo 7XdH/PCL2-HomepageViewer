@@ -6,15 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "dist");
-const ENTRIES = [
-  "index.html",
-  "css",
-  "js",
-  "assets",
-  ".nojekyll",
-  "LICENSE",
-  "LICENCE-PCL.md"
-];
+const ENTRIES = ["index.html", "css", "js", "assets", ".nojekyll", "LICENSE", "LICENCE-PCL.md"];
 
 function walkEntry(absolute, relative, visit) {
   const stat = fs.statSync(absolute);
@@ -93,10 +85,7 @@ try {
   }).trim();
   const [date, sha] = output.split(/\r?\n/);
   if (date && sha) {
-    fs.writeFileSync(
-      path.join(OUT, "commit.json"),
-      `${JSON.stringify({ date, sha, source: "build" }, null, 2)}\n`
-    );
+    fs.writeFileSync(path.join(OUT, "commit.json"), `${JSON.stringify({ date, sha, source: "build" }, null, 2)}\n`);
   }
 } catch {
   console.warn("未生成 commit.json：当前目录没有可用的 git 历史。");

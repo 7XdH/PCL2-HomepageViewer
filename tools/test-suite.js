@@ -2,28 +2,11 @@ import { PclRenderer } from "../js/renderer.js";
 import { PclRuntime } from "../js/runtime.js";
 import { PclXamlError, parseXaml, substitutePlaceholders } from "../js/xaml.js";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../js/ua.js";
-import {
-  resolveHelpUrls,
-  resolveHelpXamlUrl,
-  helpJsonTitle,
-  helpTitleFromXaml
-} from "../js/help.js";
-import {
-  isOpenableExternalUrl,
-  isMinecraftUrl,
-  normalizeExternalUrl
-} from "../js/url.js";
+import { resolveHelpUrls, resolveHelpXamlUrl, helpJsonTitle, helpTitleFromXaml } from "../js/help.js";
+import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl } from "../js/url.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
-import {
-  SHELL_PREF_KEY,
-  readShellPreferences,
-  saveShellPreferences
-} from "../js/shell/helpers.js";
-import {
-  MAX_SOURCE_BYTES,
-  assertSourceWithinLimit,
-  formatByteSize
-} from "../js/limits.js";
+import { SHELL_PREF_KEY, readShellPreferences, saveShellPreferences } from "../js/shell/helpers.js";
+import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -62,9 +45,12 @@ const createHarness = (id = "pclRegressionRoot", { lazyImages = false } = {}) =>
   return { root, runtime, renderer };
 };
 
-const textOf = node => String(node?.textContent || "").replace(/\s+/g, " ").trim();
+const textOf = (node) =>
+  String(node?.textContent || "")
+    .replace(/\s+/g, " ")
+    .trim();
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitForImages = async (root, timeout = 8000) => {
   const started = Date.now();
@@ -74,10 +60,10 @@ const waitForImages = async (root, timeout = 8000) => {
   while (Date.now() - started < timeout) {
     const images = [...root.querySelectorAll("img")];
     const pending = images.some(
-      image => !image.getAttribute("src") || !image.complete || image.parentElement?.classList.contains("is-loading")
+      (image) => !image.getAttribute("src") || !image.complete || image.parentElement?.classList.contains("is-loading")
     );
     const signature = images
-      .map(image => `${image.src}|${image.complete}|${image.naturalWidth}|${image.naturalHeight}`)
+      .map((image) => `${image.src}|${image.complete}|${image.naturalWidth}|${image.naturalHeight}`)
       .join(";");
 
     if (!pending && signature === lastSignature) stableTicks += 1;
@@ -98,12 +84,12 @@ const measure = (root, result) => {
     unsupported: root.querySelectorAll(".pcl-unsupported").length,
     cards: root.querySelectorAll(".pcl-card").length,
     images: images.length,
-    brokenImages: images.filter(image => image.naturalWidth === 0).length,
+    brokenImages: images.filter((image) => image.naturalWidth === 0).length,
     textLength: textOf(root).length
   };
 };
 
-const fetchText = async url => {
+const fetchText = async (url) => {
   const response = await fetch(url, { cache: "no-store" });
   const text = await response.text();
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.trim().slice(0, 180)}`);
@@ -141,10 +127,10 @@ const renderSource = async (harness, source, images = false) => {
 const makeCheck = (results, name, fn) => {
   return Promise.resolve()
     .then(fn)
-    .then(detail => {
+    .then((detail) => {
       results.push({ name, ok: true, detail });
     })
-    .catch(error => {
+    .catch((error) => {
       results.push({ name, ok: false, error: String(error?.message || error) });
     });
 };
@@ -178,7 +164,7 @@ export async function runRegression() {
     }
     return {
       limit: formatByteSize(MAX_SOURCE_BYTES),
-      max: formatByteSize(Math.max(...rows.map(row => row.bytes))),
+      max: formatByteSize(Math.max(...rows.map((row) => row.bytes))),
       rows
     };
   });
@@ -239,7 +225,7 @@ export async function runRegression() {
     await sleep(60);
     const filtered = [...list.querySelectorAll("[data-preset]")];
     if (filtered.length !== 1 || !filtered[0].textContent.includes("Weather")) {
-      throw new Error(`搜索结果不正确：${filtered.map(item => item.textContent.trim()).join(" | ")}`);
+      throw new Error(`搜索结果不正确：${filtered.map((item) => item.textContent.trim()).join(" | ")}`);
     }
 
     search.value = "";
@@ -276,12 +262,12 @@ export async function runRegression() {
     await sleep(140);
     let buttons = [...document.querySelectorAll("#pclModalButtons button")];
     if (!buttons.length) throw new Error("版本选择弹窗没有打开");
-    let highlighted = buttons.find(button => button.classList.contains("pcl-modal__button--highlight"));
+    let highlighted = buttons.find((button) => button.classList.contains("pcl-modal__button--highlight"));
     if (!highlighted || highlighted.textContent !== initial) {
       throw new Error(`初始高亮错误：期望 ${initial}，实际 ${highlighted?.textContent || "无"}`);
     }
 
-    const target = buttons.find(button => button.textContent !== initial && button.textContent !== "取消");
+    const target = buttons.find((button) => button.textContent !== initial && button.textContent !== "取消");
     if (!target) throw new Error("找不到另一个可切换版本");
     target.click();
     await sleep(280);
@@ -292,11 +278,11 @@ export async function runRegression() {
     card.click();
     await sleep(140);
     buttons = [...document.querySelectorAll("#pclModalButtons button")];
-    highlighted = buttons.find(button => button.classList.contains("pcl-modal__button--highlight"));
+    highlighted = buttons.find((button) => button.classList.contains("pcl-modal__button--highlight"));
     if (!highlighted || highlighted.textContent !== target.textContent) {
       throw new Error(`切换后高亮错误：期望 ${target.textContent}，实际 ${highlighted?.textContent || "无"}`);
     }
-    buttons.find(button => button.textContent === "取消")?.click();
+    buttons.find((button) => button.textContent === "取消")?.click();
     await sleep(280);
     shell.setVersion(initial);
     return { from: initial, to: target.textContent };
@@ -364,7 +350,7 @@ export async function runRegression() {
     if (caption.scrollHeight <= caption.clientHeight) throw new Error("使用说明正文没有产生滚动区域");
 
     [...document.querySelectorAll("#pclModalButtons button")]
-      .find(button => button.textContent === "知道了")
+      .find((button) => button.textContent === "知道了")
       ?.click();
     await sleep(280);
     return { captionTop, captionHeight: caption.clientHeight };
@@ -384,7 +370,7 @@ export async function runRegression() {
     const hintStack = document.getElementById("pclHintStack");
     const labPanel = document.querySelector(".lab-panel");
     const buttons = [...(document.querySelectorAll("#pclModalButtons button") || [])];
-    const isInert = element => Boolean(element?.inert || element?.closest?.("[inert]"));
+    const isInert = (element) => Boolean(element?.inert || element?.closest?.("[inert]"));
     try {
       if (!layer || !dialog || !sidebar || !titlebar || !pageHost || !hintStack) {
         throw new Error("弹窗或背景结构不完整");
@@ -413,7 +399,7 @@ export async function runRegression() {
       return { inert: true, describedBy: "pclModalCaption", buttons: buttons.length };
     } finally {
       [...document.querySelectorAll("#pclModalButtons button")]
-        .find(button => button.textContent === "知道了")
+        .find((button) => button.textContent === "知道了")
         ?.click();
       await sleep(280);
       if (isInert(sidebar) || isInert(titlebar) || isInert(pageHost) || isInert(hintStack) || isInert(labPanel)) {
@@ -453,7 +439,7 @@ export async function runRegression() {
     let opened = 0;
     const originalModal = harness.runtime.shell.showModal;
     const originalOpenUrl = harness.runtime.shell.openUrl;
-    harness.runtime.shell.showModal = async options => {
+    harness.runtime.shell.showModal = async (options) => {
       modalTitles.push(options.title);
       return 1;
     };
@@ -507,10 +493,7 @@ export async function runRegression() {
       ["http://example.com:8080/", 403]
     ];
     for (const [target, expected] of cases) {
-      const response = await fetch(
-        `/api/proxy?url=${encodeURIComponent(target)}`,
-        { cache: "no-store" }
-      );
+      const response = await fetch(`/api/proxy?url=${encodeURIComponent(target)}`, { cache: "no-store" });
       const body = await response.text();
       if (response.status !== expected) {
         throw new Error(`${target} 应返回 ${expected}，实际 ${response.status}：${body.slice(0, 120)}`);
@@ -521,10 +504,10 @@ export async function runRegression() {
 
   await makeCheck(results, "XAML 安全过滤", async () => {
     const blocked = [
-      '<local:WebBrowser />',
+      "<local:WebBrowser />",
       '<local:MyCard Code="alert(1)" />',
       '<TextBlock Text="{x:Static local:Evil.Value}" />',
-      '<local:Frame />'
+      "<local:Frame />"
     ];
     for (const source of blocked) {
       try {
@@ -587,16 +570,17 @@ export async function runRegression() {
     if (urls?.jsonUrl !== jsonUrl) throw new Error(`帮助 JSON 地址被错误改写：${urls?.jsonUrl}`);
     if (resolveHelpXamlUrl(jsonUrl) !== urls.xamlUrl) throw new Error("resolveHelpXamlUrl 与解析结果不一致");
 
-    const direct = resolveHelpUrls(
-      "https://mcnews.meloong.com/versions/list/wilderness_bound.xaml?x=1"
-    );
+    const direct = resolveHelpUrls("https://mcnews.meloong.com/versions/list/wilderness_bound.xaml?x=1");
     if (direct?.xamlUrl !== "https://mcnews.meloong.com/versions/list/wilderness_bound.xaml?x=1") {
       throw new Error(`XAML 帮助地址被错误改写：${direct?.xamlUrl}`);
     }
     if (direct?.jsonUrl !== "https://mcnews.meloong.com/versions/list/wilderness_bound.json?x=1") {
       throw new Error(`XAML 对应 JSON 地址错误：${direct?.jsonUrl}`);
     }
-    if (resolveHelpXamlUrl("https://mcnews.meloong.com/versions/list/latest") !== "https://mcnews.meloong.com/versions/list/latest.xaml") {
+    if (
+      resolveHelpXamlUrl("https://mcnews.meloong.com/versions/list/latest") !==
+      "https://mcnews.meloong.com/versions/list/latest.xaml"
+    ) {
       throw new Error("无扩展名帮助地址没有补全 .xaml");
     }
     if (resolveHelpUrls("帮助/自定义帮助.json") !== null) throw new Error("相对帮助路径不应被当作远程地址");
@@ -607,7 +591,7 @@ export async function runRegression() {
     if (jsonTitle !== "版本历史记录 | 奔赴荒野 | 26.3") throw new Error(`JSON 帮助标题解析错误：${jsonTitle}`);
 
     const calls = [];
-    harness.runtime.onOpenHelp = async url => calls.push(url);
+    harness.runtime.onOpenHelp = async (url) => calls.push(url);
     await harness.runtime.handle("打开帮助", jsonUrl);
     harness.runtime.onOpenHelp = null;
     if (calls.length !== 1 || calls[0] !== jsonUrl) throw new Error("远程帮助回调没有触发");
@@ -682,17 +666,18 @@ export async function runRegression() {
   });
 
   await makeCheck(results, "WPF MaxHeight 行高", async () => {
-    const text = "这段文字用于验证换行后的行距不会重叠。WPF 默认 LineStackingStrategy 是 MaxHeight，因此 LineHeight 小于字体行高时应取字体行高。";
+    const text =
+      "这段文字用于验证换行后的行距不会重叠。WPF 默认 LineStackingStrategy 是 MaxHeight，因此 LineHeight 小于字体行高时应取字体行高。";
     const xaml = `<FlowDocument FontSize="14"><Paragraph Width="180" LineHeight="12">${text}</Paragraph></FlowDocument>`;
     const metrics = await renderSource(harness, xaml);
     const paragraph = harness.root.querySelector('[data-pcl-type="Paragraph"]');
     if (!paragraph) throw new Error("Paragraph 未渲染");
     const range = document.createRange();
     range.selectNodeContents(paragraph);
-    const rects = [...range.getClientRects()].filter(rect => rect.width > 1 && rect.height > 1);
+    const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
     const lines = [];
     for (const rect of rects.sort((a, b) => a.top - b.top)) {
-      const line = lines.find(item => Math.abs(item.top - rect.top) < 2);
+      const line = lines.find((item) => Math.abs(item.top - rect.top) < 2);
       if (line) line.bottom = Math.max(line.bottom, rect.bottom);
       else lines.push({ top: rect.top, bottom: rect.bottom });
     }
@@ -740,8 +725,8 @@ export async function runRegression() {
     range.selectNodeContents(separator);
     const lineTops = new Set(
       [...range.getClientRects()]
-        .filter(rect => rect.width > 1 && rect.height > 1)
-        .map(rect => Math.round(rect.top))
+        .filter((rect) => rect.width > 1 && rect.height > 1)
+        .map((rect) => Math.round(rect.top))
     );
     if (lineTops.size < 2) throw new Error("长分隔线文字没有自动换行");
     return { ...metrics, lines: lineTops.size };
@@ -782,7 +767,7 @@ export async function runRegression() {
       user: "Steve",
       login: "离线"
     };
-    const values = Object.fromEntries(Object.keys(expected).map(key => [key, harness.runtime.getPlaceholder(key)]));
+    const values = Object.fromEntries(Object.keys(expected).map((key) => [key, harness.runtime.getPlaceholder(key)]));
     for (const [key, value] of Object.entries(expected)) {
       if (values[key] !== value) throw new Error(`${key} 期望 ${value}，实际 ${values[key]}`);
     }
@@ -790,11 +775,9 @@ export async function runRegression() {
     harness.runtime.variables.TestXml = "<&";
     const escaped = substitutePlaceholders("{variable:TestXml}", harness.runtime.context);
     if (escaped !== "&lt;&amp;") throw new Error(`变量没有正确转义：${escaped}`);
-    const rawUrl = substitutePlaceholders(
-      "https://example.com/{version}/{name}?a=1&b=2",
-      harness.runtime.context,
-      { escape: false }
-    );
+    const rawUrl = substitutePlaceholders("https://example.com/{version}/{name}?a=1&b=2", harness.runtime.context, {
+      escape: false
+    });
     if (rawUrl !== "https://example.com/1.20.1/1.20.1-Fabric?a=1&b=2") {
       throw new Error(`URL 替换不正确：${rawUrl}`);
     }
@@ -839,7 +822,9 @@ export async function runRegression() {
       }
     }
     if (frame.scrollWidth > frame.clientWidth + 1 || frame.scrollHeight > frame.clientHeight + 1) {
-      throw new Error(`舞台出现溢出：${frame.scrollWidth}×${frame.scrollHeight} > ${frame.clientWidth}×${frame.clientHeight}`);
+      throw new Error(
+        `舞台出现溢出：${frame.scrollWidth}×${frame.scrollHeight} > ${frame.clientWidth}×${frame.clientHeight}`
+      );
     }
     return { scale, margins, required };
   });
@@ -958,11 +943,10 @@ export async function runRegression() {
     }
   });
 
-  const ok = results.every(item => item.ok);
+  const ok = results.every((item) => item.ok);
   window.__PCL_TEST_RESULT__ = { suite: "regression", ok, results };
   return window.__PCL_TEST_RESULT__;
 }
-
 
 const classifyPreset = (preset, result) => {
   const expected = preset.expected;
@@ -1049,8 +1033,7 @@ export async function runPresetAudit() {
     acc[item.status] = (acc[item.status] || 0) + 1;
     return acc;
   }, {});
-  const ok = results.every(item => item.pass);
+  const ok = results.every((item) => item.pass);
   window.__PCL_TEST_RESULT__ = { suite: "presets", ok, counts, results };
   return window.__PCL_TEST_RESULT__;
 }
-

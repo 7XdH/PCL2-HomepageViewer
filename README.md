@@ -33,6 +33,8 @@ npm test              # Node 单元测试 + 浏览器回归
 npm run test:unit     # 仅运行 Node 单元测试（xaml / theme / help / URL / 代理策略）
 npm run test:presets  # PCL 25 个预设批量验收（需要联网，4 路并发）
 npm run test:all      # 单元测试 + 浏览器回归 + 预设验收
+npm run lint          # ESLint 静态检查
+npm run format:check  # Prettier 格式检查
 ```
 
 如果浏览器不在常见路径，可设置：
@@ -54,11 +56,11 @@ npm run build
 # 构建会基于源文件内容生成统一 build id，并自动写入 dist 中的 HTML/JS/CSS 引用
 ```
 
-| 平台 | 配置 |
-| --- | --- |
-| **GitHub Pages** | 仓库 **Settings → Pages → Source → GitHub Actions**。推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动构建 `dist/` 并部署。项目使用相对路径，支持 `https://<user>.github.io/<repo>/` 子路径。 |
-| **Netlify** | 导入仓库即可；`netlify.toml` 已配置 `npm run build` 与发布目录 `dist/`。 |
-| **Vercel** | 导入仓库即可；`vercel.json` 已配置 `framework: null`（避免把本地 `server.js` 误识别为 Node/Express 应用）、构建命令、`dist/` 输出目录和 `api/proxy.js` 的 30 秒执行时间。Vercel 会自动把 `api/proxy.js` 部署为 Node Function。 |
+| 平台             | 配置                                                                                                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **GitHub Pages** | 仓库 **Settings → Pages → Source → GitHub Actions**。推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动构建 `dist/` 并部署。项目使用相对路径，支持 `https://<user>.github.io/<repo>/` 子路径。                       |
+| **Netlify**      | 导入仓库即可；`netlify.toml` 已配置 `npm run build` 与发布目录 `dist/`。                                                                                                                                                       |
+| **Vercel**       | 导入仓库即可；`vercel.json` 已配置 `framework: null`（避免把本地 `server.js` 误识别为 Node/Express 应用）、构建命令、`dist/` 输出目录和 `api/proxy.js` 的 30 秒执行时间。Vercel 会自动把 `api/proxy.js` 部署为 Node Function。 |
 
 静态部署的限制：
 
@@ -71,15 +73,15 @@ npm run build
 
 导入仓库后，Vercel 可能把根目录的 `server.js` 自动识别为 Express / Node 应用。请在 **Configure Project** 或 **Settings → Build & Development Settings** 中手动填写：
 
-| 配置项 | 填写值 | 说明 |
-| --- | --- | --- |
-| **Framework Preset**（框架预设） | `Other` | 不要选择 Express、Node.js 或自动识别结果；否则 `server.js` 会被当成 Function，静态页面会 404 |
-| **Root Directory**（根目录） | 留空 / `./` | 必须是包含 `package.json`、`index.html` 和 `api/` 的仓库根目录 |
-| **Build Command**（构建命令） | `npm run build` | 执行 `tools/build-static.mjs`，生成 `dist/` |
-| **Output Directory**（输出目录） | `dist` | 不要填 `public`、`.` 或留空 |
-| **Install Command**（安装命令） | `npm install` | 保持默认即可；项目没有运行时依赖 |
-| **Node.js Version** | `20.x` 或 `22.x` | 项目要求 Node.js 18+；20 / 22 均可 |
-| **Functions** | 不需要手动添加 | `api/proxy.js` 会被自动识别为 `/api/proxy` |
+| 配置项                           | 填写值           | 说明                                                                                         |
+| -------------------------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| **Framework Preset**（框架预设） | `Other`          | 不要选择 Express、Node.js 或自动识别结果；否则 `server.js` 会被当成 Function，静态页面会 404 |
+| **Root Directory**（根目录）     | 留空 / `./`      | 必须是包含 `package.json`、`index.html` 和 `api/` 的仓库根目录                               |
+| **Build Command**（构建命令）    | `npm run build`  | 执行 `tools/build-static.mjs`，生成 `dist/`                                                  |
+| **Output Directory**（输出目录） | `dist`           | 不要填 `public`、`.` 或留空                                                                  |
+| **Install Command**（安装命令）  | `npm install`    | 保持默认即可；项目没有运行时依赖                                                             |
+| **Node.js Version**              | `20.x` 或 `22.x` | 项目要求 Node.js 18+；20 / 22 均可                                                           |
+| **Functions**                    | 不需要手动添加   | `api/proxy.js` 会被自动识别为 `/api/proxy`                                                   |
 
 常见错填：
 
@@ -122,11 +124,11 @@ Static site built to dist
 
 Netlify 导入仓库后填写：
 
-| 配置项 | 填写值 |
-| --- | --- |
-| **Base directory** | 留空 |
-| **Build command** | `npm run build` |
-| **Publish directory** | `dist` |
+| 配置项                  | 填写值                                |
+| ----------------------- | ------------------------------------- |
+| **Base directory**      | 留空                                  |
+| **Build command**       | `npm run build`                       |
+| **Publish directory**   | `dist`                                |
 | **Functions directory** | 留空（本仓库未提供 Netlify Function） |
 
 Netlify 不包含 `/api/proxy`；联网主页只能依赖目标站的 CORS，或改用 Vercel 部署。
@@ -135,10 +137,10 @@ Netlify 不包含 `/api/proxy`；联网主页只能依赖目标站的 CORS，或
 
 在 **Settings → Environment Variables** 中添加（Production 和 Preview 都建议设置）：
 
-| 变量 | 是否必填 | 示例 |
-| --- | --- | --- |
-| `PCL_PROXY_ALLOWLIST` | 建议 | `news.bugjump.net,raw.githubusercontent.com` |
-| `PCL_PROXY_UA` | 可选 | `PCL2-Homepage-Viewer` |
+| 变量                  | 是否必填 | 示例                                         |
+| --------------------- | -------- | -------------------------------------------- |
+| `PCL_PROXY_ALLOWLIST` | 建议     | `news.bugjump.net,raw.githubusercontent.com` |
+| `PCL_PROXY_UA`        | 可选     | `PCL2-Homepage-Viewer`                       |
 
 设置白名单后，只有列表中的域名（及其子域名）能通过 `/api/proxy`；如果只填 `news.bugjump.net`，示例 GitHub 地址会被拒绝。修改变量后需要重新部署。
 
@@ -154,7 +156,6 @@ Netlify 不包含 `/api/proxy`；联网主页只能依赖目标站的 CORS，或
 Vercel 线上不会请求 GitHub API，也不需要配置 GitHub Token。页面每 10 分钟刷新一次提交信息，并每分钟更新“几分钟前”等相对时间；悬停可以看到完整时间与短 SHA。
 
 如果构建环境没有可用的 git 历史，构建会跳过 `commit.json`，页面会显示“获取失败”。Vercel 的正常 Git 构建会自动生成该文件。
-
 
 ### Vercel 代理（`api/proxy`）
 
@@ -262,29 +263,29 @@ Root Directory: 留空
 
 ## 替换标记
 
-| 标记 | 含义 |
-| --- | --- |
-| `{variable:Name}` | 自定义变量；不存在时为空 |
-| `{variable:Name:Default}` | 自定义变量；不存在时使用默认值 |
-| `{setup:Key}` | PCL 设置；内置默认值包括 `UiLauncherHue`、`UiLauncherTheme` 等 |
-| `{hint}` | 随机“你知道吗”提示 |
-| `{cave}` | 随机“回声洞”文本 |
-| `{user}` / `{uuid}` / `{login}` | 当前演示用户信息 |
-| `{pcl_version}` | PCL 版本名，当前为 `2.99.0.0` |
-| `{pcl_version_code}` | PCL 版本号，当前为 `414` |
-| `{pcl_version_branch}` | 版本类型，当前为 `快照版` |
-| `{pcl_build_type}` | 构建类型，当前为 `Snapshot` |
-| `{pcl_branch}` | 代码分支，当前为 `OpenSource` |
-| `{identify}` | 设备识别码；网页版固定为 `0000-0000-0000-0000` |
-| `{date}` / `{time}` | 当前本地日期 `yyyy/M/d` 与时间 `HH:mm:ss` |
-| `{path}` / `{path_with_name}` / `{path_temp}` | 模拟的 PCL 主目录、程序路径和缓存目录 |
-| `{pcl_md5}` / `{pcl_sha1}` | PCL 可执行文件哈希；网页版没有本地文件，返回空值 |
-| `{java}` | 模拟的 Java 目录 |
-| `{minecraft}` | 模拟的 `.minecraft` 目录 |
-| `{version_path}` / `{verpath}` | 当前版本目录 |
-| `{version_indie}` / `{verindie}` | 当前版本隔离目录 |
-| `{name}` / `{version}` | 当前实例名与原版版本号 |
-| `{forge}` / `{fabric}` / `{neoforge}` / `{liteloader}` | 当前实例的加载器版本；没有则为空 |
+| 标记                                                   | 含义                                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------- |
+| `{variable:Name}`                                      | 自定义变量；不存在时为空                                       |
+| `{variable:Name:Default}`                              | 自定义变量；不存在时使用默认值                                 |
+| `{setup:Key}`                                          | PCL 设置；内置默认值包括 `UiLauncherHue`、`UiLauncherTheme` 等 |
+| `{hint}`                                               | 随机“你知道吗”提示                                             |
+| `{cave}`                                               | 随机“回声洞”文本                                               |
+| `{user}` / `{uuid}` / `{login}`                        | 当前演示用户信息                                               |
+| `{pcl_version}`                                        | PCL 版本名，当前为 `2.99.0.0`                                  |
+| `{pcl_version_code}`                                   | PCL 版本号，当前为 `414`                                       |
+| `{pcl_version_branch}`                                 | 版本类型，当前为 `快照版`                                      |
+| `{pcl_build_type}`                                     | 构建类型，当前为 `Snapshot`                                    |
+| `{pcl_branch}`                                         | 代码分支，当前为 `OpenSource`                                  |
+| `{identify}`                                           | 设备识别码；网页版固定为 `0000-0000-0000-0000`                 |
+| `{date}` / `{time}`                                    | 当前本地日期 `yyyy/M/d` 与时间 `HH:mm:ss`                      |
+| `{path}` / `{path_with_name}` / `{path_temp}`          | 模拟的 PCL 主目录、程序路径和缓存目录                          |
+| `{pcl_md5}` / `{pcl_sha1}`                             | PCL 可执行文件哈希；网页版没有本地文件，返回空值               |
+| `{java}`                                               | 模拟的 Java 目录                                               |
+| `{minecraft}`                                          | 模拟的 `.minecraft` 目录                                       |
+| `{version_path}` / `{verpath}`                         | 当前版本目录                                                   |
+| `{version_indie}` / `{verindie}`                       | 当前版本隔离目录                                               |
+| `{name}` / `{version}`                                 | 当前实例名与原版版本号                                         |
+| `{forge}` / `{fabric}` / `{neoforge}` / `{liteloader}` | 当前实例的加载器版本；没有则为空                               |
 
 替换在 XML 解析之前完成，插入的值会做 XML 转义，因此也可以安全地放进属性（例如 `Visibility="{variable:Flag:Visible}"`）。联网 URL 使用不转义的替换值，便于把变量放入地址。
 
@@ -294,26 +295,26 @@ Root Directory: 留空
 
 事件通过 `EventType` / `EventData` 属性，或嵌套的 `local:CustomEventService.Events` 声明。多个事件会按声明顺序执行。
 
-| 事件 | 网页版行为 |
-| --- | --- |
-| `打开网页` | 新标签页打开 `http(s)` / `mailto:` 链接，以及 PCL 支持的 `minecraft://` / `minecraft-preview://`；被弹窗拦截时提供复制地址，非法协议会直接拒绝 |
-| `弹出窗口` | 显示 PCL 风格弹窗（标题 / 内容 / 按钮） |
-| `弹出提示` | 显示 PCL 底部渐变色提示条，支持 Blue / Green / Red / Yellow |
-| `复制文本` | 写入剪贴板；需要浏览器允许剪贴板权限 |
-| `刷新主页` / `刷新页面` | 重新解析并渲染当前主页 |
-| `修改变量` / `写入变量` | 写入 `localStorage`，刷新后参与替换标记 |
-| `修改设置` / `写入设置` | 写入设置；`UiLauncherHue` 会按 PCL 色阶重绘预览画布 |
-| `切换页面` | 切换到对应的 PCL 占位页（下载、联机、设置等） |
-| `今日人品` | 按日期与用户名生成确定性的模拟结果 |
-| `内存优化` / `清理垃圾` | 显示“已模拟执行”提示 |
-| `启动游戏` | 显示浏览器限制说明（不会真正启动 Minecraft） |
-| `打开文件` / `执行命令` | 显示限制说明，可复制路径（不会执行程序） |
-| `导入整合包` / `安装整合包` | 选择文件后显示限制说明 |
-| `下载文件` | 先显示确认弹窗，再交给浏览器下载 |
-| `打开帮助` | 远程 PCL 帮助 JSON / XAML 会在 PCL 窗口内以子页面打开，支持多级进入、返回与标题栏返回按钮；本地内置帮助仍显示说明并可打开 PCL 帮助文档库 |
-| `加入房间` | 显示限制说明，可复制房间信息 |
-| `检查更新` | 显示说明，可选择打开 PCL 下载页 |
-| `刷新帮助` | 显示“已刷新”提示 |
+| 事件                        | 网页版行为                                                                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `打开网页`                  | 新标签页打开 `http(s)` / `mailto:` 链接，以及 PCL 支持的 `minecraft://` / `minecraft-preview://`；被弹窗拦截时提供复制地址，非法协议会直接拒绝 |
+| `弹出窗口`                  | 显示 PCL 风格弹窗（标题 / 内容 / 按钮）                                                                                                        |
+| `弹出提示`                  | 显示 PCL 底部渐变色提示条，支持 Blue / Green / Red / Yellow                                                                                    |
+| `复制文本`                  | 写入剪贴板；需要浏览器允许剪贴板权限                                                                                                           |
+| `刷新主页` / `刷新页面`     | 重新解析并渲染当前主页                                                                                                                         |
+| `修改变量` / `写入变量`     | 写入 `localStorage`，刷新后参与替换标记                                                                                                        |
+| `修改设置` / `写入设置`     | 写入设置；`UiLauncherHue` 会按 PCL 色阶重绘预览画布                                                                                            |
+| `切换页面`                  | 切换到对应的 PCL 占位页（下载、联机、设置等）                                                                                                  |
+| `今日人品`                  | 按日期与用户名生成确定性的模拟结果                                                                                                             |
+| `内存优化` / `清理垃圾`     | 显示“已模拟执行”提示                                                                                                                           |
+| `启动游戏`                  | 显示浏览器限制说明（不会真正启动 Minecraft）                                                                                                   |
+| `打开文件` / `执行命令`     | 显示限制说明，可复制路径（不会执行程序）                                                                                                       |
+| `导入整合包` / `安装整合包` | 选择文件后显示限制说明                                                                                                                         |
+| `下载文件`                  | 先显示确认弹窗，再交给浏览器下载                                                                                                               |
+| `打开帮助`                  | 远程 PCL 帮助 JSON / XAML 会在 PCL 窗口内以子页面打开，支持多级进入、返回与标题栏返回按钮；本地内置帮助仍显示说明并可打开 PCL 帮助文档库       |
+| `加入房间`                  | 显示限制说明，可复制房间信息                                                                                                                   |
+| `检查更新`                  | 显示说明，可选择打开 PCL 下载页                                                                                                                |
+| `刷新帮助`                  | 显示“已刷新”提示                                                                                                                               |
 
 浏览器无法真正启动进程、写剪贴板（无权限时）、启动游戏或调用 PCL 内部页面；这些操作会给出与 PCL 风格一致的说明，而不是静默失败。
 

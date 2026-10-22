@@ -1,25 +1,9 @@
 import { substitutePlaceholders } from "../xaml.js";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../ua.js";
-import {
-  MAX_SOURCE_BYTES,
-  assertSourceWithinLimit,
-  sourceLimitError
-} from "../limits.js";
-import {
-  assertRemoteResponse,
-  fetchDirect,
-  fetchViaProxy,
-  readResponseTextLimited
-} from "./remote.js";
+import { MAX_SOURCE_BYTES, assertSourceWithinLimit, sourceLimitError } from "../limits.js";
+import { assertRemoteResponse, fetchDirect, fetchViaProxy, readResponseTextLimited } from "./remote.js";
 
-export function createSourceLoader({
-  state,
-  PRESETS,
-  presetCache,
-  FALLBACK_XAML,
-  getCode,
-  getRuntimeContext
-}) {
+export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML, getCode, getRuntimeContext }) {
   async function loadPreset(id, { force = false, signal } = {}) {
     const preset = PRESETS[id] || PRESETS.tutorial;
     const cacheKey = PRESETS[id] ? id : "tutorial";
@@ -61,7 +45,6 @@ export function createSourceLoader({
     }
   }
 
-
   async function readFileAsXaml(file) {
     const label = `文件“${file.name || "Custom.xaml"}”`;
     if (file.size > MAX_SOURCE_BYTES) throw sourceLimitError(file.size, label);
@@ -69,15 +52,9 @@ export function createSourceLoader({
     return assertSourceWithinLimit(text.replace(/^\uFEFF/, ""), label);
   }
 
-
   async function fetchRemoteText(
     url,
-    {
-      uaCandidates = getProxyUaCandidates(state.ua),
-      expect = "xaml",
-      label = "联网主页",
-      signal
-    } = {}
+    { uaCandidates = getProxyUaCandidates(state.ua), expect = "xaml", label = "联网主页", signal } = {}
   ) {
     const controller = new AbortController();
     let timedOut = false;
@@ -115,10 +92,7 @@ export function createSourceLoader({
         proxyError.status >= 500 ||
         proxyError.code === "PROXY_HTML";
       if (!canFallbackToDirect) {
-        throw new Error(
-          `无法拉取${label}：${proxyError.message}\n\n` +
-          "请确认地址有效，或检查代理设置是否可用。"
-        );
+        throw new Error(`无法拉取${label}：${proxyError.message}\n\n` + "请确认地址有效，或检查代理设置是否可用。");
       }
 
       let directContent;
@@ -127,10 +101,7 @@ export function createSourceLoader({
       } catch (error) {
         if (error.name === "AbortError") throw error;
         const proxyMissing =
-          !proxyError ||
-          proxyError.status === 404 ||
-          proxyError.status === 405 ||
-          proxyError.code === "PROXY_HTML";
+          !proxyError || proxyError.status === 404 || proxyError.status === 405 || proxyError.code === "PROXY_HTML";
         const proxyHint = proxyError
           ? proxyMissing
             ? `未找到可用的 /api/proxy（${proxyError.message}）。当前部署可能是纯静态站点。`
@@ -138,9 +109,10 @@ export function createSourceLoader({
           : "未找到可用的 /api/proxy。";
         throw new Error(
           `无法拉取${label}：${error.message}\n\n` +
-          proxyHint + "\n" +
-          "目标站点未开放 CORS 时，需要可用的服务端代理（例如 Vercel Function /api/proxy），" +
-          "或运行 node server.js 使用本地代理。"
+            proxyHint +
+            "\n" +
+            "目标站点未开放 CORS 时，需要可用的服务端代理（例如 Vercel Function /api/proxy），" +
+            "或运行 node server.js 使用本地代理。"
         );
       }
       return assertRemoteResponse(directContent, url, { expect, label });
@@ -156,7 +128,6 @@ export function createSourceLoader({
   async function fetchRemoteXaml(url, options = {}) {
     return fetchRemoteText(url, { ...options, expect: "xaml" });
   }
-
 
   function resolveRemoteUrl(url) {
     // PCL expands placeholders before requesting the page; URL values must not be XML-escaped.

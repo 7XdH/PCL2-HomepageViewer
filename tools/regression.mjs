@@ -10,7 +10,7 @@ const args = new Set(process.argv.slice(2));
 const WANT_PRESETS = args.has("--presets") || args.has("--all");
 const WANT_REGRESSION = !args.has("--presets") || args.has("--all");
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitFor = async (fn, { timeout = 20000, interval = 100, label = "operation" } = {}) => {
   const started = Date.now();
@@ -37,7 +37,7 @@ const freePort = () =>
     });
   });
 
-const findOnPath = name => {
+const findOnPath = (name) => {
   const extensions = process.platform === "win32" ? [".exe", ""] : [""];
   for (const folder of String(process.env.PATH || "").split(path.delimiter)) {
     for (const extension of extensions) {
@@ -51,10 +51,14 @@ const findOnPath = name => {
 const findBrowser = () => {
   const candidates = [
     process.env.PCL_TEST_BROWSER,
-    process.platform === "win32" && path.join(process.env["PROGRAMFILES"] || "", "Microsoft", "Edge", "Application", "msedge.exe"),
-    process.platform === "win32" && path.join(process.env["PROGRAMFILES(X86)"] || "", "Microsoft", "Edge", "Application", "msedge.exe"),
-    process.platform === "win32" && path.join(process.env["PROGRAMFILES"] || "", "Google", "Chrome", "Application", "chrome.exe"),
-    process.platform === "win32" && path.join(process.env["PROGRAMFILES(X86)"] || "", "Google", "Chrome", "Application", "chrome.exe"),
+    process.platform === "win32" &&
+      path.join(process.env["PROGRAMFILES"] || "", "Microsoft", "Edge", "Application", "msedge.exe"),
+    process.platform === "win32" &&
+      path.join(process.env["PROGRAMFILES(X86)"] || "", "Microsoft", "Edge", "Application", "msedge.exe"),
+    process.platform === "win32" &&
+      path.join(process.env["PROGRAMFILES"] || "", "Google", "Chrome", "Application", "chrome.exe"),
+    process.platform === "win32" &&
+      path.join(process.env["PROGRAMFILES(X86)"] || "", "Google", "Chrome", "Application", "chrome.exe"),
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
     "/usr/bin/chromium",
@@ -67,7 +71,7 @@ const findBrowser = () => {
     findOnPath("chromium-browser"),
     findOnPath("msedge")
   ];
-  return candidates.find(candidate => candidate && fs.existsSync(candidate)) || null;
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
 };
 
 class PipeCdp {
@@ -78,8 +82,8 @@ class PipeCdp {
     this.nextId = 0;
     this.pending = new Map();
     this.closed = false;
-    readable.on("data", chunk => this.onData(chunk));
-    readable.on("error", error => this.failAll(error));
+    readable.on("data", (chunk) => this.onData(chunk));
+    readable.on("error", (error) => this.failAll(error));
     readable.on("close", () => this.failAll(new Error("CDP pipe closed")));
   }
 
@@ -145,7 +149,7 @@ class PortCdp {
     this.nextId = 0;
     this.pending = new Map();
     this.closed = false;
-    socket.addEventListener("message", event => this.onMessage(event));
+    socket.addEventListener("message", (event) => this.onMessage(event));
     socket.addEventListener("error", () => this.failAll(new Error("CDP websocket error")));
     socket.addEventListener("close", () => this.failAll(new Error("CDP websocket closed")));
   }
@@ -212,12 +216,13 @@ class PortCdp {
 }
 
 const attachPage = async (cdp, baseUrl) => {
-  const target = await waitFor(async () => {
-    const result = await cdp.send("Target.getTargets");
-    return result.targetInfos?.find(
-      item => item.type === "page" && item.url.startsWith(baseUrl)
-    );
-  }, { label: "浏览器页面" });
+  const target = await waitFor(
+    async () => {
+      const result = await cdp.send("Target.getTargets");
+      return result.targetInfos?.find((item) => item.type === "page" && item.url.startsWith(baseUrl));
+    },
+    { label: "浏览器页面" }
+  );
   const attached = await cdp.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   return attached.sessionId;
 };
@@ -236,8 +241,7 @@ const evaluate = async (cdp, sessionId, expression, timeout = 180000) => {
   return response.result?.value;
 };
 
-
-const startServer = async port => {
+const startServer = async (port) => {
   const child = spawn(process.execPath, ["server.js"], {
     cwd: ROOT,
     env: { ...process.env, PORT: String(port) },
@@ -245,10 +249,10 @@ const startServer = async port => {
     windowsHide: true
   });
   let output = "";
-  child.stdout?.on("data", chunk => {
+  child.stdout?.on("data", (chunk) => {
     output += chunk.toString();
   });
-  child.stderr?.on("data", chunk => {
+  child.stderr?.on("data", (chunk) => {
     output += chunk.toString();
   });
   await waitFor(
@@ -262,8 +266,8 @@ const startServer = async port => {
   return child;
 };
 
-const stopProfileProcesses = profile =>
-  new Promise(resolve => {
+const stopProfileProcesses = (profile) =>
+  new Promise((resolve) => {
     const escaped = profile.replace(/'/g, "''");
     const command = process.platform === "win32" ? "pwsh.exe" : "pkill";
     const commandArgs =
@@ -292,7 +296,7 @@ const stopProfileProcesses = profile =>
     setTimeout(finish, 2000);
   });
 
-const cleanupBrowser = async browser => {
+const cleanupBrowser = async (browser) => {
   if (!browser) return;
   browser.cdp?.close();
   browser.child?.kill();
@@ -321,13 +325,12 @@ const baseBrowserArgs = (profile, debugArgs, baseUrl) => [
 
 const startPortBrowser = async (browserPath, baseUrl) => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pcl-regression-"));
-  const child = spawn(
-    browserPath,
-    baseBrowserArgs(profile, ["--remote-debugging-port=0"], baseUrl),
-    { stdio: ["ignore", "ignore", "pipe"], windowsHide: true }
-  );
+  const child = spawn(browserPath, baseBrowserArgs(profile, ["--remote-debugging-port=0"], baseUrl), {
+    stdio: ["ignore", "ignore", "pipe"],
+    windowsHide: true
+  });
   let browserError = "";
-  child.stderr?.on("data", chunk => {
+  child.stderr?.on("data", (chunk) => {
     browserError += chunk.toString();
   });
 
@@ -338,11 +341,14 @@ const startPortBrowser = async (browserPath, baseUrl) => {
       label: "浏览器端口文件"
     });
     const [port] = fs.readFileSync(portFile, "utf8").trim().split(/\r?\n/);
-    const target = await waitFor(async () => {
-      const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-      const list = await response.json();
-      return list.find(item => item.type === "page" && item.url.startsWith(baseUrl));
-    }, { timeout: 15000, label: "浏览器页面" });
+    const target = await waitFor(
+      async () => {
+        const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+        const list = await response.json();
+        return list.find((item) => item.type === "page" && item.url.startsWith(baseUrl));
+      },
+      { timeout: 15000, label: "浏览器页面" }
+    );
     const cdp = await PortCdp.connect(target.webSocketDebuggerUrl);
     return {
       child,
@@ -361,26 +367,25 @@ const startPortBrowser = async (browserPath, baseUrl) => {
 
 const startPipeBrowser = async (browserPath, baseUrl) => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pcl-regression-"));
-  const child = spawn(
-    browserPath,
-    baseBrowserArgs(profile, ["--remote-debugging-pipe"], baseUrl),
-    { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"], windowsHide: true }
-  );
+  const child = spawn(browserPath, baseBrowserArgs(profile, ["--remote-debugging-pipe"], baseUrl), {
+    stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"],
+    windowsHide: true
+  });
   let browserError = "";
-  child.stderr?.on("data", chunk => {
+  child.stderr?.on("data", (chunk) => {
     browserError += chunk.toString();
   });
   const cdp = new PipeCdp(child.stdio[4], child.stdio[3]);
   const sessionId = await waitFor(() => attachPage(cdp, baseUrl), {
     timeout: 15000,
     label: "浏览器 CDP 连接"
-  }).catch(error => {
+  }).catch((error) => {
     throw new Error(`${error.message}${browserError ? `：${browserError.slice(-800)}` : ""}`);
   });
   return { child, cdp, sessionId, profile, browserPath, mode: "pipe" };
 };
 
-const startBrowser = async baseUrl => {
+const startBrowser = async (baseUrl) => {
   const browserPath = findBrowser();
   if (!browserPath) {
     throw new Error("未找到 Edge / Chrome。可通过 PCL_TEST_BROWSER 指定浏览器路径。");
@@ -405,7 +410,7 @@ const saveReport = (name, result) => {
   return path.relative(ROOT, path.join(folder, name));
 };
 
-const printRegression = result => {
+const printRegression = (result) => {
   console.log("\n[回归测试]");
   for (const item of result.results) {
     console.log(`${item.ok ? "PASS" : "FAIL"}  ${item.name}${item.error ? ` — ${item.error}` : ""}`);
@@ -413,10 +418,12 @@ const printRegression = result => {
   console.log(`结果：${result.ok ? "通过" : "失败"}（${result.results.length} 项）`);
 };
 
-const printAudit = result => {
+const printAudit = (result) => {
   console.log("\n[PCL 预设批量验收]");
   for (const item of result.results) {
-    const metrics = item.metrics ? `controls=${item.metrics.controls} warnings=${item.metrics.warnings.length} broken=${item.metrics.brokenImages}` : "无渲染数据";
+    const metrics = item.metrics
+      ? `controls=${item.metrics.controls} warnings=${item.metrics.warnings.length} broken=${item.metrics.brokenImages}`
+      : "无渲染数据";
     const bytes = item.bytes ? `bytes=${item.bytes}` : "bytes=0";
     console.log(
       `${item.pass ? "PASS" : "FAIL"}  #${String(item.id).padStart(2, "0")} ${item.name} [${item.status}] ${item.duration}ms ${bytes} ${metrics}${item.error ? ` — ${item.error}` : ""}`
@@ -465,7 +472,7 @@ const main = async () => {
   }
 };
 
-const isContextDestroyed = error =>
+const isContextDestroyed = (error) =>
   /Execution context was destroyed|Cannot find context|Inspected target navigated|Target closed|Session closed/i.test(
     String(error?.message || error)
   );
@@ -499,9 +506,7 @@ const loadSuite = async (cdp, sessionId, baseUrl, method) => {
   throw lastError;
 };
 
-
-main().catch(error => {
+main().catch((error) => {
   console.error(`测试运行失败：${error?.stack || error}`);
   process.exitCode = 1;
 });
-

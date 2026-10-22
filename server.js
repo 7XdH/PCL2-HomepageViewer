@@ -47,7 +47,7 @@ const MIME = {
   ".woff2": "font/woff2"
 };
 
-const safeDecode = value => {
+const safeDecode = (value) => {
   try {
     return decodeURIComponent(value);
   } catch {
@@ -108,7 +108,7 @@ async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, all
         headers: proxyRequestHeaders(userAgent, imageMode, { acceptEncoding: true }),
         timeout: TIMEOUT_MS
       },
-      response => {
+      (response) => {
         const status = response.statusCode || 0;
         const location = response.headers.location;
         if (status >= 300 && status < 400) {
@@ -141,7 +141,7 @@ async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, all
 
         const chunks = [];
         let size = 0;
-        stream.on("data", chunk => {
+        stream.on("data", (chunk) => {
           size += chunk.length;
           if (size > MAX_BYTES) {
             stream.destroy(new ProxyError("远程文件过大（超过 4 MB）", 413));
@@ -209,13 +209,7 @@ async function proxy(req, res, requestUrl) {
     return;
   }
   try {
-    const result = await requestOnce(
-      target,
-      MAX_REDIRECTS,
-      userAgent,
-      imageMode,
-      ALLOW_LOCAL_PROXY
-    );
+    const result = await requestOnce(target, MAX_REDIRECTS, userAgent, imageMode, ALLOW_LOCAL_PROXY);
     if (imageMode) {
       if (!isImageContentType(result.contentType, result.finalUrl)) {
         send(res, 415, "目标不是图片内容，无法加载。", {
@@ -279,13 +273,13 @@ const server = http.createServer((req, res) => {
       return;
     }
     readLatestCommit()
-      .then(commit => {
+      .then((commit) => {
         send(res, 200, JSON.stringify(commit), {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store"
         });
       })
-      .catch(error => {
+      .catch((error) => {
         send(res, 503, JSON.stringify({ error: String(error?.message || error) }), {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store"
@@ -321,7 +315,7 @@ server.listen(PORT, () => {
   console.log("");
 });
 
-server.on("error", error => {
+server.on("error", (error) => {
   if (error.code === "EADDRINUSE") {
     console.error(`端口 ${PORT} 已被占用。可以通过 PORT=另一个端口 node server.js 启动。`);
   } else {
@@ -329,4 +323,3 @@ server.on("error", error => {
   }
   process.exitCode = 1;
 });
-

@@ -161,4 +161,3 @@ export default async function handler(request, response) {
     send(response, status, String(error?.message || error));
   }
 }
-

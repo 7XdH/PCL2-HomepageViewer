@@ -15,11 +15,7 @@ import {
 import { buildPalette, normalizeHue } from "../js/theme.js";
 import { helpJsonTitle, resolveHelpUrls, resolveHelpXamlUrl } from "../js/help.js";
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl } from "../js/url.js";
-import {
-  MAX_SOURCE_BYTES,
-  assertSourceWithinLimit,
-  formatByteSize
-} from "../js/limits.js";
+import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
 import {
   ProxyError,
   assertPublicTarget,
@@ -32,7 +28,7 @@ import {
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
 import proxyHandler from "../api/proxy.js";
 
-const proxyError = status => error => {
+const proxyError = (status) => (error) => {
   assert.ok(error instanceof ProxyError, `expected ProxyError, got ${error}`);
   assert.equal(error.status, status);
   return true;
@@ -40,15 +36,28 @@ const proxyError = status => error => {
 
 test("xaml: XML escaping and placeholders", () => {
   assert.equal(escapeXml("<&>\"'\r\n"), "&lt;&amp;&gt;&quot;&apos;&#xA;");
-  assert.equal(substitutePlaceholders("{variable:NAME:fallback}", {
-    getVariable: (name, fallback) => (name === "NAME" ? `<${fallback}>` : fallback)
-  }), "&lt;fallback&gt;");
-  assert.equal(substitutePlaceholders("{variable:NAME:fallback}", {
-    getVariable: (_name, fallback) => fallback
-  }, { escape: false }), "fallback");
-  assert.equal(substitutePlaceholders("{setup:UiLauncherHue}", {
-    getSetting: key => (key === "UiLauncherHue" ? "30" : "")
-  }), "30");
+  assert.equal(
+    substitutePlaceholders("{variable:NAME:fallback}", {
+      getVariable: (name, fallback) => (name === "NAME" ? `<${fallback}>` : fallback)
+    }),
+    "&lt;fallback&gt;"
+  );
+  assert.equal(
+    substitutePlaceholders(
+      "{variable:NAME:fallback}",
+      {
+        getVariable: (_name, fallback) => fallback
+      },
+      { escape: false }
+    ),
+    "fallback"
+  );
+  assert.equal(
+    substitutePlaceholders("{setup:UiLauncherHue}", {
+      getSetting: (key) => (key === "UiLauncherHue" ? "30" : "")
+    }),
+    "30"
+  );
   assert.equal(substitutePlaceholders("{unknown}", {}), "{unknown}");
 });
 
@@ -97,10 +106,7 @@ test("help: URL conversion and metadata", () => {
   const urls = resolveHelpUrls("https://mcnews.meloong.com/VersionArchiveList.json");
   assert.equal(urls.jsonUrl, "https://mcnews.meloong.com/VersionArchiveList.json");
   assert.equal(urls.xamlUrl, "https://mcnews.meloong.com/VersionArchiveList.xaml");
-  assert.equal(
-    resolveHelpXamlUrl("https://example.com/docs/help"),
-    "https://example.com/docs/help.xaml"
-  );
+  assert.equal(resolveHelpXamlUrl("https://example.com/docs/help"), "https://example.com/docs/help.xaml");
   assert.equal(resolveHelpUrls("file:///tmp/help.json"), null);
   assert.equal(resolveHelpUrls("C:\\tmp\\help.json"), null);
   assert.equal(resolveHelpUrls("javascript:alert(1)"), null);
@@ -127,7 +133,7 @@ test("limits: source size rejection", () => {
   assert.equal(formatByteSize(MAX_SOURCE_BYTES), "4.0 MiB");
   assert.throws(
     () => assertSourceWithinLimit("x".repeat(MAX_SOURCE_BYTES + 1), "test"),
-    error => error.code === "SOURCE_TOO_LARGE"
+    (error) => error.code === "SOURCE_TOO_LARGE"
   );
 });
 
@@ -135,31 +141,17 @@ test("proxy core: URL, UA and redirect policy", () => {
   assert.throws(() => parseTarget("javascript:alert(1)"), proxyError(400));
   assert.throws(() => parseTarget("http://localhost/"), proxyError(403));
   assert.throws(() => parseTarget("http://example.com:8080/"), proxyError(403));
-  assert.throws(
-    () => parseTarget("https://user:pass@example.com/"),
-    proxyError(403)
-  );
+  assert.throws(() => parseTarget("https://user:pass@example.com/"), proxyError(403));
   assert.equal(parseTarget("https://example.com/a").toString(), "https://example.com/a");
   assert.equal(parseTarget("http://127.0.0.1:8080/", { allowLocal: true }).port, "8080");
   assert.throws(() => normalizeUserAgent("bad\nua"), proxyError(400));
-  assert.throws(
-    () => resolveRedirect(parseTarget("https://example.com/"), "http://localhost/", 302),
-    proxyError(403)
-  );
+  assert.throws(() => resolveRedirect(parseTarget("https://example.com/"), "http://localhost/", 302), proxyError(403));
 });
 
 test("proxy core: public address and content-type guards", async () => {
-  await assert.rejects(
-    assertPublicTarget(parseTarget("http://127.0.0.1/")),
-    proxyError(403)
-  );
-  await assert.rejects(
-    assertPublicTarget(parseTarget("http://[::1]/")),
-    proxyError(403)
-  );
-  await assert.doesNotReject(
-    assertPublicTarget(parseTarget("http://127.0.0.1/"), { allowLocal: true })
-  );
+  await assert.rejects(assertPublicTarget(parseTarget("http://127.0.0.1/")), proxyError(403));
+  await assert.rejects(assertPublicTarget(parseTarget("http://[::1]/")), proxyError(403));
+  await assert.doesNotReject(assertPublicTarget(parseTarget("http://127.0.0.1/"), { allowLocal: true }));
   assert.equal(isTextContentType("application/xml"), true);
   assert.equal(isTextContentType("text/html"), false);
   assert.equal(isTextContentType("application/octet-stream", "https://example.com/a.txt"), true);
@@ -197,9 +189,5 @@ test("Vercel proxy handler: rejects private targets and invalid requests", async
   assert.equal((await invoke("POST", "/api/proxy")).status, 405);
   assert.equal((await invoke("GET", "/api/proxy?url=http%3A%2F%2F127.0.0.1%2F")).status, 403);
   assert.equal((await invoke("GET", "/api/proxy?url=http%3A%2F%2Fexample.com%3A8080%2F")).status, 403);
-  assert.equal(
-    (await invoke("GET", "/api/proxy?url=https%3A%2F%2Fexample.com%2F&ua=bad%0Aua")).status,
-    400
-  );
+  assert.equal((await invoke("GET", "/api/proxy?url=https%3A%2F%2Fexample.com%2F&ua=bad%0Aua")).status, 400);
 });
-

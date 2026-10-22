@@ -7,10 +7,7 @@ import { PCL2_PRESETS } from "./pcl-presets.js";
 import { createHelpNavigation } from "./app/help-navigation.js";
 import { renderPresetList } from "./app/presets.js";
 import { createSourceLoader } from "./app/sources.js";
-import {
-  SOURCE_STATE_PERSIST_LIMIT,
-  assertSourceWithinLimit
-} from "./limits.js";
+import { SOURCE_STATE_PERSIST_LIMIT, assertSourceWithinLimit } from "./limits.js";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 
@@ -24,7 +21,7 @@ const LOCAL_PRESETS = {
 const PRESETS = {
   ...LOCAL_PRESETS,
   ...Object.fromEntries(
-    PCL2_PRESETS.map(preset => [
+    PCL2_PRESETS.map((preset) => [
       `pcl2-${preset.id}`,
       {
         title: preset.name,
@@ -64,7 +61,7 @@ let codeDirty = false;
 let helpNavigation = null;
 let sourceStateWarned = false;
 
-const el = id => document.getElementById(id);
+const el = (id) => document.getElementById(id);
 const $ = {
   root: el("pclHomeRoot"),
   homeScroll: el("pclHomeScroll"),
@@ -119,7 +116,7 @@ const state = {
 const theme = new PclTheme();
 
 const shell = new PclShell({
-  onLaunch: version => runtime.raise([{ type: "启动游戏", data: version }])
+  onLaunch: (version) => runtime.raise([{ type: "启动游戏", data: version }])
 });
 shell.onReopen = () => fitStage();
 
@@ -127,9 +124,9 @@ const runtime = new PclRuntime({
   shell,
   onRefresh: () => renderCurrent({ reason: "event" }),
   onSettingChange: (key, value) => handleSettingChange(key, value),
-  onOpenHelp: address => helpNavigation?.openRemoteHelp(address)
+  onOpenHelp: (address) => helpNavigation?.openRemoteHelp(address)
 });
-shell.onAccountChange = user => runtime.setUser(user);
+shell.onAccountChange = (user) => runtime.setUser(user);
 theme.setHue(Number(runtime.settings.UiLauncherHue));
 
 const renderer = new PclRenderer({
@@ -191,7 +188,7 @@ function updateVariables(variables) {
   if (!entries.length) {
     const empty = document.createElement("span");
     empty.className = "var-chips__empty";
-    empty.innerHTML = '暂无变量 · 使用 <code>修改变量</code> 事件后出现';
+    empty.innerHTML = "暂无变量 · 使用 <code>修改变量</code> 事件后出现";
     $.varChips.append(empty);
     return;
   }
@@ -291,10 +288,7 @@ function saveSourceState(content) {
       localStorage.setItem(SOURCE_KEY, serialized);
     } else if (!sourceStateWarned) {
       sourceStateWarned = true;
-      shell.showHint(
-        "主页内容超过约 500 KB，刷新后不会自动恢复；请使用“导出”保存。",
-        "Yellow"
-      );
+      shell.showHint("主页内容超过约 500 KB，刷新后不会自动恢复；请使用“导出”保存。", "Yellow");
     }
   } catch {
     /* ignore quota errors */
@@ -405,22 +399,26 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     const message = String(error.message || error);
     const sourceTooLarge = error.code === "SOURCE_TOO_LARGE";
     const networkFailure = (state.mode === "url" || remotePreset) && message.includes("无法拉取联网主页");
-    shell.showModal({
-      title: sourceTooLarge
-        ? "主页内容过大"
-        : networkFailure
-          ? (remotePreset ? "PCL2 预设加载失败" : "联网主页加载失败")
-          : "加载主页失败",
-      caption: sourceTooLarge
-        ? message
-        : networkFailure
+    shell
+      .showModal({
+        title: sourceTooLarge
+          ? "主页内容过大"
+          : networkFailure
+            ? remotePreset
+              ? "PCL2 预设加载失败"
+              : "联网主页加载失败"
+            : "加载主页失败",
+        caption: sourceTooLarge
           ? message
-          : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${message}`,
-      buttons: sourceTooLarge ? ["确定"] : ["重试", "取消"],
-      warn: true
-    }).then(choice => {
-      if (!sourceTooLarge && choice === 0) renderCurrent({ forceRemote: true });
-    });
+          : networkFailure
+            ? message
+            : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${message}`,
+        buttons: sourceTooLarge ? ["确定"] : ["重试", "取消"],
+        warn: true
+      })
+      .then((choice) => {
+        if (!sourceTooLarge && choice === 0) renderCurrent({ forceRemote: true });
+      });
     return false;
   } finally {
     if (renderAbort === controller) {
@@ -464,7 +462,6 @@ function fitStage() {
   if ($.zoomLabel) $.zoomLabel.textContent = `${Math.round(scale * 100)}%`;
 }
 
-
 async function loadPresetAndRender(id) {
   const preset = PRESETS[id];
   if (!preset) return;
@@ -497,7 +494,8 @@ async function loadUrlAndRender() {
   if (ua.length > 512 || (ua && !/^[\x20-\x7E]+$/.test(ua))) {
     shell.showModal({
       title: "UA 无效",
-      caption: "User-Agent 必须是 1–512 个可打印 ASCII 字符，不能包含换行或控制字符。留空则使用默认值 PCL2-Homepage-Viewer。",
+      caption:
+        "User-Agent 必须是 1–512 个可打印 ASCII 字符，不能包含换行或控制字符。留空则使用默认值 PCL2-Homepage-Viewer。",
       buttons: ["确定"],
       warn: true
     });
@@ -583,7 +581,6 @@ function toggleFullscreen() {
   });
 }
 
-
 function bindUi() {
   for (const button of document.querySelectorAll(".source-tab")) {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
@@ -597,13 +594,13 @@ function bindUi() {
   });
 
   $.urlLoadBtn?.addEventListener("click", () => loadUrlAndRender());
-  $.urlInput?.addEventListener("keydown", event => {
+  $.urlInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       loadUrlAndRender();
     }
   });
-  $.uaInput?.addEventListener("keydown", event => {
+  $.uaInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       loadUrlAndRender();
@@ -622,7 +619,7 @@ function bindUi() {
     updateLineNumbers();
   });
   $.codeEditor?.addEventListener("scroll", updateLineNumbers, { passive: true });
-  $.codeEditor?.addEventListener("keydown", event => {
+  $.codeEditor?.addEventListener("keydown", (event) => {
     if (event.key === "Tab") {
       event.preventDefault();
       const start = $.codeEditor.selectionStart;
@@ -640,7 +637,7 @@ function bindUi() {
     button.addEventListener("click", () => loadPresetAndRender(button.dataset.preset));
   }
   $.pclPresetSearch?.addEventListener("input", () => renderPclPresets($.pclPresetSearch.value));
-  $.pclPresetList?.addEventListener("click", event => {
+  $.pclPresetList?.addEventListener("click", (event) => {
     const button = event.target.closest?.("[data-preset]");
     if (button) loadPresetAndRender(button.dataset.preset);
   });
@@ -657,7 +654,7 @@ function bindUi() {
     shell.showHint("已清空自定义变量", "Green");
   });
 
-  document.addEventListener("keydown", event => {
+  document.addEventListener("keydown", (event) => {
     if (!shell.modalLayer.hidden) return;
     if (event.key === "Escape" && shell.isHelpPageOpen() && shell.modalLayer.hidden) {
       event.preventDefault();
@@ -682,14 +679,14 @@ function bindUi() {
   window.addEventListener("resize", () => window.setTimeout(fitStage, 40));
 
   let dragDepth = 0;
-  const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes("Files");
-  document.addEventListener("dragenter", event => {
+  const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+  document.addEventListener("dragenter", (event) => {
     if (!hasFiles(event)) return;
     event.preventDefault();
     dragDepth += 1;
     document.body.classList.add("is-dragging-file");
   });
-  document.addEventListener("dragover", event => {
+  document.addEventListener("dragover", (event) => {
     if (!hasFiles(event)) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
@@ -699,7 +696,7 @@ function bindUi() {
     dragDepth -= 1;
     if (!dragDepth) document.body.classList.remove("is-dragging-file");
   });
-  document.addEventListener("drop", event => {
+  document.addEventListener("drop", (event) => {
     if (!hasFiles(event)) return;
     event.preventDefault();
     dragDepth = 0;
@@ -718,12 +715,12 @@ function bindUi() {
     $.dropzone?.classList.remove("is-dragover");
   });
 
-  $.dropzone?.addEventListener("dragover", event => {
+  $.dropzone?.addEventListener("dragover", (event) => {
     event.preventDefault();
     $.dropzone.classList.add("is-dragover");
   });
   $.dropzone?.addEventListener("dragleave", () => $.dropzone.classList.remove("is-dragover"));
-  $.dropzone?.addEventListener("drop", event => {
+  $.dropzone?.addEventListener("drop", (event) => {
     event.preventDefault();
     event.stopPropagation();
     dragDepth = 0;
@@ -733,7 +730,6 @@ function bindUi() {
     if (file) applyFile(file);
   });
 }
-
 
 async function init() {
   window.__PCL_RENDERER__ = { renderer, runtime, shell, theme, renderCurrent, state, ready: false };
@@ -776,7 +772,7 @@ async function init() {
   }
 }
 
-init().catch(error => {
+init().catch((error) => {
   console.error(error);
   setRuntime("初始化失败", "error");
   shell.showModal({
@@ -786,4 +782,3 @@ init().catch(error => {
     warn: true
   });
 });
-

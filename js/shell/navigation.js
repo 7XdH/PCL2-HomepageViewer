@@ -1,30 +1,30 @@
 import { PclShellBase } from "./base.js";
-import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, COMMIT_REFRESH_MS, COMMIT_TIMEOUT_MS, COMMIT_SOURCE_LABELS, COMMIT_ERROR_TITLE, formatRelativeTime, normalizeCommit, fetchLatestCommit, hintColors, timeString, saveShellPreferences } from "./helpers.js";
+import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, timeString, saveShellPreferences } from "./helpers.js";
 
 export class PclShellNavigation extends PclShellBase {
   bindWindowControls() {
-    document.getElementById("winMinBtn")?.addEventListener("click", event => {
+    document.getElementById("winMinBtn")?.addEventListener("click", (event) => {
       event.stopPropagation();
       this.toggleMinimized();
     });
-    document.getElementById("winCloseBtn")?.addEventListener("click", event => {
+    document.getElementById("winCloseBtn")?.addEventListener("click", (event) => {
       event.stopPropagation();
       this.closeWindow();
     });
     document.getElementById("reopenBtn")?.addEventListener("click", () => this.reopenWindow());
     document.getElementById("pclStubBack")?.addEventListener("click", () => this.switchPage("Launch"));
-    document.getElementById("pclSubpageBack")?.addEventListener("click", event => {
+    document.getElementById("pclSubpageBack")?.addEventListener("click", (event) => {
       event.stopPropagation();
       this.onSubpageBack?.();
     });
 
-    this.titlebar?.addEventListener("click", event => {
+    this.titlebar?.addEventListener("click", (event) => {
       if (!this.windowEl.classList.contains("is-minimized")) return;
       if (event.target.closest("button")) return;
       this.toggleMinimized(false);
     });
 
-    this.nav?.addEventListener("click", event => {
+    this.nav?.addEventListener("click", (event) => {
       const button = event.target.closest(".pcl-nav__item");
       if (!button) return;
       event.stopPropagation();
@@ -32,12 +32,15 @@ export class PclShellNavigation extends PclShellBase {
     });
 
     document.getElementById("pclLaunchButton")?.addEventListener("click", () => {
-      if (this.onLaunch) this.onLaunch(this.version);
-      else this.showModal({
-        title: "启动游戏",
-        caption: "网页渲染器无法真正启动 Minecraft。",
-        buttons: ["确定"]
-      });
+      if (this.onLaunch) {
+        this.onLaunch(this.version);
+      } else {
+        this.showModal({
+          title: "启动游戏",
+          caption: "网页渲染器无法真正启动 Minecraft。",
+          buttons: ["确定"]
+        });
+      }
     });
 
     document.getElementById("pclAccountBtn")?.addEventListener("click", () => {
@@ -49,11 +52,11 @@ export class PclShellNavigation extends PclShellBase {
     });
 
     document.getElementById("pclVersionCard")?.addEventListener("click", async () => {
-      const currentIndex = VERSIONS.findIndex(version => version.name === this.version);
+      const currentIndex = VERSIONS.findIndex((version) => version.name === this.version);
       const choice = await this.showModal({
         title: "选择版本",
         caption: "网页渲染器只使用演示版本列表。选择后，左侧启动按钮会同步更新。",
-        buttons: [...VERSIONS.map(version => version.name), "取消"],
+        buttons: [...VERSIONS.map((version) => version.name), "取消"],
         activeIndex: currentIndex >= 0 ? currentIndex : 0
       });
       if (choice < VERSIONS.length) {
@@ -65,7 +68,7 @@ export class PclShellNavigation extends PclShellBase {
 
   bindAccountSwitcher() {
     this.avatarButton?.addEventListener("click", () => this.toggleAccount());
-    this.avatarButton?.addEventListener("keydown", event => {
+    this.avatarButton?.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       this.toggleAccount();
@@ -200,7 +203,6 @@ export class PclShellNavigation extends PclShellBase {
     return { page: key, subType };
   }
 
-
   pushEvent(entry) {
     if (entry.status === "run") {
       this.eventText.textContent = `${timeString(entry.time)} · ${entry.type}${entry.data ? ` → ${entry.data.slice(0, 42)}` : ""} …`;
@@ -221,22 +223,31 @@ export class PclShellNavigation extends PclShellBase {
     return this.events
       .slice()
       .reverse()
-      .map(entry => {
+      .map((entry) => {
         const mark = entry.status === "error" ? "×" : "✓";
         const data = entry.data ? ` → ${entry.data}` : "";
-        const message = entry.status === "error" ? `\n    ${entry.message}` : entry.duration != null ? `  (${entry.duration} ms)` : "";
+        const message =
+          entry.status === "error"
+            ? `\n    ${entry.message}`
+            : entry.duration != null
+              ? `  (${entry.duration} ms)`
+              : "";
         return `[${timeString(entry.time)}] ${mark} ${entry.type}${data}${message}`;
       })
       .join("\n");
   }
 
   bindTooltips() {
-    document.addEventListener("pointermove", event => {
-      this.lastPointer = { x: event.clientX, y: event.clientY };
-      if (!this.tooltip.hidden && this.tooltip.classList.contains("is-visible")) this.positionTooltip();
-    }, { passive: true });
+    document.addEventListener(
+      "pointermove",
+      (event) => {
+        this.lastPointer = { x: event.clientX, y: event.clientY };
+        if (!this.tooltip.hidden && this.tooltip.classList.contains("is-visible")) this.positionTooltip();
+      },
+      { passive: true }
+    );
 
-    document.addEventListener("pointerover", event => {
+    document.addEventListener("pointerover", (event) => {
       const target = event.target.closest?.("[data-tooltip]");
       if (!target || target === this.tooltipTarget) return;
       this.tooltipTarget = target;
@@ -244,14 +255,14 @@ export class PclShellNavigation extends PclShellBase {
       this.tooltipTimer = window.setTimeout(() => this.showTooltip(target), 340);
     });
 
-    document.addEventListener("pointerout", event => {
+    document.addEventListener("pointerout", (event) => {
       const target = event.target.closest?.("[data-tooltip]");
       if (!target || target !== this.tooltipTarget) return;
       if (event.relatedTarget && target.contains(event.relatedTarget)) return;
       this.hideTooltip();
     });
 
-    document.addEventListener("focusin", event => {
+    document.addEventListener("focusin", (event) => {
       const target = event.target.closest?.("[data-tooltip]");
       if (!target) return;
       this.tooltipTarget = target;
@@ -259,7 +270,7 @@ export class PclShellNavigation extends PclShellBase {
       this.showTooltip(target, { anchor: target });
     });
 
-    document.addEventListener("focusout", event => {
+    document.addEventListener("focusout", (event) => {
       const target = event.target.closest?.("[data-tooltip]");
       if (!target || target !== this.tooltipTarget) return;
       if (event.relatedTarget && target.contains(event.relatedTarget)) return;

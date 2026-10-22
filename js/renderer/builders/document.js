@@ -1,37 +1,6 @@
 import { PclControlBuilders } from "./controls.js";
-import {
-  tagName,
-  isPropertyElement,
-  propertyElementName,
-
-  readEvents,
-  resolveColor,
-  parseDouble,
-  parseBool,
-  parseThickness,
-  parseCornerRadius,
-  parseFontWeight,
-  resolveImageSource,
-  extractText,
-  attributeValue
-} from "../../xaml.js";
-import {
-  SVG_NS,
-  NO_ICON,
-  RESOURCE_REF_RE,
-  getProp,
-  hasProp,
-  readProps,
-  alignmentMap,
-  parseSize,
-  appendTextNode,
-  findPropertyElement,
-  directContentChildren,
-  normalizeFillRule,
-  fallbackBBox,
-  measurePath,
-  buildPathSvg
-} from "../helpers.js";
+import { tagName, readEvents, parseDouble, parseBool, parseThickness, extractText } from "../../xaml.js";
+import { getProp, readProps, directContentChildren } from "../helpers.js";
 
 export class PclDocumentBuilders extends PclControlBuilders {
   buildFlowDocumentScrollViewer(element, layout) {
@@ -235,7 +204,7 @@ export class PclDocumentBuilders extends PclControlBuilders {
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
     const events = readEvents(element);
-    node.addEventListener("click", event => {
+    node.addEventListener("click", (event) => {
       event.stopPropagation();
       const next = !node.classList.contains("is-checked");
       node.classList.toggle("is-checked", next);

@@ -11,13 +11,11 @@ export const PROXY_REFERER = "http://200.open.pcl2.server/";
 
 const ENV_USER_AGENT = (process.env.PCL_PROXY_UA || "").trim();
 export const EFFECTIVE_DEFAULT_USER_AGENT =
-  ENV_USER_AGENT && /^[\x20-\x7E]{1,512}$/.test(ENV_USER_AGENT)
-    ? ENV_USER_AGENT
-    : DEFAULT_USER_AGENT;
+  ENV_USER_AGENT && /^[\x20-\x7E]{1,512}$/.test(ENV_USER_AGENT) ? ENV_USER_AGENT : DEFAULT_USER_AGENT;
 
 const ALLOWLIST = (process.env.PCL_PROXY_ALLOWLIST || "")
   .split(",")
-  .map(entry => entry.trim().toLowerCase().replace(/^\*\./, "").replace(/\.$/, ""))
+  .map((entry) => entry.trim().toLowerCase().replace(/^\*\./, "").replace(/\.$/, ""))
   .filter(Boolean);
 
 export class ProxyError extends Error {
@@ -70,7 +68,7 @@ function normalizeAddress(address) {
   if (net.isIP(mapped) === 4) return mapped;
 
   const parts = mapped.split(":");
-  if (parts.length === 2 && parts.every(part => /^[0-9a-f]{1,4}$/.test(part))) {
+  if (parts.length === 2 && parts.every((part) => /^[0-9a-f]{1,4}$/.test(part))) {
     const high = Number.parseInt(parts[0], 16);
     const low = Number.parseInt(parts[1], 16);
     return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
@@ -87,11 +85,7 @@ export function isBlockedAddress(address, { allowLocal = false } = {}) {
 }
 
 export function targetHostname(target) {
-  return target.hostname
-    .toLowerCase()
-    .replace(/^\[/, "")
-    .replace(/\]$/, "")
-    .replace(/\.$/, "");
+  return target.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "").replace(/\.$/, "");
 }
 
 function isBlockedHostname(hostname, { allowLocal = false } = {}) {
@@ -107,7 +101,7 @@ function isBlockedHostname(hostname, { allowLocal = false } = {}) {
 
 export function isAllowedHost(hostname) {
   if (!ALLOWLIST.length) return true;
-  return ALLOWLIST.some(entry => hostname === entry || hostname.endsWith(`.${entry}`));
+  return ALLOWLIST.some((entry) => hostname === entry || hostname.endsWith(`.${entry}`));
 }
 
 export function normalizeUserAgent(rawUserAgent) {
@@ -141,11 +135,7 @@ export function parseTarget(rawTarget, { allowLocal = false } = {}) {
     throw new ProxyError("网址不能包含用户名或密码", 403);
   }
 
-  const port = target.port
-    ? Number(target.port)
-    : target.protocol === "https:"
-      ? 443
-      : 80;
+  const port = target.port ? Number(target.port) : target.protocol === "https:" ? 443 : 80;
   if (!allowLocal && port !== 80 && port !== 443) {
     throw new ProxyError("只允许 80 与 443 端口", 403);
   }
@@ -187,7 +177,7 @@ export async function assertPublicTarget(target, { allowLocal = false } = {}) {
   if (!records.length) {
     throw new ProxyError("目标域名没有可用地址", 502);
   }
-  if (records.some(record => isBlockedAddress(record.address, { allowLocal }))) {
+  if (records.some((record) => isBlockedAddress(record.address, { allowLocal }))) {
     throw new ProxyError("目标域名解析到内网或保留地址", 403);
   }
 }
@@ -229,9 +219,5 @@ export function isImageContentType(contentType, finalUrl = "") {
   } catch {
     pathname = "";
   }
-  return (
-    !type ||
-    (/octet-stream/i.test(type) &&
-      /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i.test(pathname))
-  );
+  return !type || (/octet-stream/i.test(type) && /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i.test(pathname));
 }

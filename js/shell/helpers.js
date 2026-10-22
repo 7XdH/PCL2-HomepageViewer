@@ -1,5 +1,3 @@
-import { isMinecraftUrl, normalizeExternalUrl } from "../url.js";
-
 export const PAGE_LABELS = {
   Launch: "启动",
   Download: "下载",
@@ -75,7 +73,7 @@ export function readShellPreferences(storage = getStorage()) {
     const saved = JSON.parse(raw);
     if (!saved || typeof saved !== "object") return fallback;
     return {
-      version: VERSIONS.some(item => item.name === saved.version) ? saved.version : fallback.version,
+      version: VERSIONS.some((item) => item.name === saved.version) ? saved.version : fallback.version,
       account: Object.hasOwn(ACCOUNTS, saved.account) ? saved.account : fallback.account
     };
   } catch {
@@ -86,7 +84,7 @@ export function readShellPreferences(storage = getStorage()) {
 export function saveShellPreferences({ version, account } = {}, storage = getStorage()) {
   const fallback = defaultShellPreferences();
   const normalized = {
-    version: VERSIONS.some(item => item.name === version) ? version : fallback.version,
+    version: VERSIONS.some((item) => item.name === version) ? version : fallback.version,
     account: Object.hasOwn(ACCOUNTS, account) ? account : fallback.account
   };
   try {
@@ -103,9 +101,10 @@ export const COMMIT_SOURCE_LABELS = {
   build: "构建时记录的提交",
   local: "本地最近提交"
 };
-export const COMMIT_ERROR_TITLE = "无法读取最近提交信息。请确认 npm run build 已生成 commit.json，或使用 node server.js 本地运行。";
+export const COMMIT_ERROR_TITLE =
+  "无法读取最近提交信息。请确认 npm run build 已生成 commit.json，或使用 node server.js 本地运行。";
 
-export const formatRelativeTime = date => {
+export const formatRelativeTime = (date) => {
   const diff = Math.max(0, Date.now() - date.getTime());
   if (diff < 60_000) return "刚刚";
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
@@ -126,7 +125,7 @@ export const normalizeCommit = (data, source) => {
   };
 };
 
-export const fetchLatestCommit = async signal => {
+export const fetchLatestCommit = async (signal) => {
   const cacheBust = Date.now();
   const isLocalHost = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
   const endpoints = [
@@ -159,8 +158,7 @@ export const hintColors = {
   Yellow: ["rgba(245, 122, 0, 0.843)", "rgba(216, 108, 0, 0.843)"]
 };
 
-export const timeString = date => {
+export const timeString = (date) => {
   const d = date instanceof Date ? date : new Date(date);
   return d.toLocaleTimeString("zh-CN", { hour12: false });
 };
-

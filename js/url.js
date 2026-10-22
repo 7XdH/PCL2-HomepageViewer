@@ -1,10 +1,4 @@
-const OPENABLE_PROTOCOLS = new Set([
-  "http:",
-  "https:",
-  "mailto:",
-  "minecraft:",
-  "minecraft-preview:"
-]);
+const OPENABLE_PROTOCOLS = new Set(["http:", "https:", "mailto:", "minecraft:", "minecraft-preview:"]);
 
 const MINECRAFT_URL_RE = /^minecraft(?:-preview)?:\/\//i;
 
@@ -14,7 +8,9 @@ const MINECRAFT_URL_RE = /^minecraft(?:-preview)?:\/\//i;
  * caller of openUrl() gets the same protection.
  */
 export function normalizeExternalUrl(value) {
-  const text = String(value ?? "").trim().replaceAll("\\", "/");
+  const text = String(value ?? "")
+    .trim()
+    .replaceAll("\\", "/");
   if (!text) return "";
   try {
     const url = new URL(text);

@@ -3,7 +3,7 @@ import path from "node:path";
 
 const root = path.join(process.cwd(), "assets", "pcl", "images");
 const files = [];
-const walk = dir => {
+const walk = (dir) => {
   for (const name of fs.readdirSync(dir)) {
     const file = path.join(dir, name);
     if (fs.statSync(file).isDirectory()) walk(file);

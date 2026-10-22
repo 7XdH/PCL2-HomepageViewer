@@ -13,9 +13,9 @@ export const getProp = (props, ...names) => {
   return null;
 };
 
-export const hasProp = (props, ...names) => names.some(name => props.has(String(name).toLowerCase()));
+export const hasProp = (props, ...names) => names.some((name) => props.has(String(name).toLowerCase()));
 
-export const readProps = element => {
+export const readProps = (element) => {
   const props = new Map();
   for (const attribute of element.attributes) {
     const name = attribute.name.toLowerCase();
@@ -48,7 +48,9 @@ export function parseSize(value) {
 
 export function appendTextNode(container, text) {
   if (!text) return;
-  let value = String(text).replace(/\r\n|\r|\n/g, " ").replace(/\t/g, " ");
+  let value = String(text)
+    .replace(/\r\n|\r|\n/g, " ")
+    .replace(/\t/g, " ");
   if (!value.trim() && container.childNodes.length) return;
   value = value.replace(/ {2,}/g, " ");
   if (!container.childNodes.length) value = value.replace(/^ +/, "");
@@ -57,7 +59,7 @@ export function appendTextNode(container, text) {
 }
 
 export function findPropertyElement(element, ...names) {
-  const wanted = new Set(names.map(name => name.toLowerCase()));
+  const wanted = new Set(names.map((name) => name.toLowerCase()));
   for (const child of element.children) {
     if (!isPropertyElement(child)) continue;
     const name = propertyElementName(child).toLowerCase();
@@ -67,11 +69,13 @@ export function findPropertyElement(element, ...names) {
 }
 
 export function directContentChildren(element) {
-  return Array.from(element.children).filter(child => !isPropertyElement(child));
+  return Array.from(element.children).filter((child) => !isPropertyElement(child));
 }
 
 export function normalizeFillRule(data) {
-  const match = String(data).trim().match(/^F([01])\s+/i);
+  const match = String(data)
+    .trim()
+    .match(/^F([01])\s+/i);
   if (!match) return { data: String(data).trim(), rule: "nonzero" };
   return { data: String(data).trim().slice(match[0].length), rule: match[1] === "0" ? "evenodd" : "nonzero" };
 }
@@ -93,7 +97,8 @@ export function measurePath(data) {
   if (bboxCache.has(data)) return bboxCache.get(data);
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 1000 1000");
-  svg.style.cssText = "position:fixed;left:-10000px;top:-10000px;width:1000px;height:1000px;overflow:visible;visibility:hidden";
+  svg.style.cssText =
+    "position:fixed;left:-10000px;top:-10000px;width:1000px;height:1000px;overflow:visible;visibility:hidden";
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute("d", data);
   svg.appendChild(path);
@@ -126,7 +131,10 @@ export function buildPathSvg(data, options = {}) {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", `${box.x} ${box.y} ${box.width} ${box.height}`);
   const stretch = String(options.stretch || "Uniform").toLowerCase();
-  svg.setAttribute("preserveAspectRatio", stretch === "fill" ? "none" : stretch === "uniformtofill" ? "xMidYMid slice" : "xMidYMid meet");
+  svg.setAttribute(
+    "preserveAspectRatio",
+    stretch === "fill" ? "none" : stretch === "uniformtofill" ? "xMidYMid slice" : "xMidYMid meet"
+  );
   svg.setAttribute("focusable", "false");
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute("d", normalized.data);
@@ -143,4 +151,3 @@ export function buildPathSvg(data, options = {}) {
   svg.appendChild(path);
   return { svg, box };
 }
-

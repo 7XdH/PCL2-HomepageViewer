@@ -1,0 +1,8 @@
+dist/
+node_modules/
+test-results/
+assets/
+.git/
+package-lock.json
+js/assets.js
+*.min.js

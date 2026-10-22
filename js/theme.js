@@ -22,11 +22,11 @@ export function hslToRgb(h, s, l) {
   else if (hue < 240) rgb = [0, x, c];
   else if (hue < 300) rgb = [x, 0, c];
   else rgb = [c, 0, x];
-  return rgb.map(channel => Math.round((channel + m) * 255));
+  return rgb.map((channel) => Math.round((channel + m) * 255));
 }
 
 export function rgbToHex([r, g, b]) {
-  return "#" + [r, g, b].map(value => clamp(value, 0, 255).toString(16).padStart(2, "0")).join("");
+  return "#" + [r, g, b].map((value) => clamp(value, 0, 255).toString(16).padStart(2, "0")).join("");
 }
 
 export function mixRgb(stops) {
@@ -35,7 +35,7 @@ export function mixRgb(stops) {
   for (const stop of stops) {
     for (let i = 0; i < 3; i += 1) result[i] += stop.rgb[i] * stop.weight;
   }
-  return result.map(value => Math.round(value / total));
+  return result.map((value) => Math.round(value / total));
 }
 
 /**
@@ -43,25 +43,17 @@ export function mixRgb(stops) {
  * Reproducing it keeps ColorBrush1–8 identical to PCL instead of a naive HSL ramp.
  */
 export function fromHsl2(hue, saturation, lightness) {
-  let h = ((Number(hue) + 3600000) % 360 + 360) % 360;
+  let h = (((Number(hue) + 3600000) % 360) + 360) % 360;
   const s = clamp(Number(saturation), 0, 100);
   const l = clamp(Number(lightness), 0, 100);
   if (s === 0) {
     const gray = Math.round(l * 2.55);
     return [gray, gray, gray];
   }
-  const cent = [
-    0.1, -0.06, -0.3,
-    -0.19, -0.15, -0.24,
-    -0.32, -0.09, 0.18,
-    0.05, -0.12, -0.02,
-    0.1, -0.06
-  ];
+  const cent = [0.1, -0.06, -0.3, -0.19, -0.15, -0.24, -0.32, -0.09, 0.18, 0.05, -0.12, -0.02, 0.1, -0.06];
   const centerRaw = h / 30;
   const index = Math.floor(centerRaw);
-  const center = 50 - (
-    (1 - centerRaw + index) * cent[index] + (centerRaw - index) * cent[index + 1]
-  ) * s;
+  const center = 50 - ((1 - centerRaw + index) * cent[index] + (centerRaw - index) * cent[index + 1]) * s;
   const adjustedLight = (l < center ? l / center : 1 + (l - center) / (100 - center)) * 50;
   return hslToRgb(h, s, adjustedLight);
 }

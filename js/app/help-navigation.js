@@ -20,19 +20,14 @@ export function createHelpNavigation({
     helpRenderer.render(entry.xaml);
     shell.showHelpPage(entry.title);
     if (helpScroll) helpScroll.scrollTop = 0;
-    window.setTimeout(
-      () => document.getElementById("pclSubpageBack")?.focus({ preventScroll: true }),
-      30
-    );
+    window.setTimeout(() => document.getElementById("pclSubpageBack")?.focus({ preventScroll: true }), 30);
   }
 
   async function openRemoteHelp(raw) {
     const address = resolveRemoteUrl(String(raw ?? "").trim());
     const urls = resolveHelpUrls(address);
     if (!urls) {
-      throw new Error(
-        `这个帮助地址不是可用的 PCL 远程帮助 JSON / XAML 页面。\n\n${address || "（空）"}`
-      );
+      throw new Error(`这个帮助地址不是可用的 PCL 远程帮助 JSON / XAML 页面。\n\n${address || "（空）"}`);
     }
 
     const token = ++helpToken;
@@ -49,7 +44,7 @@ export function createHelpNavigation({
         label: "帮助信息",
         signal: controller.signal
       })
-        .then(source => helpJsonTitle(source, ""))
+        .then((source) => helpJsonTitle(source, ""))
         .catch(() => "");
       const [xaml, metadataTitle] = await Promise.all([
         fetchRemoteXaml(urls.xamlUrl, {

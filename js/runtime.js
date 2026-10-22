@@ -20,7 +20,7 @@ const PCL_PATHS = Object.freeze({
   minecraft: "C:\\Users\\Steve\\AppData\\Roaming\\.minecraft\\"
 });
 
-const pad2 = value => String(value).padStart(2, "0");
+const pad2 = (value) => String(value).padStart(2, "0");
 
 const localDate = () => {
   const now = new Date();
@@ -32,7 +32,7 @@ const localTime = () => {
   return `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
 };
 
-const vanillaVersionName = name => String(name ?? "").match(/^\d+(?:\.\d+){1,3}/)?.[0] || String(name ?? "");
+const vanillaVersionName = (name) => String(name ?? "").match(/^\d+(?:\.\d+){1,3}/)?.[0] || String(name ?? "");
 
 const hasLoader = (name, label) => {
   const cleaned = label === "forge" ? String(name).replace(/neoforge/gi, "") : String(name);
@@ -105,9 +105,9 @@ const saveJSON = (key, value) => {
   }
 };
 
-const newline = value => String(value ?? "").replaceAll("\\n", "\n");
+const newline = (value) => String(value ?? "").replaceAll("\\n", "\n");
 
-const lastPathPart = url => {
+const lastPathPart = (url) => {
   try {
     const path = new URL(url).pathname;
     return decodeURIComponent(path.split("/").filter(Boolean).pop() || "download");
@@ -116,7 +116,7 @@ const lastPathPart = url => {
   }
 };
 
-const hashString = value => {
+const hashString = (value) => {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i += 1) {
     hash ^= value.charCodeAt(i);
@@ -144,13 +144,13 @@ export class PclRuntime {
         const value = this.variables[String(name)];
         return value === undefined ? fallback : value;
       },
-      getSetting: name => {
+      getSetting: (name) => {
         const key = String(name);
         return this.settings[key] ?? DEFAULT_SETTINGS[key] ?? "";
       },
       randomHint: () => HINTS[Math.floor(Math.random() * HINTS.length)],
       randomCave: () => CAVES[Math.floor(Math.random() * CAVES.length)],
-      getPlaceholder: name => this.getPlaceholder(name),
+      getPlaceholder: (name) => this.getPlaceholder(name),
       user: this.user
     };
   }
@@ -239,7 +239,7 @@ export class PclRuntime {
           await this.handle(event.type, event.data ?? "");
         }
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("[PCL Runtime]", error);
         this.shell.showModal({
           title: "事件执行失败",
@@ -281,7 +281,7 @@ export class PclRuntime {
     }
   }
 
-  async dispatch(type, raw, args, arg0, arg1) {
+  async dispatch(type, raw, args, arg0, _arg1) {
     switch (type) {
       case "打开网页": {
         const url = raw.replaceAll("\\", "/").trim();
@@ -428,7 +428,6 @@ export class PclRuntime {
         this.shell.switchPage(arg0 || "Launch", args.length > 1 ? args[1] : "");
         return arg0;
 
-
       case "导入整合包":
       case "安装整合包": {
         const file = await this.shell.pickFile(".zip,application/zip");
@@ -531,4 +530,3 @@ export class PclRuntime {
     this.onSettingChange?.("__variables", this.variables);
   }
 }
-

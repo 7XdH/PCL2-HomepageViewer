@@ -1,5 +1,17 @@
 import { isMinecraftUrl, normalizeExternalUrl } from "../url.js";
-import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, COMMIT_REFRESH_MS, COMMIT_TIMEOUT_MS, COMMIT_SOURCE_LABELS, COMMIT_ERROR_TITLE, formatRelativeTime, normalizeCommit, fetchLatestCommit, hintColors, timeString, readShellPreferences, saveShellPreferences } from "./helpers.js";
+import {
+  VERSIONS,
+  ACCOUNTS,
+  COMMIT_REFRESH_MS,
+  COMMIT_TIMEOUT_MS,
+  COMMIT_SOURCE_LABELS,
+  COMMIT_ERROR_TITLE,
+  formatRelativeTime,
+  fetchLatestCommit,
+  hintColors,
+  readShellPreferences,
+  saveShellPreferences
+} from "./helpers.js";
 
 export class PclShellBase {
   constructor({ onLaunch, onAccountChange } = {}) {
@@ -59,13 +71,15 @@ export class PclShellBase {
   }
 
   showHint(text, type = "Blue") {
-    const message = String(text ?? "").replace(/\r?\n/g, " ").trim();
+    const message = String(text ?? "")
+      .replace(/\r?\n/g, " ")
+      .trim();
     if (!message) return;
     const normalized = String(type || "Blue").toLowerCase();
-    const key = Object.keys(hintColors).find(name => name.toLowerCase() === normalized) || "Blue";
+    const key = Object.keys(hintColors).find((name) => name.toLowerCase() === normalized) || "Blue";
     const colors = hintColors[key];
 
-    const duplicate = Array.from(this.hintStack.children).find(child => child.dataset.text === message);
+    const duplicate = Array.from(this.hintStack.children).find((child) => child.dataset.text === message);
     if (duplicate) {
       duplicate.animate(
         [
@@ -127,14 +141,12 @@ export class PclShellBase {
   }
 
   openModal({ title = "提示", caption = "", buttons = ["确定"], warn = false, activeIndex = 0 } = {}) {
-    const buttonList = (Array.isArray(buttons) ? buttons : [buttons]).map(button =>
+    const buttonList = (Array.isArray(buttons) ? buttons : [buttons]).map((button) =>
       typeof button === "string" ? { label: button } : button
     );
     if (!buttonList.length) buttonList.push({ label: "确定" });
     const highlightIndex =
-      Number.isInteger(activeIndex) && activeIndex >= 0 && activeIndex < buttonList.length
-        ? activeIndex
-        : 0;
+      Number.isInteger(activeIndex) && activeIndex >= 0 && activeIndex < buttonList.length ? activeIndex : 0;
 
     const previousFocus = document.activeElement;
     this.modalTitle.textContent = title;
@@ -145,9 +157,9 @@ export class PclShellBase {
     this.modalLayer.hidden = false;
     this.setBackgroundInert(true);
 
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       let settled = false;
-      const finish = index => {
+      const finish = (index) => {
         if (settled) return;
         settled = true;
         this.modalLayer.classList.add("is-leaving");
@@ -163,7 +175,7 @@ export class PclShellBase {
         }, 170);
       };
 
-      const onKeyDown = event => {
+      const onKeyDown = (event) => {
         if (event.key === "Escape") {
           event.preventDefault();
           finish(buttonList.length > 1 ? buttonList.length - 1 : 0);
@@ -172,7 +184,7 @@ export class PclShellBase {
             this.modalLayer.querySelectorAll(
               'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
             )
-          ).filter(element => !element.inert && element.getClientRects().length > 0);
+          ).filter((element) => !element.inert && element.getClientRects().length > 0);
           if (!focusable.length) return;
           const first = focusable[0];
           const last = focusable[focusable.length - 1];
@@ -205,8 +217,7 @@ export class PclShellBase {
 
       document.addEventListener("keydown", onKeyDown);
       window.setTimeout(() => {
-        const activeButton =
-          this.modalButtons.children[highlightIndex] || this.modalButtons.querySelector("button");
+        const activeButton = this.modalButtons.children[highlightIndex] || this.modalButtons.querySelector("button");
         activeButton?.focus();
       }, 40);
     });
@@ -245,13 +256,11 @@ export class PclShellBase {
         this.launchMeta.textContent = "最近提交：获取失败";
         this.launchMeta.title = COMMIT_ERROR_TITLE;
       }
-    } catch (error) {
+    } catch {
       if (this.commitAbort !== controller) return;
       if (!this.latestCommit) {
         this.launchMeta.textContent = timedOut ? "最近提交：获取超时" : "最近提交：获取失败";
-        this.launchMeta.title = timedOut
-          ? "获取最近提交超时，请稍后刷新重试。"
-          : COMMIT_ERROR_TITLE;
+        this.launchMeta.title = timedOut ? "获取最近提交超时，请稍后刷新重试。" : COMMIT_ERROR_TITLE;
       }
     } finally {
       window.clearTimeout(timeout);
@@ -282,11 +291,12 @@ export class PclShellBase {
   }
 
   getVersionInfo() {
-    return VERSIONS.find(version => version.name === this.version) || VERSIONS[0];
+    return VERSIONS.find((version) => version.name === this.version) || VERSIONS[0];
   }
 
   setVersion(name) {
-    const version = VERSIONS.find(item => item.name === name) || VERSIONS.find(item => item.name === this.version) || VERSIONS[0];
+    const version =
+      VERSIONS.find((item) => item.name === name) || VERSIONS.find((item) => item.name === this.version) || VERSIONS[0];
     this.version = version.name;
     if (this.versionName) this.versionName.textContent = version.name;
     if (this.launchVersion) this.launchVersion.textContent = version.name;
@@ -362,13 +372,13 @@ export class PclShellBase {
   }
 
   pickFile(accept = "") {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = accept;
       input.style.cssText = "position:fixed;left:-10000px;top:0;opacity:0";
       let settled = false;
-      const finish = file => {
+      const finish = (file) => {
         if (settled) return;
         settled = true;
         input.remove();
@@ -381,7 +391,4 @@ export class PclShellBase {
       window.addEventListener("focus", () => window.setTimeout(() => finish(input.files?.[0]), 500), { once: true });
     });
   }
-
-
-
 }

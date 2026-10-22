@@ -1,6 +1,6 @@
 import { PCL2_PRESETS } from "../pcl-presets.js";
 
-export const PCL2_OK_COUNT = PCL2_PRESETS.filter(preset => preset.expected === "ok").length;
+export const PCL2_OK_COUNT = PCL2_PRESETS.filter((preset) => preset.expected === "ok").length;
 
 export const PCL_PRESET_STATES = {
   ok: { label: "通常可用", className: "ok", hint: "按 PCL2 UA 拉取，已知可以正常渲染。" },
@@ -16,7 +16,7 @@ function pclPresetHost(preset) {
 export function renderPresetList({ list, count, empty, filter = "" } = {}) {
   if (!list) return;
   const query = filter.trim().toLowerCase();
-  const items = PCL2_PRESETS.filter(preset => {
+  const items = PCL2_PRESETS.filter((preset) => {
     const info =
       preset.kind === "inline"
         ? { label: "内置内容" }
