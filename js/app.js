@@ -1,17 +1,17 @@
 import { PclTheme } from "./theme.js";
-import { PclRenderer } from "./renderer.js?v=20261022a";
-import { PclRuntime } from "./runtime.js?v=20261021q";
-import { PclShell } from "./shell.js?v=20261022a";
-import { substitutePlaceholders } from "./xaml.js?v=20261021c";
-import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js?v=20261021e";
-import { PCL2_PRESETS } from "./pcl-presets.js?v=20261021j";
-import { resolveHelpUrls, helpJsonTitle, helpTitleFromXaml } from "./help.js?v=20261021n";
+import { PclRenderer } from "./renderer.js";
+import { PclRuntime } from "./runtime.js";
+import { PclShell } from "./shell.js";
+import { substitutePlaceholders } from "./xaml.js";
+import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js";
+import { PCL2_PRESETS } from "./pcl-presets.js";
+import { resolveHelpUrls, helpJsonTitle, helpTitleFromXaml } from "./help.js";
 import {
   MAX_SOURCE_BYTES,
   SOURCE_STATE_PERSIST_LIMIT,
   assertSourceWithinLimit,
   sourceLimitError
-} from "./limits.js?v=20261022b";
+} from "./limits.js";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
 

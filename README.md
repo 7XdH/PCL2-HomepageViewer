@@ -50,6 +50,7 @@ npm test
 ```powershell
 npm run build
 # 输出目录：dist/
+# 构建会基于源文件内容生成统一 build id，并自动写入 dist 中的 HTML/JS/CSS 引用
 ```
 
 | 平台 | 配置 |

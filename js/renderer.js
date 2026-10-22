@@ -13,7 +13,7 @@ import {
   resolveImageSource,
   extractText,
   attributeValue
-} from "./xaml.js?v=20261021c";
+} from "./xaml.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const NO_ICON = "assets/pcl/images/Icons/NoIcon.png";

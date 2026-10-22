@@ -1,4 +1,4 @@
-import { isMinecraftUrl, normalizeExternalUrl } from "./url.js?v=20261021q";
+import { isMinecraftUrl, normalizeExternalUrl } from "./url.js";
 
 const PAGE_LABELS = {
   Launch: "启动",

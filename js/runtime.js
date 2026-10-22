@@ -1,4 +1,4 @@
-import { isOpenableExternalUrl } from "./url.js?v=20261021q";
+import { isOpenableExternalUrl } from "./url.js";
 
 const VARIABLES_KEY = "pcl.lab.variables.v1";
 const SETTINGS_KEY = "pcl.lab.settings.v1";
