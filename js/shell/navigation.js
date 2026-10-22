@@ -1,5 +1,5 @@
 import { PclShellBase } from "./base.js";
-import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, COMMIT_REFRESH_MS, COMMIT_TIMEOUT_MS, COMMIT_SOURCE_LABELS, COMMIT_ERROR_TITLE, formatRelativeTime, normalizeCommit, fetchLatestCommit, hintColors, timeString } from "./helpers.js";
+import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, COMMIT_REFRESH_MS, COMMIT_TIMEOUT_MS, COMMIT_SOURCE_LABELS, COMMIT_ERROR_TITLE, formatRelativeTime, normalizeCommit, fetchLatestCommit, hintColors, timeString, saveShellPreferences } from "./helpers.js";
 
 export class PclShellNavigation extends PclShellBase {
   bindWindowControls() {
@@ -76,6 +76,7 @@ export class PclShellNavigation extends PclShellBase {
   toggleAccount() {
     const previous = this.account;
     this.account = previous.name === "Steve" ? ACCOUNTS.Alex : ACCOUNTS.Steve;
+    saveShellPreferences({ version: this.version, account: this.account.name });
     this.updateAccountUi();
     this.pushEvent({
       type: "切换账户",

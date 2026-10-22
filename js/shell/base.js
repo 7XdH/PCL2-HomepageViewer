@@ -1,12 +1,13 @@
 import { isMinecraftUrl, normalizeExternalUrl } from "../url.js";
-import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, COMMIT_REFRESH_MS, COMMIT_TIMEOUT_MS, COMMIT_SOURCE_LABELS, COMMIT_ERROR_TITLE, formatRelativeTime, normalizeCommit, fetchLatestCommit, hintColors, timeString } from "./helpers.js";
+import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, COMMIT_REFRESH_MS, COMMIT_TIMEOUT_MS, COMMIT_SOURCE_LABELS, COMMIT_ERROR_TITLE, formatRelativeTime, normalizeCommit, fetchLatestCommit, hintColors, timeString, readShellPreferences, saveShellPreferences } from "./helpers.js";
 
 export class PclShellBase {
   constructor({ onLaunch, onAccountChange } = {}) {
     this.onLaunch = onLaunch;
     this.onAccountChange = onAccountChange;
-    this.version = VERSIONS[0].name;
-    this.account = ACCOUNTS.Steve;
+    const preferences = readShellPreferences();
+    this.version = preferences.version;
+    this.account = ACCOUNTS[preferences.account] || ACCOUNTS.Steve;
     this.events = [];
     this.modalChain = Promise.resolve();
     this.modalInert = new Map();
@@ -51,6 +52,7 @@ export class PclShellBase {
     this.bindWindowControls();
     this.bindAccountSwitcher();
     this.bindTooltips();
+    this.setVersion(this.version);
     this.loadLatestCommit();
     window.setInterval(() => this.loadLatestCommit({ silent: true }), COMMIT_REFRESH_MS);
     window.setInterval(() => this.renderCommitMeta(), 60_000);
@@ -290,6 +292,7 @@ export class PclShellBase {
     if (this.launchVersion) this.launchVersion.textContent = version.name;
     const meta = this.versionName?.parentElement?.querySelector(".pcl-version-card__meta");
     if (meta) meta.textContent = version.meta;
+    saveShellPreferences({ version: this.version, account: this.account.name });
   }
 
   openUrl(url) {

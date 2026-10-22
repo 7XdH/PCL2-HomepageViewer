@@ -15,6 +15,11 @@ import {
 } from "../js/url.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
 import {
+  SHELL_PREF_KEY,
+  readShellPreferences,
+  saveShellPreferences
+} from "../js/shell/helpers.js";
+import {
   MAX_SOURCE_BYTES,
   assertSourceWithinLimit,
   formatByteSize
@@ -295,6 +300,42 @@ export async function runRegression() {
     await sleep(280);
     shell.setVersion(initial);
     return { from: initial, to: target.textContent };
+  });
+
+  await makeCheck(results, "版本与账户选择持久化", async () => {
+    const shell = window.__PCL_RENDERER__?.shell;
+    if (!shell?.setVersion || !shell?.toggleAccount) {
+      throw new Error("找不到版本/账户接口");
+    }
+    const original = localStorage.getItem(SHELL_PREF_KEY);
+    const originalVersion = shell.version;
+    const originalAccount = shell.account.name;
+    try {
+      saveShellPreferences({ version: "1.19.2-Forge", account: "Alex" });
+      const saved = readShellPreferences();
+      if (saved.version !== "1.19.2-Forge" || saved.account !== "Alex") {
+        throw new Error(`偏好读取错误：${JSON.stringify(saved)}`);
+      }
+      shell.setVersion("1.19.2-Forge");
+      if (readShellPreferences().version !== "1.19.2-Forge") {
+        throw new Error("版本切换没有写入 localStorage");
+      }
+      if (shell.account.name === "Steve") shell.toggleAccount();
+      if (readShellPreferences().account !== shell.account.name) {
+        throw new Error("账户切换没有写入 localStorage");
+      }
+      localStorage.setItem(SHELL_PREF_KEY, "{ invalid json");
+      const fallback = readShellPreferences();
+      if (fallback.version !== "1.20.1-Fabric" || fallback.account !== "Steve") {
+        throw new Error(`损坏偏好没有回退默认值：${JSON.stringify(fallback)}`);
+      }
+      return { version: saved.version, account: saved.account };
+    } finally {
+      shell.setVersion(originalVersion);
+      if (shell.account.name !== originalAccount) shell.toggleAccount();
+      if (original === null) localStorage.removeItem(SHELL_PREF_KEY);
+      else localStorage.setItem(SHELL_PREF_KEY, original);
+    }
   });
 
   await makeCheck(results, "使用说明弹窗滚动布局", async () => {

@@ -52,6 +52,51 @@ export const ACCOUNTS = {
   }
 };
 
+export const SHELL_PREF_KEY = "pcl.lab.shell.v1";
+
+const defaultShellPreferences = () => ({
+  version: VERSIONS[0].name,
+  account: Object.keys(ACCOUNTS)[0]
+});
+
+const getStorage = () => {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return null;
+  }
+};
+
+export function readShellPreferences(storage = getStorage()) {
+  const fallback = defaultShellPreferences();
+  try {
+    const raw = storage?.getItem(SHELL_PREF_KEY);
+    if (!raw) return fallback;
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved !== "object") return fallback;
+    return {
+      version: VERSIONS.some(item => item.name === saved.version) ? saved.version : fallback.version,
+      account: Object.hasOwn(ACCOUNTS, saved.account) ? saved.account : fallback.account
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveShellPreferences({ version, account } = {}, storage = getStorage()) {
+  const fallback = defaultShellPreferences();
+  const normalized = {
+    version: VERSIONS.some(item => item.name === version) ? version : fallback.version,
+    account: Object.hasOwn(ACCOUNTS, account) ? account : fallback.account
+  };
+  try {
+    storage?.setItem(SHELL_PREF_KEY, JSON.stringify(normalized));
+  } catch {
+    /* Ignore quota or privacy-mode errors. */
+  }
+  return normalized;
+}
+
 export const COMMIT_REFRESH_MS = 10 * 60 * 1000;
 export const COMMIT_TIMEOUT_MS = 8000;
 export const COMMIT_SOURCE_LABELS = {
