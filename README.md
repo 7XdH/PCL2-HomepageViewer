@@ -330,7 +330,7 @@ Root Directory: 留空
 - 页面使用严格 CSP：脚本、样式和字体只允许同源资源。启动兜底脚本已放到 `js/boot.js`，页面没有内联脚本或内联样式；远程图片和 XAML 直连仍允许 `http(s)`，`data:` / `blob:` 仅用于图片。`server.js`、Vercel 和 Netlify 会发送 CSP 与 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、COOP 等安全头；GitHub Pages 等无法自定义响应头的静态托管依靠 `index.html` 中的 meta CSP。
 - 本地文件、编辑器源码、远程 XAML / 帮助页统一限制为 **4 MiB**；超限会拒绝渲染并显示实际大小，不会截断 XAML。远程直连响应采用流式累计字节，超过上限立即取消；`localStorage` 只持久化约 **500 KB** 的内容，超过时会提示使用“导出”保存。
 - 链接只允许 `http` / `https` / `mailto`，以及与 PCL 兼容的 `minecraft://` / `minecraft-preview://`；`打开网页` 与 `下载文件` 会校验协议，`javascript:`、`file:`、`data:`、其他自定义协议等会被拒绝。
-- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 与 Vercel 的 `api/proxy.js` 共用 `api/proxy-core.js`，都会拦截本机 / 内网 / 保留地址、非 80 / 443 端口、带用户名密码的 URL、HTML 响应和超限内容，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应；远程 SVG 仍允许渲染，但会附加沙箱 CSP，禁止脚本、外部资源、对象和导航，避免直接打开代理 SVG 时执行脚本。公开部署时仍建议设置白名单并按需限流。仅在本地探针 / 开发需要访问内网 fixture 时才可设置 `PCL_PROXY_ALLOW_LOCAL=1`；它会放开内网地址与任意端口限制，不要用于公开服务。
+- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 与 Vercel 的 `api/proxy.js` 共用 `api/proxy-core.js`，都会拦截本机 / 内网 / 保留地址、非 80 / 443 端口、带用户名密码的 URL、HTML 响应和超限内容，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应；远程 SVG 仍允许渲染，但会附加沙箱 CSP，禁止脚本、外部资源、对象和导航，避免直接打开代理 SVG 时执行脚本。公开部署时仍建议设置白名单并按需限流。本地 `server.js` 不内置速率限制，公开运行时必须在反向代理 / 平台层限制请求频率；仅在本地探针 / 开发需要访问内网 fixture 时才可设置 `PCL_PROXY_ALLOW_LOCAL=1`；它会放开内网地址与任意端口限制，不要用于公开服务。
 - 静态部署时，联网 URL 受目标站点 CORS 策略限制；这属于浏览器安全边界，不是渲染器错误。Vercel 部署可通过同源 `/api/proxy` 获取未开放 CORS 的内容。
 - 远程图片优先直连；失败后通过 `/api/proxy?image=1` 重试，仍失败才使用 `FallbackSource` 或 `NoIcon`。
 

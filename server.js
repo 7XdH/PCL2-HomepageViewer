@@ -24,6 +24,10 @@ import {
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
 const ALLOW_LOCAL_PROXY = process.env.PCL_PROXY_ALLOW_LOCAL === "1";
+const COMMIT_CACHE_MS = 30_000;
+let commitCache = null;
+let commitCacheAt = 0;
+let commitRequest = null;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -55,33 +59,41 @@ const safeDecode = (value) => {
   }
 };
 
-function send(res, status, body, headers = {}) {
+function send(res, status, body, headers = {}, { head = false, cors = false } = {}) {
+  const payload = body ?? "";
   res.writeHead(status, {
     ...baseSecurityHeaders(),
-    "Access-Control-Allow-Origin": "*",
+    ...(cors ? { "Access-Control-Allow-Origin": "*" } : {}),
+    ...(head ? { "Content-Length": String(Buffer.byteLength(payload)) } : {}),
     ...headers
   });
-  res.end(body);
+  res.end(head ? undefined : payload);
+}
+
+function sendProxy(res, status, body, headers = {}) {
+  send(res, status, body, headers, { cors: true });
 }
 
 function serveStatic(req, res, pathname) {
+  const head = req.method === "HEAD";
+  const sendStatic = (status, body, headers = {}) => send(res, status, body, headers, { head });
   const decoded = safeDecode(pathname);
   const relative = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
   const target = path.resolve(ROOT, relative);
   if (!target.startsWith(ROOT + path.sep) && target !== ROOT) {
-    send(res, 403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
+    sendStatic(403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
     return;
   }
 
   fs.stat(target, (error, stat) => {
     if (error) {
-      send(res, 404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
+      sendStatic(404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
       return;
     }
     const file = stat.isDirectory() ? path.join(target, "index.html") : target;
     fs.readFile(file, (readError, data) => {
       if (readError) {
-        send(res, 404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
+        sendStatic(404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
         return;
       }
       const ext = path.extname(file).toLowerCase();
@@ -90,7 +102,7 @@ function serveStatic(req, res, pathname) {
         ? "no-cache"
         : "public, max-age=3600";
       const documentHeaders = ext === ".html" ? documentSecurityHeaders() : {};
-      send(res, 200, data, { "Content-Type": type, "Cache-Control": cache, ...documentHeaders });
+      sendStatic(200, data, { "Content-Type": type, "Cache-Control": cache, ...documentHeaders });
     });
   });
 }
@@ -167,7 +179,12 @@ async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, all
 }
 
 function readLatestCommit() {
-  return new Promise((resolve, reject) => {
+  if (commitCache && Date.now() - commitCacheAt < COMMIT_CACHE_MS) {
+    return Promise.resolve(commitCache);
+  }
+  if (commitRequest) return commitRequest;
+
+  commitRequest = new Promise((resolve, reject) => {
     execFile(
       "git",
       ["log", "-1", "--format=%cI%n%H"],
@@ -189,13 +206,22 @@ function readLatestCommit() {
         });
       }
     );
-  });
+  })
+    .then((commit) => {
+      commitCache = commit;
+      commitCacheAt = Date.now();
+      return commit;
+    })
+    .finally(() => {
+      commitRequest = null;
+    });
+  return commitRequest;
 }
 
 async function proxy(req, res, requestUrl) {
   const target = requestUrl.searchParams.get("url");
   if (!target) {
-    send(res, 400, "缺少 url 参数", { "Content-Type": "text/plain; charset=utf-8" });
+    sendProxy(res, 400, "缺少 url 参数", { "Content-Type": "text/plain; charset=utf-8" });
     return;
   }
   const imageMode = requestUrl.searchParams.get("image") === "1";
@@ -203,7 +229,7 @@ async function proxy(req, res, requestUrl) {
   try {
     userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
   } catch (error) {
-    send(res, error?.status || 400, String(error?.message || error), {
+    sendProxy(res, error?.status || 400, String(error?.message || error), {
       "Content-Type": "text/plain; charset=utf-8"
     });
     return;
@@ -212,7 +238,7 @@ async function proxy(req, res, requestUrl) {
     const result = await requestOnce(target, MAX_REDIRECTS, userAgent, imageMode, ALLOW_LOCAL_PROXY);
     if (imageMode) {
       if (!isImageContentType(result.contentType, result.finalUrl)) {
-        send(res, 415, "目标不是图片内容，无法加载。", {
+        sendProxy(res, 415, "目标不是图片内容，无法加载。", {
           "Content-Type": "text/plain; charset=utf-8"
         });
         return;
@@ -229,23 +255,23 @@ async function proxy(req, res, requestUrl) {
       if (isSvgResponse(result.contentType, result.finalUrl)) {
         Object.assign(headers, svgResponseHeaders());
       }
-      send(res, 200, result.body, headers);
+      sendProxy(res, 200, result.body, headers);
       return;
     }
     if (!isTextContentType(result.contentType, result.finalUrl)) {
-      send(res, 415, "目标不是文本内容，无法作为 XAML 加载。", {
+      sendProxy(res, 415, "目标不是文本内容，无法作为 XAML 加载。", {
         "Content-Type": "text/plain; charset=utf-8"
       });
       return;
     }
-    send(res, 200, result.body, {
+    sendProxy(res, 200, result.body, {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
       "X-PCL-Proxy-Ua": encodeURIComponent(userAgent),
       "X-PCL-Proxy-Final-Url": result.finalUrl
     });
   } catch (error) {
-    send(res, error instanceof ProxyError ? error.status : 502, String(error?.message || error), {
+    sendProxy(res, error instanceof ProxyError ? error.status : 502, String(error?.message || error), {
       "Content-Type": "text/plain; charset=utf-8"
     });
   }

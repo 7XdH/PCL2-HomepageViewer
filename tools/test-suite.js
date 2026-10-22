@@ -498,6 +498,9 @@ export async function runRegression() {
       if (response.status !== expected) {
         throw new Error(`${target} 应返回 ${expected}，实际 ${response.status}：${body.slice(0, 120)}`);
       }
+      if (response.headers.get("access-control-allow-origin") !== "*") {
+        throw new Error("代理响应缺少 Access-Control-Allow-Origin");
+      }
     }
     return { cases: cases.length };
   });
@@ -523,6 +526,17 @@ export async function runRegression() {
       throw new Error("合法 XAML 没有解析出节点");
     }
     return { blocked: blocked.length };
+  });
+
+  await makeCheck(results, "静态 HEAD 请求", async () => {
+    const response = await fetch("/", { method: "HEAD", cache: "no-store" });
+    if (!response.ok) throw new Error(`HEAD / 返回 HTTP ${response.status}`);
+    if (await response.text()) throw new Error("HEAD 响应不应包含响应体");
+    if (!response.headers.get("content-length")) throw new Error("HEAD 响应缺少 Content-Length");
+    if (response.headers.get("access-control-allow-origin")) {
+      throw new Error("静态资源不应统一发送 Access-Control-Allow-Origin");
+    }
+    return { contentLength: response.headers.get("content-length") };
   });
 
   await makeCheck(results, "CSP 与安全响应头", async () => {
