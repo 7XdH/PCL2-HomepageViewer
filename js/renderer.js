@@ -71,9 +71,54 @@ export class PclRenderer extends PclDocumentBuilders {
     }
 
     this.root.replaceChildren(stack);
+    this.layoutCardBodies();
     this.root.scrollTop = 0;
     const duration = Math.max(1, Math.round(performance.now() - started));
     return { controls: this.controlCount, duration, warnings: this.warnings.slice() };
+  }
+
+  isCardContentNode(node) {
+    const type = node.dataset.pclType;
+    if (
+      [
+        "TextBlock",
+        "MyTextButton",
+        "MyButton",
+        "MyIconButton",
+        "MyIconTextButton",
+        "MyHint",
+        "MyListItem",
+        "MyLoading",
+        "TextBox"
+      ].includes(type)
+    ) {
+      return true;
+    }
+    if (type === "Rectangle" || type === "Line" || node.classList.contains("pcl-shape")) {
+      return node.offsetHeight > 0 && node.offsetHeight <= 6;
+    }
+    return Boolean(
+      node.querySelector?.(
+        ".pcl-text, .pcl-textbutton, .pcl-button, .pcl-iconbutton, .pcl-icontextbutton, .pcl-listitem, .pcl-hint, .pcl-loading, .pcl-textbox"
+      )
+    );
+  }
+
+  layoutCardBodies() {
+    for (const body of this.root.querySelectorAll(".pcl-card__body")) {
+      const content = Array.from(body.children).filter((node) => this.isCardContentNode(node));
+      let previousBottom = -Infinity;
+      for (const node of content) {
+        const top = node.offsetTop;
+        const height = node.offsetHeight;
+        if (!height) continue;
+        if (top < previousBottom) {
+          const currentMargin = Number.parseFloat(getComputedStyle(node).marginTop) || 0;
+          node.style.marginTop = `${currentMargin + previousBottom - top + 2}px`;
+        }
+        previousBottom = Math.max(previousBottom, node.offsetTop + node.offsetHeight);
+      }
+    }
   }
 
   warn(message) {

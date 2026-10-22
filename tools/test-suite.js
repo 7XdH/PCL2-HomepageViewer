@@ -617,6 +617,38 @@ export async function runRegression() {
     return { gradient };
   });
 
+  await makeCheck(results, "MyCard 标题、正文与按钮不重叠", async () => {
+    harness.renderer.render(`
+      <local:MyCard Margin="0">
+        <Image Height="20" Source="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" />
+        <TextBlock Margin="40,8,0,0" Text="标题" />
+        <TextBlock Margin="40,13,0,0" Text="正文" Height="20" />
+        <StackPanel Margin="40,66,0,0">
+          <local:MyTextButton Text="按钮" />
+        </StackPanel>
+      </local:MyCard>
+    `);
+    const title = [...harness.root.querySelectorAll(".pcl-text")].find((node) => node.textContent === "标题");
+    const body = [...harness.root.querySelectorAll(".pcl-text")].find((node) => node.textContent === "正文");
+    const button = harness.root.querySelector(".pcl-textbutton");
+    if (!title || !body || !button) throw new Error("MyCard 标题/正文/按钮没有完整渲染");
+    const titleRect = title.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    if (titleRect.bottom > bodyRect.top + 1) {
+      throw new Error(`标题与正文重叠：${titleRect.bottom} > ${bodyRect.top}`);
+    }
+    if (bodyRect.bottom > buttonRect.top + 1) {
+      throw new Error(`正文与按钮重叠：${bodyRect.bottom} > ${buttonRect.top}`);
+    }
+    return {
+      titleBottom: titleRect.bottom,
+      bodyTop: bodyRect.top,
+      bodyBottom: bodyRect.bottom,
+      buttonTop: buttonRect.top
+    };
+  });
+
   await makeCheck(results, "静态 HEAD 请求", async () => {
     const response = await fetch("/", { method: "HEAD", cache: "no-store" });
     if (!response.ok) throw new Error(`HEAD / 返回 HTTP ${response.status}`);

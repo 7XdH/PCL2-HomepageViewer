@@ -155,9 +155,14 @@ export class PclLayoutBuilders {
         break;
       case "grid":
       case "uniformgrid":
-      case "card":
         node.style.justifySelf = h;
         node.style.alignSelf = v;
+        break;
+      case "card":
+        node.style.justifySelf = h;
+        // Text/button children keep their natural height inside MyCard's
+        // overlay grid; the post-render pass then resolves vertical overlaps.
+        node.style.alignSelf = v === "stretch" ? "start" : v;
         break;
       case "border":
       case "scroll":
