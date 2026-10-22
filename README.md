@@ -345,16 +345,24 @@ index.html                 工具外壳 + 850 × 500 PCL 预览
 css/pcl-theme.css          PCL 窗口、标题栏、侧栏、滚动条、提示、弹窗
 css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
-js/app.js                  来源管理、预设、帮助页导航、渲染流程、快捷键
+js/app.js                  应用入口、状态、渲染流程、快捷键与 UI 绑定
+js/app/remote.js           远程读取、大小上限、XAML/JSON 响应校验
+js/app/sources.js          预设/文件/联网来源加载与来源标签
+js/app/help-navigation.js  帮助页历史、请求取消与返回焦点
+js/app/presets.js          PCL2 预设列表 DOM 渲染
 js/boot.js                 file:// 启动失败兜底提示（外部脚本，兼容严格 CSP）
 js/limits.js               主页大小限制与字节格式化
 js/help.js                 PCL 帮助页地址解析与标题提取
 js/url.js                  外部链接协议白名单与 URL 规范化
 js/pcl-presets.js          PCL2 25 个预设清单（UI 与测试共用）
 js/xaml.js                 XAML 解析、替换标记、安全过滤
-js/renderer.js             WPF / PCL 控件到 DOM 的渲染器
+js/renderer.js             WPF / PCL 控件到 DOM 的渲染器入口
+js/renderer/helpers.js     渲染器共用的解析/几何/文本辅助函数
+js/renderer/builders/      布局、控件、文档流三类控件构建器
 js/runtime.js              自定义事件引擎
-js/shell.js                窗口控制、导航、弹窗队列、提示、事件日志
+js/shell.js                窗口外壳入口
+js/shell/base.js           窗口基础状态、提示、弹窗、提交信息
+js/shell/navigation.js     窗口控件、账号、页面导航、帮助页与提示气泡
 js/theme.js                PCL HSL 色阶计算
 js/assets.js               由脚本生成的 pack:// 图片映射
 assets/pcl/                PCL 图片、图标与字体

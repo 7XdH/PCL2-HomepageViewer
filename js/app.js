@@ -2,15 +2,14 @@ import { PclTheme } from "./theme.js";
 import { PclRenderer } from "./renderer.js";
 import { PclRuntime } from "./runtime.js";
 import { PclShell } from "./shell.js";
-import { substitutePlaceholders } from "./xaml.js";
-import { getProxyUaCandidates, PCL_FALLBACK_UA } from "./ua.js";
+import { getProxyUaCandidates } from "./ua.js";
 import { PCL2_PRESETS } from "./pcl-presets.js";
-import { resolveHelpUrls, helpJsonTitle, helpTitleFromXaml } from "./help.js";
+import { createHelpNavigation } from "./app/help-navigation.js";
+import { renderPresetList } from "./app/presets.js";
+import { createSourceLoader } from "./app/sources.js";
 import {
-  MAX_SOURCE_BYTES,
   SOURCE_STATE_PERSIST_LIMIT,
-  assertSourceWithinLimit,
-  sourceLimitError
+  assertSourceWithinLimit
 } from "./limits.js";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
@@ -39,13 +38,6 @@ const PRESETS = {
   )
 };
 
-const PCL2_OK_COUNT = PCL2_PRESETS.filter(preset => preset.expected === "ok").length;
-const PCL_PRESET_STATES = {
-  ok: { label: "通常可用", className: "ok", hint: "按 PCL2 UA 拉取，已知可以正常渲染。" },
-  unavailable: { label: "上游可能不可用", className: "warn", hint: "上游站点可能已下线；点击后仍会尝试拉取。" },
-  blocked: { label: "会被安全阻止", className: "blocked", hint: "上游主页包含 x:Static 或 x:Code，渲染器会拒绝执行。" }
-};
-
 const FALLBACK_XAML = `
 <local:MyHint Margin="0,0,0,15" Theme="Blue" Text="当前通过 file:// 打开。预设文件与联网代理需要运行 node server.js 后才能加载；本地文件和源码仍可正常渲染。" />
 <local:MyCard Title="PCL Homepage Viewer（第三方）" Margin="0,0,0,15" CanSwap="True">
@@ -70,10 +62,7 @@ let renderAbort = null;
 let lastRenderedContent = "";
 let codeDirty = false;
 let currentFilter = "";
-let helpToken = 0;
-let helpAbort = null;
-let helpHistory = [];
-let helpReturnFocus = null;
+let helpNavigation = null;
 let sourceStateWarned = false;
 
 const el = id => document.getElementById(id);
@@ -139,7 +128,7 @@ const runtime = new PclRuntime({
   shell,
   onRefresh: () => renderCurrent({ reason: "event" }),
   onSettingChange: (key, value) => handleSettingChange(key, value),
-  onOpenHelp: address => openRemoteHelp(address)
+  onOpenHelp: address => helpNavigation?.openRemoteHelp(address)
 });
 shell.onAccountChange = user => runtime.setUser(user);
 theme.setHue(Number(runtime.settings.UiLauncherHue));
@@ -158,8 +147,27 @@ const helpRenderer = new PclRenderer({
   getProxyUas: () => getProxyUaCandidates(state.ua)
 });
 
-shell.onSubpageBack = () => goBackHelp();
-shell.onSubpageDismiss = () => resetHelpState();
+const sources = createSourceLoader({
+  state,
+  PRESETS,
+  presetCache,
+  FALLBACK_XAML,
+  getCode: () => $.codeEditor?.value ?? state.code,
+  getRuntimeContext: () => runtime.context
+});
+
+helpNavigation = createHelpNavigation({
+  shell,
+  helpRenderer,
+  helpRoot: $.helpRoot,
+  helpScroll: $.helpScroll,
+  resolveRemoteUrl: sources.resolveRemoteUrl,
+  fetchRemoteText: sources.fetchRemoteText,
+  fetchRemoteXaml: sources.fetchRemoteXaml
+});
+
+shell.onSubpageBack = () => helpNavigation?.goBackHelp();
+shell.onSubpageDismiss = () => helpNavigation?.resetHelpState();
 
 function setRuntime(text, mode = "ready") {
   $.runtimeText.textContent = text;
@@ -235,71 +243,13 @@ function setPresetActive(id) {
   }
 }
 
-function pclPresetHost(preset) {
-  if (!preset.url) return "内置 XAML";
-  return preset.url.replace(/^https?:\/\//i, "").split(/[/?#]/)[0];
-}
-
 function renderPclPresets(filter = "") {
-  if (!$.pclPresetList) return;
-  const query = filter.trim().toLowerCase();
-  const items = PCL2_PRESETS.filter(preset => {
-    const info = preset.kind === "inline"
-      ? { label: "内置内容" }
-      : PCL_PRESET_STATES[preset.expected] || PCL_PRESET_STATES.unavailable;
-    const haystack = `${preset.name} ${preset.url || ""} ${info.label}`.toLowerCase();
-    return !query || haystack.includes(query);
+  renderPresetList({
+    list: $.pclPresetList,
+    count: $.pclPresetCount,
+    empty: $.pclPresetEmpty,
+    filter
   });
-
-  $.pclPresetList.replaceChildren();
-  for (const preset of items) {
-    const key = `pcl2-${preset.id}`;
-    const info = preset.kind === "inline"
-      ? { label: "内置内容", className: "inline", hint: "直接使用内置 XAML，无需联网。" }
-      : PCL_PRESET_STATES[preset.expected] || PCL_PRESET_STATES.unavailable;
-    const host = pclPresetHost(preset);
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `preset-item preset-item--pcl preset-item--${info.className}`;
-    button.dataset.preset = key;
-    button.title = `${preset.name}\n${preset.url || "内置 XAML"}\n${info.hint}`;
-    button.setAttribute("aria-label", `${preset.name}，${info.label}`);
-
-    const glyph = document.createElement("span");
-    glyph.className = "preset-item__glyph";
-    glyph.setAttribute("aria-hidden", "true");
-    glyph.textContent = String(preset.id).padStart(2, "0");
-
-    const body = document.createElement("span");
-    body.className = "preset-item__body";
-    const strong = document.createElement("strong");
-    strong.textContent = preset.name;
-    const small = document.createElement("small");
-    const hostSpan = document.createElement("span");
-    hostSpan.className = "preset-host";
-    hostSpan.textContent = host;
-    const stateSpan = document.createElement("span");
-    stateSpan.className = `preset-state preset-state--${info.className}`;
-    stateSpan.textContent = info.label;
-    small.append(hostSpan, stateSpan);
-    body.append(strong, small);
-
-    const arrow = document.createElement("span");
-    arrow.className = "preset-item__arrow";
-    arrow.setAttribute("aria-hidden", "true");
-    arrow.textContent = "→";
-
-    button.append(glyph, body, arrow);
-    $.pclPresetList.append(button);
-  }
-
-  if ($.pclPresetEmpty) $.pclPresetEmpty.hidden = items.length > 0;
-  if ($.pclPresetCount) {
-    $.pclPresetCount.textContent = query
-      ? `${items.length}/${PCL2_PRESETS.length} 个`
-      : `${PCL2_PRESETS.length} 个 · ${PCL2_OK_COUNT} 可渲染`;
-  }
   setPresetActive(state.mode === "preset" ? state.preset : null);
 }
 
@@ -331,47 +281,6 @@ function updateFileMeta() {
     $.fileMeta.textContent = `${preset?.url ? "在线预设" : "预设"} · ${preset?.title || "未知"}`;
   } else {
     $.fileMeta.textContent = "尚未选择文件";
-  }
-}
-
-async function loadPreset(id, { force = false, signal } = {}) {
-  const preset = PRESETS[id] || PRESETS.tutorial;
-  const cacheKey = PRESETS[id] ? id : "tutorial";
-  if (preset.kind === "inline") return preset.xaml;
-
-  if (preset.url) {
-    if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
-    try {
-      const text = await fetchRemoteXaml(resolveRemoteUrl(preset.url), {
-        uaCandidates: getProxyUaCandidates(PCL_FALLBACK_UA),
-        signal
-      });
-      presetCache.set(cacheKey, text);
-      return text;
-    } catch (error) {
-      if (error.name === "AbortError" || error.code === "SOURCE_TOO_LARGE") throw error;
-      throw new Error(`无法加载 PCL2 预设「${preset.title}」：${error.message}`);
-    }
-  }
-
-  if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
-  try {
-    const response = await fetch(preset.path, {
-      signal,
-      cache: force ? "no-store" : "no-cache"
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const text = await readResponseTextLimited(response, `预设「${preset.title}」`);
-    if (!text.trim()) throw new Error("预设内容为空");
-    presetCache.set(cacheKey, text);
-    return text;
-  } catch (error) {
-    if (error.name === "AbortError" || error.code === "SOURCE_TOO_LARGE") throw error;
-    if (location.protocol === "file:") {
-      presetCache.set(cacheKey, FALLBACK_XAML);
-      return FALLBACK_XAML;
-    }
-    throw new Error(`无法加载预设「${preset.title}」：${error.message}`);
   }
 }
 
@@ -433,18 +342,11 @@ function restoreSourceState() {
   return false;
 }
 
-async function readFileAsXaml(file) {
-  const label = `文件“${file.name || "Custom.xaml"}”`;
-  if (file.size > MAX_SOURCE_BYTES) throw sourceLimitError(file.size, label);
-  const text = await file.text();
-  return assertSourceWithinLimit(text.replace(/^\uFEFF/, ""), label);
-}
-
 async function applyFile(file) {
   if (!file) return;
   let content;
   try {
-    content = await readFileAsXaml(file);
+    content = await sources.readFileAsXaml(file);
   } catch (error) {
     shell.showModal({
       title: "无法打开文件",
@@ -463,251 +365,6 @@ async function applyFile(file) {
   setPresetActive(null);
   syncEditor(content);
   await renderCurrent({ reason: "file" });
-}
-
-async function readResponseTextLimited(response, label = "远程内容") {
-  const contentLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > MAX_SOURCE_BYTES) {
-    await response.body?.cancel().catch(() => {});
-    throw sourceLimitError(contentLength, label);
-  }
-  if (!response.body) {
-    return assertSourceWithinLimit(await response.text(), label);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let total = 0;
-  let text = "";
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > MAX_SOURCE_BYTES) {
-        await reader.cancel().catch(() => {});
-        throw sourceLimitError(total, label);
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
-    return text;
-  } finally {
-    try {
-      reader.releaseLock();
-    } catch {
-      /* The reader may already be released after cancellation. */
-    }
-  }
-}
-
-async function fetchViaProxy(url, signal, ua = "", label = "远程内容") {
-  const proxyUrl = new URL("api/proxy", document.baseURI);
-  proxyUrl.searchParams.set("url", url);
-  if (ua) proxyUrl.searchParams.set("ua", ua);
-  const response = await fetch(proxyUrl, { signal, cache: "no-store" });
-  const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (!response.ok || contentType.includes("text/html")) {
-    const text = await readResponseTextLimited(response, `${label}错误响应`).catch(() => "");
-    const error = new Error(text.trim() || `代理返回 HTTP ${response.status}`);
-    error.status = response.status;
-    error.code = contentType.includes("text/html") ? "PROXY_HTML" : "PROXY_HTTP";
-    throw error;
-  }
-  return readResponseTextLimited(response, label);
-}
-
-async function fetchDirect(url, signal, label = "远程内容") {
-  const response = await fetch(url, {
-    signal,
-    mode: "cors",
-    credentials: "omit",
-    cache: "no-cache"
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (contentType.includes("text/html")) {
-    throw new Error("目标地址返回了 HTML 页面，而不是 XAML。");
-  }
-  return readResponseTextLimited(response, label);
-}
-
-function isLikelyXaml(source) {
-  let text = String(source ?? "").replace(/^\uFEFF/, "").trim();
-  if (!text) return false;
-
-  // Allow an XML declaration, processing instructions and comments before the root.
-  for (let index = 0; index < 8; index += 1) {
-    const next = text
-      .replace(/^<\?xml[\s\S]*?\?>/i, "")
-      .replace(/^<!--[\s\S]*?-->/, "")
-      .replace(/^<\?[\s\S]*?\?>/, "")
-      .trim();
-    if (next === text) break;
-    text = next;
-  }
-
-  if (!text || /^<!doctype\b/i.test(text) || /^<html(?:\s|>)/i.test(text)) return false;
-  return /^<([A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*(?:\s|\/?>)/.test(text);
-}
-
-function isLikelyJson(source) {
-  const text = String(source ?? "").replace(/^\uFEFF/, "").trim();
-  if (!text || !/^[\[{]/.test(text)) return false;
-  try {
-    const parsed = JSON.parse(text);
-    return Boolean(parsed) && typeof parsed === "object";
-  } catch {
-    return false;
-  }
-}
-
-function responseKind(content) {
-  const sample = String(content ?? "").replace(/^\uFEFF/, "").trimStart();
-  return /^[\[{]/.test(sample)
-    ? "JSON"
-    : /^<!doctype\s+html\b|^<html(?:\s|>)/i.test(sample)
-      ? "HTML"
-      : sample
-        ? "纯文本或其他格式"
-        : "空内容";
-}
-
-function assertRemoteResponse(content, url, { expect = "xaml", label = "联网主页" } = {}) {
-  if (expect === "json" ? isLikelyJson(content) : isLikelyXaml(content)) return content;
-  const expected = expect === "json" ? "JSON" : "XAML";
-  const error = new Error(
-    `无法拉取${label}：目标地址返回的不是 ${expected}（${responseKind(content)}）。\n\n${url}`
-  );
-  error.code = expect === "json" ? "NOT_JSON" : "NOT_XAML";
-  throw error;
-}
-
-async function fetchRemoteText(
-  url,
-  {
-    uaCandidates = getProxyUaCandidates(state.ua),
-    expect = "xaml",
-    label = "联网主页",
-    signal
-  } = {}
-) {
-  const controller = new AbortController();
-  let timedOut = false;
-  const abortFromCaller = () => controller.abort();
-  if (signal?.aborted) controller.abort();
-  else signal?.addEventListener("abort", abortFromCaller, { once: true });
-  const timeout = window.setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, 22000);
-  let proxyError = null;
-  try {
-    if (location.protocol === "http:" || location.protocol === "https:") {
-      for (const ua of uaCandidates) {
-        try {
-          const content = await fetchViaProxy(url, controller.signal, ua, label);
-          try {
-            return assertRemoteResponse(content, url, { expect, label });
-          } catch (error) {
-            if (error.name === "AbortError") throw error;
-            proxyError = error;
-          }
-        } catch (error) {
-          if (error.name === "AbortError") throw error;
-          proxyError = error;
-        }
-      }
-    }
-
-    const canFallbackToDirect =
-      !proxyError ||
-      !proxyError.status ||
-      proxyError.status === 404 ||
-      proxyError.status === 405 ||
-      proxyError.status >= 500 ||
-      proxyError.code === "PROXY_HTML";
-    if (!canFallbackToDirect) {
-      throw new Error(
-        `无法拉取${label}：${proxyError.message}\n\n` +
-        "请确认地址有效，或检查代理设置是否可用。"
-      );
-    }
-
-    let directContent;
-    try {
-      directContent = await fetchDirect(url, controller.signal, label);
-    } catch (error) {
-      if (error.name === "AbortError") throw error;
-      const proxyMissing =
-        !proxyError ||
-        proxyError.status === 404 ||
-        proxyError.status === 405 ||
-        proxyError.code === "PROXY_HTML";
-      const proxyHint = proxyError
-        ? proxyMissing
-          ? `未找到可用的 /api/proxy（${proxyError.message}）。当前部署可能是纯静态站点。`
-          : `代理请求失败（${proxyError.message}）。`
-        : "未找到可用的 /api/proxy。";
-      throw new Error(
-        `无法拉取${label}：${error.message}\n\n` +
-        proxyHint + "\n" +
-        "目标站点未开放 CORS 时，需要可用的服务端代理（例如 Vercel Function /api/proxy），" +
-        "或运行 node server.js 使用本地代理。"
-      );
-    }
-    return assertRemoteResponse(directContent, url, { expect, label });
-  } catch (error) {
-    if (error.name === "AbortError" && timedOut) throw new Error("请求超时（22 秒）。");
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-    signal?.removeEventListener("abort", abortFromCaller);
-  }
-}
-
-async function fetchRemoteXaml(url, options = {}) {
-  return fetchRemoteText(url, { ...options, expect: "xaml" });
-}
-
-
-function resolveRemoteUrl(url) {
-  // PCL expands placeholders before requesting the page; URL values must not be XML-escaped.
-  return substitutePlaceholders(url, runtime.context, { escape: false });
-}
-
-async function resolveCurrentContent({ forceRemote = false, signal } = {}) {
-  if (state.mode === "file") {
-    if (!state.fileContent.trim()) throw new Error("尚未选择本地 XAML 文件。");
-    return state.fileContent;
-  }
-  if (state.mode === "code") {
-    const code = $.codeEditor?.value ?? state.code;
-    if (!code.trim()) throw new Error("源码编辑器为空。");
-    return code;
-  }
-  if (state.mode === "url") {
-    if (!state.url) throw new Error("尚未填写联网主页地址。");
-    if (!state.urlContent || forceRemote) {
-      if (forceRemote) state.urlContent = "";
-      const content = await fetchRemoteXaml(resolveRemoteUrl(state.url), { signal });
-      state.urlContent = content;
-    }
-    if (!state.urlContent.trim()) throw new Error("联网主页返回了空内容。");
-    return state.urlContent;
-  }
-  return loadPreset(state.preset, { force: forceRemote, signal });
-}
-
-function sourceLabel() {
-  if (state.mode === "preset") {
-    const preset = PRESETS[state.preset];
-    if (!preset) return "PCL 预设";
-    return preset.pclId == null ? preset.title : `PCL2 · ${preset.title}`;
-  }
-  if (state.mode === "file") return state.fileName || "本地 XAML";
-  if (state.mode === "url") return state.url.replace(/^https?:\/\//, "") || "联网主页";
-  return "内联源码";
 }
 
 async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
@@ -729,9 +386,9 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
   }
 
   try {
-    const content = await resolveCurrentContent({ forceRemote, signal: controller.signal });
+    const content = await sources.resolveCurrentContent({ forceRemote, signal: controller.signal });
     if (token !== renderToken) return false;
-    assertSourceWithinLimit(content, sourceLabel());
+    assertSourceWithinLimit(content, sources.sourceLabel());
     const result = renderer.render(content);
     if (token !== renderToken) return false;
 
@@ -739,7 +396,7 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     codeDirty = false;
     syncEditor(content);
     state.code = state.mode === "code" ? content : state.code;
-    $.sourceLabel.textContent = sourceLabel();
+    $.sourceLabel.textContent = sources.sourceLabel();
     $.renderStats.textContent = `${result.controls} 个控件 · ${result.duration} ms${result.warnings.length ? ` · ${result.warnings.length} 个警告` : ""}`;
     $.renderStats.title = result.warnings.length ? result.warnings.join("\n") : "";
     setRuntime("渲染就绪", "ready");
@@ -781,100 +438,6 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
       $.renderBtn.disabled = false;
     }
   }
-}
-
-function renderHelpEntry(entry) {
-  if (!entry) return;
-  helpRenderer.render(entry.xaml);
-  shell.showHelpPage(entry.title);
-  if ($.helpScroll) $.helpScroll.scrollTop = 0;
-  window.setTimeout(
-    () => document.getElementById("pclSubpageBack")?.focus({ preventScroll: true }),
-    30
-  );
-}
-
-async function openRemoteHelp(raw) {
-  const address = resolveRemoteUrl(String(raw ?? "").trim());
-  const urls = resolveHelpUrls(address);
-  if (!urls) {
-    throw new Error(
-      `这个帮助地址不是可用的 PCL 远程帮助 JSON / XAML 页面。\n\n${address || "（空）"}`
-    );
-  }
-
-  const token = ++helpToken;
-  helpAbort?.abort();
-  const controller = new AbortController();
-  helpAbort = controller;
-  if (!helpHistory.length) helpReturnFocus = document.activeElement;
-  shell.setLoading(true, "正在打开帮助…");
-  const uaCandidates = getProxyUaCandidates(PCL_FALLBACK_UA);
-  try {
-    const metadata = fetchRemoteText(urls.jsonUrl, {
-      uaCandidates,
-      expect: "json",
-      label: "帮助信息",
-      signal: controller.signal
-    })
-      .then(source => helpJsonTitle(source, ""))
-      .catch(() => "");
-    const [xaml, metadataTitle] = await Promise.all([
-      fetchRemoteXaml(urls.xamlUrl, {
-        uaCandidates,
-        label: "帮助页面",
-        signal: controller.signal
-      }),
-      metadata
-    ]);
-    if (token !== helpToken) return "cancelled";
-
-    const entry = {
-      url: urls.xamlUrl,
-      title: metadataTitle || helpTitleFromXaml(xaml),
-      xaml
-    };
-    helpHistory.push(entry);
-    try {
-      renderHelpEntry(entry);
-    } catch (error) {
-      helpHistory.pop();
-      throw error;
-    }
-    return entry.title;
-  } catch (error) {
-    if (token !== helpToken || error.name === "AbortError") return "cancelled";
-    throw error;
-  } finally {
-    if (helpAbort === controller) helpAbort = null;
-    if (token === helpToken) shell.setLoading(false, "");
-  }
-}
-
-function goBackHelp() {
-  if (helpHistory.length > 1) {
-    helpHistory.pop();
-    renderHelpEntry(helpHistory[helpHistory.length - 1]);
-    return;
-  }
-  closeHelp();
-}
-
-function resetHelpState() {
-  helpAbort?.abort();
-  helpAbort = null;
-  helpToken += 1;
-  helpHistory = [];
-  $.helpRoot?.replaceChildren();
-}
-
-function closeHelp() {
-  const focusTarget = helpReturnFocus;
-  helpReturnFocus = null;
-  resetHelpState();
-  shell.closeHelpPage();
-  shell.setLoading(false, "");
-  focusTarget?.focus?.({ preventScroll: true });
 }
 
 function fitStage() {
@@ -1107,7 +670,7 @@ function bindUi() {
     if (!shell.modalLayer.hidden) return;
     if (event.key === "Escape" && shell.isHelpPageOpen() && shell.modalLayer.hidden) {
       event.preventDefault();
-      goBackHelp();
+      helpNavigation?.goBackHelp();
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {

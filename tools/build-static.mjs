@@ -81,9 +81,9 @@ for (const entry of ENTRIES) {
 }
 
 addCacheVersion("index.html");
-for (const file of fs.readdirSync(path.join(OUT, "js"))) {
-  if (file.endsWith(".js")) addModuleCacheVersions(`js/${file}`);
-}
+walkEntry(path.join(OUT, "js"), "js", (file, relative) => {
+  if (file.endsWith(".js")) addModuleCacheVersions(relative);
+});
 
 try {
   const output = execFileSync("git", ["log", "-1", "--format=%cI%n%H"], {
