@@ -848,6 +848,12 @@ img {
   background-clip: padding-box;
 }
 
+/* Firefox uses the standard scrollbar properties instead of ::-webkit-scrollbar. */
+.pcl-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(52, 61, 74, 0.16) transparent;
+}
+
 
 /* --------------------------------------------------------------------------
    Runtime hints — PCL's bottom-left gradient bars
@@ -1025,6 +1031,8 @@ img {
   line-height: 18px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(52, 61, 74, 0.18) transparent;
 }
 
 .pcl-modal__caption::-webkit-scrollbar {

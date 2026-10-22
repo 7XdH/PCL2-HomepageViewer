@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 import {
   PclXamlError,
@@ -135,6 +136,12 @@ test("limits: source size rejection", () => {
     () => assertSourceWithinLimit("x".repeat(MAX_SOURCE_BYTES + 1), "test"),
     (error) => error.code === "SOURCE_TOO_LARGE"
   );
+});
+
+test("styles: Firefox scrollbar fallbacks", () => {
+  const css = fs.readFileSync(new URL("../css/pcl-theme.css", import.meta.url), "utf8");
+  assert.match(css, /\.pcl-scroll\s*\{[^}]*scrollbar-width:\s*thin;[^}]*scrollbar-color:[^;]+;/s);
+  assert.match(css, /\.pcl-modal__caption\s*\{[^}]*scrollbar-width:\s*thin;[^}]*scrollbar-color:[^;]+;/s);
 });
 
 test("proxy core: URL, UA and redirect policy", () => {
