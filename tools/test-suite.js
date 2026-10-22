@@ -561,6 +561,12 @@ export async function runRegression() {
     if (!windowEl || !helpPage || !homePage || !titlebarSub || !title) {
       throw new Error("帮助页 DOM 结构不完整");
     }
+    if (helpPage.getAttribute("role") !== "region") {
+      throw new Error("帮助页缺少 region 语义");
+    }
+    if (helpPage.getAttribute("aria-labelledby") !== "pclSubpageTitle") {
+      throw new Error("帮助页没有关联 pclSubpageTitle");
+    }
 
     shell.showHelpPage("版本列表");
     await sleep(40);
