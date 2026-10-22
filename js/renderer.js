@@ -71,88 +71,50 @@ export class PclRenderer extends PclDocumentBuilders {
     }
 
     this.root.replaceChildren(stack);
-    this.layoutCardBodies();
+    this.clampCardTexts();
     this.root.scrollTop = 0;
     const duration = Math.max(1, Math.round(performance.now() - started));
     return { controls: this.controlCount, duration, warnings: this.warnings.slice() };
   }
 
-  isCardContentNode(node) {
-    const type = node.dataset.pclType;
-    if (
-      [
-        "TextBlock",
-        "MyTextButton",
-        "MyButton",
-        "MyIconButton",
-        "MyIconTextButton",
-        "MyHint",
-        "MyListItem",
-        "MyLoading",
-        "TextBox"
-      ].includes(type)
-    ) {
-      return true;
-    }
-    if (type === "Rectangle" || type === "Line" || node.classList.contains("pcl-shape")) {
-      return node.offsetHeight > 0 && node.offsetHeight <= 6;
-    }
-    return Boolean(
-      node.querySelector?.(
-        ".pcl-text, .pcl-textbutton, .pcl-button, .pcl-iconbutton, .pcl-icontextbutton, .pcl-listitem, .pcl-hint, .pcl-loading, .pcl-textbox"
-      )
-    );
-  }
-
-  layoutCardBodies() {
-    // Only correct actual collisions with a minimal gap, so the authored
-    // geometry survives: the button row (e.g. Margin="86,66") is designed to
-    // end flush with the icon bottom, and large forced gaps would stretch the
-    // content column and leave blank space at the bottom-left of the card.
-    const gap = 2;
+  clampCardTexts() {
+    // Fixed-height wrapped text (e.g. Height="36") fits a fractional number of
+    // lines in WPF; TextTrimming then ends the last complete line with an
+    // ellipsis. Reproduce that by trimming the text itself to the longest
+    // prefix that still fits the whole lines the height allows. The element
+    // keeps its authored height, so the WPF centering/gaps stay untouched.
     for (const body of this.root.querySelectorAll(".pcl-card__body")) {
-      this.clampFixedHeightCardText(body);
-      const content = Array.from(body.children).filter(
-        (node) => this.isCardContentNode(node) && !this.isInvisibleTextNode(node)
-      );
-      let previousBottom = -Infinity;
-      for (const node of content) {
-        const top = node.offsetTop;
-        const height = node.offsetHeight;
-        if (!height) continue;
-        if (Number.isFinite(previousBottom) && top < previousBottom + gap) {
-          const currentMargin = Number.parseFloat(getComputedStyle(node).marginTop) || 0;
-          node.style.marginTop = `${currentMargin + previousBottom + gap - top}px`;
+      for (const text of body.querySelectorAll(".pcl-text")) {
+        if (text.scrollHeight <= text.clientHeight + 1) continue;
+        const style = getComputedStyle(text);
+        const lineHeight = Number.parseFloat(style.lineHeight);
+        if (!Number.isFinite(lineHeight) || lineHeight <= 0) continue;
+        const paddingY = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
+        const lines = Math.max(1, Math.floor((text.clientHeight - paddingY) / lineHeight));
+        const maxHeight = lines * lineHeight + paddingY + 1;
+        const full = text.textContent || "";
+        if (!full.trim()) continue;
+        // Measure with a free height so scrollHeight reports the content size
+        // (a fixed height makes scrollHeight clamp to clientHeight).
+        const savedHeight = text.style.height;
+        const savedAlign = text.style.alignSelf;
+        text.style.height = "auto";
+        text.style.alignSelf = "start";
+        const fits = (length) => {
+          text.textContent = `${full.slice(0, length).trimEnd()}…`;
+          return text.getBoundingClientRect().height <= maxHeight;
+        };
+        let low = 0;
+        let high = full.length;
+        while (low < high) {
+          const mid = Math.ceil((low + high) / 2);
+          if (fits(mid)) low = mid;
+          else high = mid - 1;
         }
-        previousBottom = Math.max(previousBottom, node.offsetTop + node.offsetHeight);
+        text.textContent = `${full.slice(0, low).trimEnd()}…`;
+        text.style.height = savedHeight;
+        text.style.alignSelf = savedAlign;
       }
-    }
-  }
-
-  isInvisibleTextNode(node) {
-    // Whitespace-only TextBlocks keep their authored box but draw nothing, so
-    // they must not push the following rows (e.g. the button row) out of the
-    // position the author aligned with the card icon.
-    return node.dataset.pclType === "TextBlock" && !node.textContent.trim() && !node.firstElementChild;
-  }
-
-  clampFixedHeightCardText(body) {
-    // The XAML may pin a wrapped TextBlock to a fixed Height (e.g. 36px) that
-    // fits a fractional number of lines; clipping straight at that height cuts
-    // the last line in half, which reads like the row below covers the text.
-    // Keep the author's height but round down to whole lines and show an
-    // ellipsis on the final visible line instead.
-    for (const text of body.querySelectorAll(".pcl-text")) {
-      if (text.scrollHeight <= text.clientHeight + 1) continue;
-      const style = getComputedStyle(text);
-      const lineHeight = Number.parseFloat(style.lineHeight);
-      if (!Number.isFinite(lineHeight) || lineHeight <= 0) continue;
-      const paddingY = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
-      const lines = Math.max(1, Math.floor((text.clientHeight - paddingY) / lineHeight));
-      text.style.height = `${lines * lineHeight + paddingY}px`;
-      text.style.display = "-webkit-box";
-      text.style.setProperty("-webkit-box-orient", "vertical");
-      text.style.setProperty("-webkit-line-clamp", String(lines));
     }
   }
 

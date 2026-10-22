@@ -112,7 +112,9 @@
   max-width: 100%;
   color: var(--pcl-c1);
   font-size: 13px;
-  line-height: 1.35;
+  /* WPF TextBlock line height = the font's own metrics: Microsoft YaHei is
+     1.32em (measured with a WPF probe: 18px -> 23.757, 11px -> 14.517). */
+  line-height: 1.32;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -509,15 +511,19 @@
    -------------------------------------------------------------------------- */
 
 .pcl-textbutton {
-  display: inline-block;
+  display: inline-flex;
   max-width: 100%;
   padding: 0;
   border: 0;
   color: var(--pcl-c1);
   background: transparent;
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.32;
   text-align: left;
+  /* WPF stretches the button's TextBlock to the row height and draws the text
+     from its top; Chrome centers button content vertically by default, which
+     made the row sit ~5px too low. */
+  align-items: flex-start;
   cursor: pointer;
   user-select: none;
   transition: color 100ms ease;

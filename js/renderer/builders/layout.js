@@ -141,32 +141,58 @@ export class PclLayoutBuilders {
     const vertical = (getProp(props, "VerticalAlignment") || defaults.vertical || "Stretch").toLowerCase();
     const h = alignmentMap[horizontal] || "stretch";
     const v = alignmentMap[vertical] || "stretch";
+    // WPF semantic: Stretch degrades to Center when the element has an
+    // explicit size that fits its slot, and falls back to start when it
+    // overflows (verified with a WPF probe: a 2000-wide Rectangle starts at
+    // the slot edge, a 100-wide one centers) — exactly CSS "safe center".
+    // The banner gradient Rectangle Height="100" therefore centers in the
+    // 110-tall card, so no background strip shows under the bottom stripe.
+    const stretchFix = (alignment, sizeProp) => {
+      if (alignment !== "stretch" || parseSize(getProp(props, sizeProp)) == null) return alignment;
+      return "safe center";
+    };
+    // Vertical and horizontal axis alignments after the WPF stretch fix.
+    const vAlign = stretchFix(v, "Height");
+    const hAlign = stretchFix(h, "Width");
+
+    const setAlign = (style, prop, value) => {
+      if (value === "safe center") {
+        style[prop] = "center";
+        style[prop] = "safe center";
+      } else {
+        style[prop] = value;
+      }
+    };
 
     switch (layout.kind) {
       case "stack-v":
-        node.style.alignSelf = h;
+        // Cross axis of a vertical stack is horizontal.
+        setAlign(node.style, "alignSelf", hAlign);
         break;
       case "stack-h":
       case "wrap-h":
-        node.style.alignSelf = v;
+        // Cross axis of a horizontal stack is vertical.
+        setAlign(node.style, "alignSelf", vAlign);
         break;
       case "wrap-v":
-        node.style.alignSelf = h;
+        setAlign(node.style, "alignSelf", hAlign);
         break;
       case "grid":
       case "uniformgrid":
-        node.style.justifySelf = h;
-        node.style.alignSelf = v;
+        setAlign(node.style, "justifySelf", hAlign);
+        setAlign(node.style, "alignSelf", vAlign);
         break;
       case "card":
-        node.style.justifySelf = h;
-        // Text/button children keep their natural height inside MyCard's
-        // overlay grid; the post-render pass then resolves vertical overlaps.
-        node.style.alignSelf = v === "stretch" ? "start" : v;
+        // Pure WPF Grid semantics: MyCard's content is an overlay grid, and
+        // every child is placed by its margin plus the WPF alignment rules
+        // (Stretch fills the cell; Stretch with an explicit size centers via
+        // "safe center" above). No extra nudging — PCL does not reflow.
+        setAlign(node.style, "justifySelf", hAlign);
+        setAlign(node.style, "alignSelf", vAlign);
         break;
       case "border":
       case "scroll":
-        node.style.alignSelf = h;
+        setAlign(node.style, "alignSelf", hAlign);
         if (vertical === "center") {
           node.style.marginTop = "auto";
           node.style.marginBottom = "auto";
@@ -177,7 +203,7 @@ export class PclLayoutBuilders {
       case "canvas":
         break;
       default:
-        node.style.alignSelf = h;
+        setAlign(node.style, "alignSelf", hAlign);
     }
   }
 
@@ -215,6 +241,16 @@ export class PclLayoutBuilders {
     if (foreground) node.style.color = foreground;
     const background = resolveColor(getProp(props, "Background"));
     if (background) node.style.background = background;
+    const fontFamily = getProp(props, "FontFamily");
+    if (fontFamily != null && !String(fontFamily).trim().startsWith("{")) {
+      // WPF font names (including Chinese ones like 微软雅黑) match installed
+      // families 1:1; keep the PCL default stack as fallback so CJK glyphs
+      // still resolve like WPF's per-glyph fallback.
+      const value = String(fontFamily).trim();
+      if (value) {
+        node.style.fontFamily = value.includes(",") ? value : `"${value}", var(--pcl-font)`;
+      }
+    }
     const fontSize = parseDouble(getProp(props, "FontSize"));
     if (fontSize != null) node.style.fontSize = `${fontSize}px`;
     const weight = parseFontWeight(getProp(props, "FontWeight"));
@@ -331,12 +367,14 @@ export class PclLayoutBuilders {
     const background = resolveColor(getProp(props, "Background"));
     if (background) node.style.background = background;
     this.applyBox(node, props);
-    this.applyAlignment(node, props, layout);
     const childLayout = { kind: horizontal ? "stack-h" : "stack-v" };
     for (const child of directContentChildren(element)) {
       const childNode = this.buildNode(child, childLayout);
       if (childNode) node.append(childNode);
     }
+    // Alignment runs after the children exist, so WPF content-aware decisions
+    // (e.g. stacking/cross-axis alignment) see the actual content.
+    this.applyAlignment(node, props, layout);
     this.bindEvents(node, element);
     return node;
   }

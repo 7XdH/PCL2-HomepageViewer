@@ -550,6 +550,10 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const objectFit =
       stretch === "fill" ? "fill" : stretch === "uniformtofill" ? "cover" : stretch === "none" ? "none" : "contain";
 
+    // PCL applies <Image> Height/Width (XamlReader semantics): the mod-card
+    // layout only works with the authored 75px icons (title margin 89 assumes
+    // an icon ending at 83), so render the element at the authored size and
+    // let the bitmap scale inside it.
     if (source != null && resolved) {
       const img = document.createElement("img");
       img.alt = "";
@@ -734,6 +738,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
     }
 
     node.className = `pcl-shape pcl-shape--${kind === "Ellipse" ? "ellipse" : "rect"}`;
+    node.dataset.pclType = kind;
     node.style.background = fill;
     if (stroke && strokeThickness > 0) node.style.border = `${strokeThickness}px solid ${stroke}`;
     if (kind === "Rectangle") {

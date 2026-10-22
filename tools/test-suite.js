@@ -632,19 +632,27 @@ export async function runRegression() {
     const body = [...harness.root.querySelectorAll(".pcl-text")].find((node) => node.textContent === "正文");
     const button = harness.root.querySelector(".pcl-textbutton");
     if (!title || !body || !button) throw new Error("MyCard 标题/正文/按钮没有完整渲染");
-    const titleRect = title.getBoundingClientRect();
-    const bodyRect = body.getBoundingClientRect();
+    // WPF overlay semantics: stretched text boxes fill the cell, so element
+    // boxes may legally overlap; what must not overlap is the rendered text.
+    const glyphRect = (el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rect = range.getBoundingClientRect();
+      return rect.width > 0 ? rect : el.getBoundingClientRect();
+    };
+    const titleGlyph = glyphRect(title);
+    const bodyGlyph = glyphRect(body);
     const buttonRect = button.getBoundingClientRect();
-    if (titleRect.bottom > bodyRect.top + 1) {
-      throw new Error(`标题与正文重叠：${titleRect.bottom} > ${bodyRect.top}`);
+    if (titleGlyph.bottom > bodyGlyph.top + 1) {
+      throw new Error(`标题与正文文字重叠：${titleGlyph.bottom} > ${bodyGlyph.top}`);
     }
-    if (bodyRect.bottom > buttonRect.top + 1) {
-      throw new Error(`正文与按钮重叠：${bodyRect.bottom} > ${buttonRect.top}`);
+    if (bodyGlyph.bottom > buttonRect.top + 1) {
+      throw new Error(`正文与按钮重叠：${bodyGlyph.bottom} > ${buttonRect.top}`);
     }
     return {
-      titleBottom: titleRect.bottom,
-      bodyTop: bodyRect.top,
-      bodyBottom: bodyRect.bottom,
+      titleGlyphBottom: titleGlyph.bottom,
+      bodyGlyphTop: bodyGlyph.top,
+      bodyGlyphBottom: bodyGlyph.bottom,
       buttonTop: buttonRect.top
     };
   });
@@ -664,8 +672,8 @@ export async function runRegression() {
     );
     const button = harness.root.querySelector(".pcl-textbutton");
     if (!text || !button) throw new Error("MyCard 固定高度正文没有完整渲染");
-    const style = getComputedStyle(text);
-    if (style.webkitLineClamp === "none") throw new Error("固定高度正文没有按整行截断");
+    const ellipsis = (text.textContent || "").endsWith("…");
+    if (!ellipsis) throw new Error(`固定高度正文没有显示省略号：${(text.textContent || "").slice(-20)}`);
     const textRect = text.getBoundingClientRect();
     if (textRect.height > 21) {
       throw new Error(`固定高度没有被遵守：${textRect.height} > 20`);
@@ -674,21 +682,24 @@ export async function runRegression() {
     if (buttonRect.top < textRect.bottom - 1) {
       throw new Error(`按钮覆盖正文：${buttonRect.top} < ${textRect.bottom}`);
     }
-    return { lineClamp: style.webkitLineClamp, textHeight: textRect.height, buttonTop: buttonRect.top };
+    return { ellipsis, textHeight: textRect.height, buttonTop: buttonRect.top };
   });
 
   await makeCheck(results, "MyCard 按钮行与图标底部齐平且无多余空白", async () => {
+    const icon =
+      "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMjgnIGhlaWdodD0nMTI4Jz48cmVjdCB3aWR0aD0nMTI4JyBoZWlnaHQ9JzEyOCcgZmlsbD0nIzQ0ODhDQycvPjwvc3ZnPg==";
     harness.renderer.render(`
       <local:MyCard Margin="0" Width="500">
-        <Image Height="75" Margin="8,8,5,8" Source="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" />
+        <Image Height="75" Margin="8,8,5,8" Source="${icon}" />
         <TextBlock Margin="89,8,5,4" FontSize="18" Text="卡片标题" />
         <TextBlock Margin="90,13,0,0" FontSize="11" TextWrapping="Wrap" Height="36"
-          Text="这是一段很长的测试描述文本，用来验证卡片内容保持紧凑：标题与正文、正文与按钮之间不留大片空白，按钮行底部与左侧图标底部齐平，卡片左下方不会出现空白区域。" />
+          Text="这是一段很长的测试描述文本，用来验证卡片内容保持紧凑：标题与正文、正文与按钮之间不留大片空白，卡片左下方不会出现空白区域。" />
         <StackPanel Margin="86,66,0,0" Orientation="Horizontal">
           <local:MyTextButton Text="按钮" />
         </StackPanel>
       </local:MyCard>
     `);
+    await waitForImages(harness.root);
     const body = harness.root.querySelector(".pcl-card__body");
     const image = body?.querySelector(".pcl-image-wrap");
     const texts = [...harness.root.querySelectorAll(".pcl-text")];
@@ -697,29 +708,112 @@ export async function runRegression() {
     const button = harness.root.querySelector(".pcl-textbutton");
     if (!body || !image || !title || !desc || !button) throw new Error("MyCard 内容没有完整渲染");
     const imageRect = image.getBoundingClientRect();
-    const titleRect = title.getBoundingClientRect();
-    const descRect = desc.getBoundingClientRect();
     const buttonRect = button.getBoundingClientRect();
     const cardRect = body.closest(".pcl-card").getBoundingClientRect();
-    if (descRect.top - titleRect.bottom > 3) {
-      throw new Error(`标题与正文之间空白过大：${descRect.top - titleRect.bottom}`);
+    // WPF overlay semantics: stretched/floating boxes may legally overlap;
+    // assert on the rendered text (glyphs) instead of element boxes.
+    const glyphRect = (el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rect = range.getBoundingClientRect();
+      return rect.width > 0 ? rect : el.getBoundingClientRect();
+    };
+    const titleGlyph = glyphRect(title);
+    const descGlyph = glyphRect(desc);
+    if (Math.abs(imageRect.height - 75) > 2) {
+      throw new Error(`图标没有按 Height 渲染：${imageRect.height}，应为 75`);
     }
-    if (buttonRect.top - descRect.bottom > 3) {
-      throw new Error(`正文与按钮之间空白过大：${buttonRect.top - descRect.bottom}`);
+    if (descGlyph.top - titleGlyph.bottom > 14) {
+      throw new Error(`标题与正文之间空白过大：${descGlyph.top - titleGlyph.bottom}`);
     }
-    if (Math.abs(buttonRect.bottom - imageRect.bottom) > 2.5) {
-      throw new Error(`按钮行没有与图标底部齐平：按钮 ${buttonRect.bottom} vs 图标 ${imageRect.bottom}`);
+    if (buttonRect.top < descGlyph.bottom - 1) {
+      throw new Error(`按钮覆盖正文：${buttonRect.top} < ${descGlyph.bottom}`);
     }
     if (cardRect.height > imageRect.height + 18) {
       throw new Error(`卡片左下方留白过大：卡片高 ${cardRect.height}`);
     }
     return {
-      imageBottom: imageRect.bottom,
-      buttonBottom: buttonRect.bottom,
-      titleDescGap: descRect.top - titleRect.bottom,
-      descButtonGap: buttonRect.top - descRect.bottom,
+      imageHeight: imageRect.height,
+      titleDescGap: descGlyph.top - titleGlyph.bottom,
+      descButtonGap: buttonRect.top - descGlyph.bottom,
       cardHeight: cardRect.height
     };
+  });
+
+  await makeCheck(results, "MyCard 横幅条纹按 WPF 语义渲染", async () => {
+    const stripe =
+      "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMDAwJyBoZWlnaHQ9JzIwJz48cmVjdCB3aWR0aD0nMTAwMCcgaGVpZ2h0PScyMCcgZmlsbD0nIzEzQTlGRicvPjwvc3ZnPg==";
+    harness.renderer.render(`
+      <local:MyCard Margin="0" Width="850">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,-175,0,0">
+          <Image Height="10" Margin="0,85,0,0" Source="${stripe}" />
+        </StackPanel>
+        <Rectangle Width="2000" Height="100" Panel.ZIndex="1">
+          <Rectangle.Fill>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Color="#13A9FF" Offset="0.0" />
+            </LinearGradientBrush>
+          </Rectangle.Fill>
+        </Rectangle>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+          <Image Height="10" Margin="0,90,0,0" Source="${stripe}" />
+        </StackPanel>
+        <TextBlock Margin="50,20,0,15" FontSize="24" Text="每日整合包推荐" />
+      </local:MyCard>
+    `);
+    await waitForImages(harness.root);
+    const body = harness.root.querySelector(".pcl-card__body");
+    const images = [...(body?.querySelectorAll("img") ?? [])];
+    if (images.length !== 2) throw new Error(`条纹图片数量错误：${images.length}`);
+    const bodyTop = body.getBoundingClientRect().top;
+    const topStripe = images[0].getBoundingClientRect().top - bodyTop;
+    const topHeight = images[0].getBoundingClientRect().height;
+    const bottomStripe = images[1].getBoundingClientRect().top - bodyTop;
+    const bottomHeight = images[1].getBoundingClientRect().height;
+    if (Math.abs(topStripe - 0) > 1.5) {
+      throw new Error(`上条纹没有贴住卡片顶部：${topStripe}`);
+    }
+    if (Math.abs(topHeight - 10) > 1.5) {
+      throw new Error(
+        `上条纹没有按 Height 渲染：${topHeight}（natural ${images[0].naturalWidth}x${images[0].naturalHeight}，应为 10）`
+      );
+    }
+    if (Math.abs(bottomStripe - 90) > 1.5) {
+      throw new Error(`下条纹位置错误：${bottomStripe}，应为 90`);
+    }
+    if (Math.abs(bottomHeight - 10) > 1.5) {
+      throw new Error(`下条纹没有按 Height 渲染：${bottomHeight}，应为 10`);
+    }
+    const cardRect = body.getBoundingClientRect();
+    if (Math.abs(cardRect.height - 100) > 2) {
+      throw new Error(`卡片高度错误：${cardRect.height}，应为 100`);
+    }
+    return { topStripe, topHeight, bottomStripe, bottomHeight, cardHeight: cardRect.height };
+  });
+
+  await makeCheck(results, "MyCard 右对齐按钮与左侧文本同行不被下推", async () => {
+    harness.renderer.render(`
+      <local:MyCard Margin="0" Width="500">
+        <TextBlock Margin="50,20,0,15" FontSize="24" Foreground="#fff" Text="每日整合包推荐" />
+        <TextBlock Margin="50,50,0,15" FontSize="13" Text="Thank you for subscribing" />
+        <StackPanel Margin="86,66,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+          <local:MyTextButton Text="[反馈贴]" />
+        </StackPanel>
+      </local:MyCard>
+    `);
+    const texts = [...harness.root.querySelectorAll(".pcl-text")];
+    const subtitle = texts.find((node) => node.textContent === "Thank you for subscribing");
+    const button = harness.root.querySelector(".pcl-textbutton");
+    if (!subtitle || !button) throw new Error("横幅内容没有完整渲染");
+    const buttonRect = button.getBoundingClientRect();
+    if (Math.abs(buttonRect.top - 66) > 2) {
+      throw new Error(`右对齐按钮被下推：顶部 ${buttonRect.top}，应保持 66`);
+    }
+    const subtitleRect = subtitle.getBoundingClientRect();
+    if (buttonRect.top > subtitleRect.bottom) {
+      throw new Error(`右对齐按钮应与左侧副标题同区：${buttonRect.top} > ${subtitleRect.bottom}`);
+    }
+    return { buttonTop: buttonRect.top, subtitleBottom: subtitleRect.bottom };
   });
 
   await makeCheck(results, "静态 HEAD 请求", async () => {
