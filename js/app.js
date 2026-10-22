@@ -56,6 +56,7 @@ const FALLBACK_XAML = `
 const presetCache = new Map();
 let renderToken = 0;
 let renderAbort = null;
+let stageFitFrame = 0;
 let lastRenderedContent = "";
 let codeDirty = false;
 let helpNavigation = null;
@@ -118,7 +119,7 @@ const theme = new PclTheme();
 const shell = new PclShell({
   onLaunch: (version) => runtime.raise([{ type: "启动游戏", data: version }])
 });
-shell.onReopen = () => fitStage();
+shell.onReopen = () => scheduleFitStage();
 
 const runtime = new PclRuntime({
   shell,
@@ -429,6 +430,14 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
   }
 }
 
+function scheduleFitStage() {
+  if (stageFitFrame) return;
+  stageFitFrame = window.requestAnimationFrame(() => {
+    stageFitFrame = 0;
+    fitStage();
+  });
+}
+
 function fitStage() {
   const frame = $.stageFrame;
   if (!frame) return;
@@ -675,8 +684,7 @@ function bindUi() {
     }
   });
 
-  document.addEventListener("fullscreenchange", () => window.setTimeout(fitStage, 80));
-  window.addEventListener("resize", () => window.setTimeout(fitStage, 40));
+  document.addEventListener("fullscreenchange", () => window.setTimeout(scheduleFitStage, 80));
 
   let dragDepth = 0;
   const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
@@ -758,14 +766,14 @@ async function init() {
 
   await renderCurrent({ reason: "initial" });
   window.__PCL_RENDERER__.ready = true;
-  requestAnimationFrame(() => fitStage());
+  scheduleFitStage();
 
   if ("ResizeObserver" in window) {
-    const observer = new ResizeObserver(() => fitStage());
+    const observer = new ResizeObserver(() => scheduleFitStage());
     observer.observe($.stageFrame);
   }
-  window.addEventListener("resize", () => fitStage());
-  document.fonts?.ready?.then(() => fitStage()).catch(() => {});
+  window.addEventListener("resize", scheduleFitStage, { passive: true });
+  document.fonts?.ready?.then(() => scheduleFitStage()).catch(() => {});
 
   if (location.protocol === "file:") {
     shell.showHint("file:// 模式下联网代理不可用；如需完整功能，请运行 node server.js。", "Blue");
