@@ -3,7 +3,16 @@ import { isPropertyElement, propertyElementName, parseDouble } from "../xaml.js"
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const NO_ICON = "assets/pcl/images/Icons/NoIcon.png";
 export const RESOURCE_REF_RE = /^\{(?:Static|Dynamic)Resource\s+([^}]+)\}$/i;
+export const BBOX_CACHE_LIMIT = 512;
 export const bboxCache = new Map();
+
+export function rememberBBox(data, box) {
+  if (bboxCache.size >= BBOX_CACHE_LIMIT) {
+    const oldest = bboxCache.keys().next().value;
+    if (oldest !== undefined) bboxCache.delete(oldest);
+  }
+  bboxCache.set(data, box);
+}
 
 export const getProp = (props, ...names) => {
   for (const name of names) {
@@ -94,7 +103,12 @@ export function fallbackBBox(data) {
 }
 
 export function measurePath(data) {
-  if (bboxCache.has(data)) return bboxCache.get(data);
+  if (bboxCache.has(data)) {
+    const cached = bboxCache.get(data);
+    bboxCache.delete(data);
+    bboxCache.set(data, cached);
+    return cached;
+  }
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 1000 1000");
   svg.style.cssText =
@@ -114,7 +128,7 @@ export function measurePath(data) {
     box = fallbackBBox(data);
   }
   const result = { x: box.x, y: box.y, width: box.width, height: box.height };
-  bboxCache.set(data, result);
+  rememberBBox(data, result);
   return result;
 }
 

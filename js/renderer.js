@@ -58,9 +58,9 @@ export class PclRenderer extends PclDocumentBuilders {
     this.warnings = [];
     this.controlCount = 0;
     const documentRoot = parseXaml(source, this.runtime.context);
-    this.collectResources(documentRoot);
-    this.applyStyles(documentRoot);
-    this.resolveResourceReferences(documentRoot);
+    const elements = this.collectResources(documentRoot);
+    this.applyStyles(documentRoot, elements);
+    this.resolveResourceReferences(documentRoot, elements);
     const stack = document.createElement("div");
     stack.className = "pcl-xaml-root";
 
@@ -106,7 +106,8 @@ export class PclRenderer extends PclDocumentBuilders {
       }
     };
 
-    for (const element of root.querySelectorAll("*")) {
+    const elements = Array.from(root.querySelectorAll("*"));
+    for (const element of elements) {
       if (!isPropertyElement(element) || propertyElementName(element).toLowerCase() !== "resources") continue;
       for (const resource of element.children) {
         if (tagName(resource) === "ResourceDictionary") {
@@ -116,6 +117,7 @@ export class PclRenderer extends PclDocumentBuilders {
         }
       }
     }
+    return elements;
   }
 
   markResource(node) {
@@ -206,8 +208,8 @@ export class PclRenderer extends PclDocumentBuilders {
     return Array.from(element.attributes).some((attribute) => attribute.name.toLowerCase() === wanted);
   }
 
-  applyStyles(root) {
-    for (const element of root.querySelectorAll("*")) {
+  applyStyles(root, elements = root.querySelectorAll("*")) {
+    for (const element of elements) {
       if (element === root || this.resourceNodes.has(element) || isPropertyElement(element)) continue;
       const styleRef = attributeValue(element, "Style");
       const style = this.resolveStyleElement(styleRef) || this.implicitStyles.get(tagName(element).toLowerCase());
@@ -246,9 +248,9 @@ export class PclRenderer extends PclDocumentBuilders {
     }
   }
 
-  resolveResourceReferences(root) {
+  resolveResourceReferences(root, elements = root.querySelectorAll("*")) {
     const primitiveTypes = new Set(["String", "Double", "Int32", "Int64", "Boolean", "Color"]);
-    for (const element of root.querySelectorAll("*")) {
+    for (const element of elements) {
       if (this.resourceNodes.has(element) || isPropertyElement(element)) continue;
       for (const attribute of Array.from(element.attributes)) {
         const name = attribute.name.toLowerCase();

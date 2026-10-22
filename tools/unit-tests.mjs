@@ -14,6 +14,7 @@ import {
   substitutePlaceholders
 } from "../js/xaml.js";
 import { buildPalette, normalizeHue } from "../js/theme.js";
+import { BBOX_CACHE_LIMIT, bboxCache, rememberBBox } from "../js/renderer/helpers.js";
 import { helpJsonTitle, resolveHelpUrls, resolveHelpXamlUrl } from "../js/help.js";
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl } from "../js/url.js";
 import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
@@ -84,6 +85,17 @@ test("xaml: numeric and color parsing", () => {
 
 test("xaml: null input fails as a PclXamlError", () => {
   assert.ok(new PclXamlError("x") instanceof Error);
+});
+
+test("renderer: path bounding-box cache is bounded", () => {
+  bboxCache.clear();
+  for (let index = 0; index <= BBOX_CACHE_LIMIT; index += 1) {
+    rememberBBox(`path-${index}`, { x: 0, y: 0, width: index + 1, height: 1 });
+  }
+  assert.equal(bboxCache.size, BBOX_CACHE_LIMIT);
+  assert.equal(bboxCache.has("path-0"), false);
+  assert.equal(bboxCache.has(`path-${BBOX_CACHE_LIMIT}`), true);
+  bboxCache.clear();
 });
 
 test("theme: hue boundary normalization", () => {
