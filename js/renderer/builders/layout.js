@@ -155,6 +155,7 @@ export class PclLayoutBuilders {
         break;
       case "grid":
       case "uniformgrid":
+      case "card":
         node.style.justifySelf = h;
         node.style.alignSelf = v;
         break;

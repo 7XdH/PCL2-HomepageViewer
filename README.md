@@ -261,6 +261,8 @@ Root Directory: 留空
 
 通用属性：`Width`、`Height`、`Min/MaxWidth`、`Min/MaxHeight`、`Margin`、`Padding`、`HorizontalAlignment`、`VerticalAlignment`、`Background`、`Foreground`、`Opacity`、`Visibility`、`IsEnabled`、`IsHitTestVisible`、`Cursor`、`FontSize`、`FontWeight`、`FontStyle`、`LineHeight`、`TextWrapping`、`TextTrimming`、`TextAlignment`、`CornerRadius`、`BorderThickness`、`BorderBrush`、`Panel.ZIndex` 等。
 
+`Rectangle` / `Ellipse` 支持 `Fill` 属性，以及 `Rectangle.Fill` 属性元素中的 `SolidColorBrush`、`LinearGradientBrush` 和 `RadialGradientBrush`。`local:MyCard` 的直接子元素与 PCL 一致按 Grid 叠放，使用 `Margin` 定位。
+
 ### 资源、样式与图片
 
 - `{DynamicResource ColorBrush1}` … `{DynamicResource ColorBrush8}`、`ColorBrushGray1–8`、`ColorBrushRed*`、`ColorBrushWhite` 等映射到 CSS 变量。

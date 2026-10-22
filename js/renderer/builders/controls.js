@@ -18,7 +18,8 @@ import {
   parseSize,
   findPropertyElement,
   directContentChildren,
-  buildPathSvg
+  buildPathSvg,
+  resolveBrush
 } from "../helpers.js";
 
 export class PclControlBuilders extends PclLayoutBuilders {
@@ -70,7 +71,10 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const body = document.createElement("div");
     body.className = "pcl-card__body";
     for (const child of directContentChildren(element)) {
-      const childNode = this.buildNode(child, { kind: "stack-v" });
+      // PCL's MyCard inherits from Grid: every direct child shares the same
+      // cell and uses Margin for positioning. Keep that overlay behavior so
+      // banner images, gradients and text can sit on top of each other.
+      const childNode = this.buildNode(child, { kind: "card" });
       if (childNode) body.append(childNode);
     }
     card.append(body);
@@ -661,7 +665,12 @@ export class PclControlBuilders extends PclLayoutBuilders {
   buildShape(element, layout, kind) {
     const props = readProps(element);
     const node = document.createElement("div");
-    const fill = resolveColor(getProp(props, "Fill")) || "transparent";
+    const fillProperty = findPropertyElement(element, "Fill");
+    const fillBrush =
+      kind === "Rectangle" || kind === "Ellipse"
+        ? resolveBrush(fillProperty ? directContentChildren(fillProperty)[0] : null)
+        : null;
+    const fill = fillBrush || resolveColor(getProp(props, "Fill")) || "transparent";
     const stroke = resolveColor(getProp(props, "Stroke"));
     const strokeThickness = parseDouble(getProp(props, "StrokeThickness"), 0);
 

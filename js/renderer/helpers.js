@@ -1,4 +1,4 @@
-import { isPropertyElement, propertyElementName, parseDouble } from "../xaml.js";
+import { isPropertyElement, propertyElementName, parseDouble, resolveColor, tagName } from "../xaml.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const NO_ICON = "assets/pcl/images/Icons/NoIcon.png";
@@ -79,6 +79,68 @@ export function findPropertyElement(element, ...names) {
 
 export function directContentChildren(element) {
   return Array.from(element.children).filter((child) => !isPropertyElement(child));
+}
+
+function parsePoint(value, fallback) {
+  const parts = String(value ?? "")
+    .split(/[,\s]+/)
+    .map((part) => parseDouble(part))
+    .filter((part) => part != null);
+  return {
+    x: parts[0] ?? fallback.x,
+    y: parts[1] ?? fallback.y
+  };
+}
+
+function gradientStops(element) {
+  const stops = Array.from(element.querySelectorAll("GradientStop"))
+    .map((stop, index) => {
+      const props = readProps(stop);
+      return {
+        color: resolveColor(getProp(props, "Color")),
+        offset: parseDouble(getProp(props, "Offset"), index)
+      };
+    })
+    .filter((stop) => stop.color);
+  return stops
+    .map((stop, index) => ({
+      ...stop,
+      offset: Math.max(0, Math.min(1, stop.offset ?? index))
+    }))
+    .sort((a, b) => a.offset - b.offset)
+    .map((stop) => `${stop.color} ${(stop.offset * 100).toFixed(2)}%`);
+}
+
+// Resolve a WPF Brush object (usually inside a property element such as
+// <Rectangle.Fill>) to a CSS background value. PCL homepages commonly use
+// LinearGradientBrush for banner backgrounds, so ignoring it can leave white
+// text on a white card.
+export function resolveBrush(element) {
+  if (!element) return null;
+  const name = tagName(element);
+  const props = readProps(element);
+
+  if (name === "SolidColorBrush") {
+    return resolveColor(getProp(props, "Color")) || null;
+  }
+
+  if (name === "LinearGradientBrush") {
+    const stops = gradientStops(element);
+    if (!stops.length) return null;
+    const start = parsePoint(getProp(props, "StartPoint"), { x: 0, y: 0 });
+    const end = parsePoint(getProp(props, "EndPoint"), { x: 1, y: 1 });
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const angle = dx === 0 && dy === 0 ? 180 : ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
+    return `linear-gradient(${angle.toFixed(2)}deg, ${stops.join(", ")})`;
+  }
+
+  if (name === "RadialGradientBrush") {
+    const stops = gradientStops(element);
+    return stops.length ? `radial-gradient(circle at 50% 50%, ${stops.join(", ")})` : null;
+  }
+
+  return null;
 }
 
 export function normalizeFillRule(data) {

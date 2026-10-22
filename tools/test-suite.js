@@ -573,6 +573,50 @@ export async function runRegression() {
     return { blocked: blocked.length };
   });
 
+  await makeCheck(results, "MyCard 按 Grid 叠放内容与渐变画刷", async () => {
+    harness.renderer.render(`
+      <local:MyCard Margin="0">
+        <Image Height="20" Source="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" />
+        <TextBlock Margin="40,2,0,0" Text="叠放内容" />
+      </local:MyCard>
+    `);
+    const card = harness.root.querySelector(".pcl-card");
+    const body = card?.querySelector(".pcl-card__body");
+    const image = body?.querySelector(".pcl-image-wrap");
+    const text = body?.querySelector(".pcl-text");
+    if (!card || !body || !image || !text) throw new Error("MyCard 内容没有完整渲染");
+    if (getComputedStyle(body).display !== "grid") throw new Error("MyCard 内容没有使用 Grid 叠放");
+    const imageRect = image.getBoundingClientRect();
+    const textRect = text.getBoundingClientRect();
+    if (textRect.top >= imageRect.bottom) throw new Error("MyCard 子元素仍在纵向堆叠");
+
+    harness.renderer.render(`
+      <StackPanel>
+        <Rectangle Width="100" Height="40">
+          <Rectangle.Fill>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#FF0000" Offset="0" />
+              <GradientStop Color="#0000FF" Offset="1" />
+            </LinearGradientBrush>
+          </Rectangle.Fill>
+        </Rectangle>
+        <Rectangle Width="20" Height="20">
+          <Rectangle.Fill><SolidColorBrush Color="#00FF00" /></Rectangle.Fill>
+        </Rectangle>
+      </StackPanel>
+    `);
+    const shapes = [...harness.root.querySelectorAll(".pcl-shape")];
+    if (shapes.length !== 2) throw new Error(`画刷控件数量错误：${shapes.length}`);
+    const gradient = getComputedStyle(shapes[0]).backgroundImage;
+    if (!gradient.includes("linear-gradient") || gradient.includes("rgba(0, 0, 0, 0)")) {
+      throw new Error(`Rectangle.Fill 渐变没有生效：${gradient}`);
+    }
+    if (getComputedStyle(shapes[1]).backgroundColor !== "rgb(0, 255, 0)") {
+      throw new Error("Rectangle.Fill 纯色画刷没有生效");
+    }
+    return { gradient };
+  });
+
   await makeCheck(results, "静态 HEAD 请求", async () => {
     const response = await fetch("/", { method: "HEAD", cache: "no-store" });
     if (!response.ok) throw new Error(`HEAD / 返回 HTTP ${response.status}`);
