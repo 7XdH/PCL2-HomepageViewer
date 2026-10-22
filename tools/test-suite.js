@@ -649,6 +649,34 @@ export async function runRegression() {
     };
   });
 
+  await makeCheck(results, "MyCard 固定高度正文按整行截断并显示省略号", async () => {
+    harness.renderer.render(`
+      <local:MyCard Margin="0" Width="300">
+        <TextBlock Margin="10,8,10,0" FontSize="12" TextWrapping="Wrap" Height="20"
+          Text="这是一段很长的测试描述文本，用来验证卡片里写死高度的正文会按整行截断并显示省略号，不会出现被拦腰切开的半行文字。" />
+        <StackPanel Margin="10,66,0,0">
+          <local:MyTextButton Text="按钮" />
+        </StackPanel>
+      </local:MyCard>
+    `);
+    const text = [...harness.root.querySelectorAll(".pcl-text")].find((node) =>
+      node.textContent.includes("很长的测试描述")
+    );
+    const button = harness.root.querySelector(".pcl-textbutton");
+    if (!text || !button) throw new Error("MyCard 固定高度正文没有完整渲染");
+    const style = getComputedStyle(text);
+    if (style.webkitLineClamp === "none") throw new Error("固定高度正文没有按整行截断");
+    const textRect = text.getBoundingClientRect();
+    if (textRect.height > 21) {
+      throw new Error(`固定高度没有被遵守：${textRect.height} > 20`);
+    }
+    const buttonRect = button.getBoundingClientRect();
+    if (buttonRect.top < textRect.bottom - 1) {
+      throw new Error(`按钮覆盖正文：${buttonRect.top} < ${textRect.bottom}`);
+    }
+    return { lineClamp: style.webkitLineClamp, textHeight: textRect.height, buttonTop: buttonRect.top };
+  });
+
   await makeCheck(results, "静态 HEAD 请求", async () => {
     const response = await fetch("/", { method: "HEAD", cache: "no-store" });
     if (!response.ok) throw new Error(`HEAD / 返回 HTTP ${response.status}`);

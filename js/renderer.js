@@ -109,6 +109,7 @@ export class PclRenderer extends PclDocumentBuilders {
     // margins; otherwise a text descender can visually touch the button row.
     const gap = 12;
     for (const body of this.root.querySelectorAll(".pcl-card__body")) {
+      this.clampFixedHeightCardText(body);
       const content = Array.from(body.children).filter((node) => this.isCardContentNode(node));
       let previousBottom = -Infinity;
       for (const node of content) {
@@ -121,6 +122,26 @@ export class PclRenderer extends PclDocumentBuilders {
         }
         previousBottom = Math.max(previousBottom, node.offsetTop + node.offsetHeight);
       }
+    }
+  }
+
+  clampFixedHeightCardText(body) {
+    // The XAML may pin a wrapped TextBlock to a fixed Height (e.g. 36px) that
+    // fits a fractional number of lines; clipping straight at that height cuts
+    // the last line in half, which reads like the row below covers the text.
+    // Keep the author's height but round down to whole lines and show an
+    // ellipsis on the final visible line instead.
+    for (const text of body.querySelectorAll(".pcl-text")) {
+      if (text.scrollHeight <= text.clientHeight + 1) continue;
+      const style = getComputedStyle(text);
+      const lineHeight = Number.parseFloat(style.lineHeight);
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) continue;
+      const paddingY = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
+      const lines = Math.max(1, Math.floor((text.clientHeight - paddingY) / lineHeight));
+      text.style.height = `${lines * lineHeight + paddingY}px`;
+      text.style.display = "-webkit-box";
+      text.style.setProperty("-webkit-box-orient", "vertical");
+      text.style.setProperty("-webkit-line-clamp", String(lines));
     }
   }
 
