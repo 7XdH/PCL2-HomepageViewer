@@ -127,6 +127,7 @@ export class PclShell {
     this.account = ACCOUNTS.Steve;
     this.events = [];
     this.modalChain = Promise.resolve();
+    this.modalInert = new Map();
     this.currentPage = "Launch";
     this.tooltipTimer = 0;
     this.tooltipTarget = null;
@@ -211,6 +212,29 @@ export class PclShell {
     }, lifespan);
   }
 
+  setBackgroundInert(active) {
+    if (!this.modalLayer) return;
+    if (active) {
+      if (this.modalInert.size) return;
+      let node = this.modalLayer;
+      while (node && node !== document.body && node.parentElement) {
+        const parent = node.parentElement;
+        for (const sibling of parent.children) {
+          if (sibling === node || sibling.contains(this.modalLayer)) continue;
+          this.modalInert.set(sibling, sibling.inert);
+          sibling.inert = true;
+        }
+        node = parent;
+      }
+      return;
+    }
+
+    for (const [element, previous] of this.modalInert) {
+      element.inert = previous;
+    }
+    this.modalInert.clear();
+  }
+
   showModal(options) {
     const run = () => this.openModal(options);
     this.modalChain = this.modalChain.then(run, run);
@@ -234,6 +258,7 @@ export class PclShell {
     this.modalLayer.classList.toggle("is-warn", Boolean(warn));
     this.modalLayer.classList.remove("is-leaving");
     this.modalLayer.hidden = false;
+    this.setBackgroundInert(true);
 
     return new Promise(resolve => {
       let settled = false;
@@ -247,6 +272,7 @@ export class PclShell {
           this.modalLayer.hidden = true;
           this.modalLayer.classList.remove("is-leaving", "is-warn");
           this.modalLayer.querySelector(".pcl-modal")?.classList.remove("is-leaving");
+          this.setBackgroundInert(false);
           previousFocus?.focus?.({ preventScroll: true });
           resolve(index);
         }, 170);
@@ -257,11 +283,18 @@ export class PclShell {
           event.preventDefault();
           finish(buttonList.length > 1 ? buttonList.length - 1 : 0);
         } else if (event.key === "Tab") {
-          const focusable = Array.from(this.modalButtons.querySelectorAll("button"));
+          const focusable = Array.from(
+            this.modalLayer.querySelectorAll(
+              'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+          ).filter(element => !element.inert && element.getClientRects().length > 0);
           if (!focusable.length) return;
           const first = focusable[0];
           const last = focusable[focusable.length - 1];
-          if (event.shiftKey && document.activeElement === first) {
+          if (!this.modalLayer.contains(document.activeElement)) {
+            event.preventDefault();
+            first.focus();
+          } else if (event.shiftKey && document.activeElement === first) {
             event.preventDefault();
             last.focus();
           } else if (!event.shiftKey && document.activeElement === last) {

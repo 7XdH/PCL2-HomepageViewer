@@ -329,6 +329,58 @@ export async function runRegression() {
     return { captionTop, captionHeight: caption.clientHeight };
   });
 
+  await makeCheck(results, "弹窗焦点与背景锁定", async () => {
+    const helpButton = document.getElementById("helpBtn");
+    if (!helpButton) throw new Error("找不到使用说明按钮");
+    helpButton.click();
+    await sleep(420);
+
+    const layer = document.getElementById("pclModalLayer");
+    const dialog = layer?.querySelector(".pcl-modal");
+    const sidebar = document.getElementById("pclSidebar");
+    const titlebar = document.getElementById("pclTitlebar");
+    const pageHost = document.querySelector(".pcl-page-host");
+    const hintStack = document.getElementById("pclHintStack");
+    const labPanel = document.querySelector(".lab-panel");
+    const buttons = [...(document.querySelectorAll("#pclModalButtons button") || [])];
+    const isInert = element => Boolean(element?.inert || element?.closest?.("[inert]"));
+    try {
+      if (!layer || !dialog || !sidebar || !titlebar || !pageHost || !hintStack) {
+        throw new Error("弹窗或背景结构不完整");
+      }
+      if (dialog.getAttribute("aria-describedby") !== "pclModalCaption") {
+        throw new Error("弹窗缺少 aria-describedby");
+      }
+      if (!isInert(sidebar) || !isInert(titlebar) || !isInert(pageHost) || !isInert(hintStack)) {
+        throw new Error("弹窗打开后 PCL 窗口背景没有进入 inert");
+      }
+      if (!isInert(labPanel)) throw new Error("弹窗打开后工具面板没有进入 inert");
+      if (isInert(layer) || isInert(dialog)) throw new Error("弹窗自身被错误锁定");
+      if (!dialog.contains(document.activeElement)) throw new Error("焦点没有进入弹窗");
+
+      if (buttons.length < 2) throw new Error("弹窗按钮不足，无法验证焦点循环");
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      last.focus();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+      if (document.activeElement !== first) throw new Error("Tab 没有循环到第一个按钮");
+      first.focus();
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true })
+      );
+      if (document.activeElement !== last) throw new Error("Shift+Tab 没有循环到最后一个按钮");
+      return { inert: true, describedBy: "pclModalCaption", buttons: buttons.length };
+    } finally {
+      [...document.querySelectorAll("#pclModalButtons button")]
+        .find(button => button.textContent === "知道了")
+        ?.click();
+      await sleep(280);
+      if (isInert(sidebar) || isInert(titlebar) || isInert(pageHost) || isInert(hintStack) || isInert(labPanel)) {
+        throw new Error("弹窗关闭后背景 inert 没有恢复");
+      }
+    }
+  });
+
   await makeCheck(results, "外部链接协议白名单", async () => {
     const cases = [
       ["https://example.com", true],

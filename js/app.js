@@ -1104,6 +1104,7 @@ function bindUi() {
   });
 
   document.addEventListener("keydown", event => {
+    if (!shell.modalLayer.hidden) return;
     if (event.key === "Escape" && shell.isHelpPageOpen() && shell.modalLayer.hidden) {
       event.preventDefault();
       goBackHelp();

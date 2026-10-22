@@ -232,6 +232,7 @@ Root Directory: 留空
 - **联网 URL 替换标记**：联网地址会在请求前解析 `{variable:...}`、`{setup:...}` 以及 PCL 版本、日期、实例等标记，例如 `https://weather-p.kaphia.top/{variable:PCLDailyWeatherPage:choose}.xaml`；输入框仍保留原始模板。
 - **非 XAML 响应校验**：联网地址返回空内容、JSON、HTML 或纯文本时会直接报错，不再渲染为空白页。
 - **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
+- **弹窗无障碍**：弹窗打开时会锁定背景区域的 `inert`，Tab / Shift+Tab 在弹窗按钮间循环，关闭动画结束后恢复背景并回到原焦点；弹窗通过 `aria-describedby` 关联正文。
 
 ## 支持的 XAML
 
