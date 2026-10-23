@@ -617,6 +617,65 @@ export async function runRegression() {
     return { gradient };
   });
 
+  await makeCheck(results, "Border.Background 的 ImageBrush 按 Stretch 与对齐铺满", async () => {
+    // PCL wallpapers paint a full-bleed Border background with
+    // <Border.Background><ImageBrush …/></Border.Background>; resolveColor
+    // cannot read that property element, so the brush has to be resolved.
+    const pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    harness.renderer.render(`
+      <StackPanel>
+        <Border Width="200" Height="100">
+          <Border.Background>
+            <ImageBrush ImageSource="${pixel}" Stretch="UniformToFill" AlignmentX="Center" AlignmentY="Center" />
+          </Border.Background>
+        </Border>
+        <Border Width="200" Height="100">
+          <Border.Background>
+            <ImageBrush ImageSource="${pixel}" Stretch="Uniform" AlignmentX="Left" AlignmentY="Top" />
+          </Border.Background>
+        </Border>
+        <Border Width="200" Height="100">
+          <Border.Background>
+            <ImageBrush ImageSource="${pixel}" Stretch="Fill" AlignmentX="Right" AlignmentY="Bottom" />
+          </Border.Background>
+        </Border>
+        <Border Width="200" Height="100" Background="#FF224466" />
+      </StackPanel>
+    `);
+    const borders = [...harness.root.querySelectorAll(".pcl-border")];
+    if (borders.length !== 4) throw new Error(`Border 数量错误：${borders.length}`);
+    const brushes = borders.slice(0, 3).map((node) => {
+      const style = getComputedStyle(node);
+      return {
+        image: style.backgroundImage,
+        size: style.backgroundSize,
+        position: style.backgroundPosition,
+        repeat: style.backgroundRepeat
+      };
+    });
+    const expected = [
+      { size: "cover", position: "50% 50%" },
+      { size: "contain", position: "0% 0%" },
+      { size: "100% 100%", position: "100% 100%" }
+    ];
+    brushes.forEach((brush, index) => {
+      if (!brush.image.startsWith("url(")) throw new Error(`第 ${index + 1} 个 ImageBrush 没有生成背景图`);
+      if (brush.size !== expected[index].size) {
+        throw new Error(`第 ${index + 1} 个 background-size 错误：${brush.size} != ${expected[index].size}`);
+      }
+      if (brush.position !== expected[index].position) {
+        throw new Error(`第 ${index + 1} 个 background-position 错误：${brush.position}`);
+      }
+      if (brush.repeat !== "no-repeat") throw new Error(`第 ${index + 1} 个 background-repeat 错误：${brush.repeat}`);
+    });
+    const solid = getComputedStyle(borders[3]);
+    if (solid.backgroundImage !== "none") throw new Error("普通 Background 被误加背景图");
+    if (!solid.backgroundColor.includes("34, 68, 102")) {
+      throw new Error(`普通 Background 颜色丢失：${solid.backgroundColor}`);
+    }
+    return { brushes };
+  });
+
   await makeCheck(results, "MyCard 标题、正文与按钮不重叠", async () => {
     harness.renderer.render(`
       <local:MyCard Margin="0">

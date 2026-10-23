@@ -17,7 +17,9 @@ import {
   parseSize,
   appendTextNode,
   findPropertyElement,
-  directContentChildren
+  directContentChildren,
+  resolveBrush,
+  applyBrush
 } from "../helpers.js";
 
 export class PclLayoutBuilders {
@@ -232,6 +234,16 @@ export class PclLayoutBuilders {
   applyForeground(node, props) {
     const foreground = resolveColor(getProp(props, "Foreground"));
     if (foreground) node.style.color = foreground;
+  }
+
+  // Paint the element's Background. PCL homepages often express it as a
+  // property element holding a brush (<Border.Background><ImageBrush …/>),
+  // which resolveColor cannot read, so look at the brush object first and only
+  // fall back to the plain attribute.
+  applyBackground(node, element, props) {
+    const property = findPropertyElement(element, "Background");
+    const brush = property ? resolveBrush(directContentChildren(property)[0]) : null;
+    if (applyBrush(node, brush)) return;
     const background = resolveColor(getProp(props, "Background"));
     if (background) node.style.background = background;
   }
@@ -364,8 +376,7 @@ export class PclLayoutBuilders {
     node.className = `pcl-stack${horizontal ? " pcl-stack--h" : ""}`;
     node.dataset.pclType = "StackPanel";
     this.count(node);
-    const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    this.applyBackground(node, element, props);
     this.applyBox(node, props);
     const childLayout = { kind: horizontal ? "stack-h" : "stack-v" };
     for (const child of directContentChildren(element)) {
@@ -419,8 +430,7 @@ export class PclLayoutBuilders {
     node.className = "pcl-grid";
     node.dataset.pclType = "Grid";
     this.count(node);
-    const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    this.applyBackground(node, element, props);
     const columns = this.readDefinitions(element, "ColumnDefinitions", true) || ["minmax(0, 1fr)"];
     const rows = this.readDefinitions(element, "RowDefinitions", false) || ["auto"];
     node.style.gridTemplateColumns = columns.join(" ");
@@ -477,8 +487,7 @@ export class PclLayoutBuilders {
     node.style.gridTemplateRows = `repeat(${Math.max(1, rows)}, minmax(0, 1fr))`;
     node.style.gridAutoFlow = "row";
 
-    const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    this.applyBackground(node, element, props);
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
 
@@ -499,12 +508,11 @@ export class PclLayoutBuilders {
     node.dataset.pclType = "GroupBox";
     this.count(node);
 
-    const background = resolveColor(getProp(props, "Background"));
     // Two layers, like the template: an unmasked background border and a
     // masked outline border. The converter only erases the outline.
     const fill = document.createElement("div");
     fill.className = "pcl-groupbox__fill";
-    if (background) fill.style.background = background;
+    this.applyBackground(fill, element, props);
     const frame = document.createElement("div");
     frame.className = "pcl-groupbox__frame";
     node.append(fill, frame);
@@ -601,8 +609,7 @@ export class PclLayoutBuilders {
     node.className = `pcl-wrap${horizontal ? "" : " pcl-wrap--vertical"}`;
     node.dataset.pclType = "WrapPanel";
     this.count(node);
-    const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    this.applyBackground(node, element, props);
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
     for (const child of directContentChildren(element)) {
@@ -619,8 +626,7 @@ export class PclLayoutBuilders {
     node.className = "pcl-canvas";
     node.dataset.pclType = "Canvas";
     this.count(node);
-    const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    this.applyBackground(node, element, props);
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
     for (const child of directContentChildren(element)) {
@@ -644,8 +650,7 @@ export class PclLayoutBuilders {
     node.className = "pcl-border";
     node.dataset.pclType = "Border";
     this.count(node);
-    const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    this.applyBackground(node, element, props);
     const radius = parseCornerRadius(getProp(props, "CornerRadius"));
     if (radius) node.style.borderRadius = radius;
     const thickness = parseThickness(getProp(props, "BorderThickness"));
@@ -686,8 +691,7 @@ export class PclLayoutBuilders {
     node.className = "pcl-scrollviewer pcl-scroll";
     node.dataset.pclType = "ScrollViewer";
     this.count(node);
-    const background = resolveColor(getProp(props, "Background"));
-    if (background) node.style.background = background;
+    this.applyBackground(node, element, props);
     const padding = parseThickness(getProp(props, "Padding"));
     if (padding) node.style.padding = padding.css;
     const vertical = (getProp(props, "VerticalScrollBarVisibility") || "Auto").toLowerCase();

@@ -1,4 +1,11 @@
-import { isPropertyElement, propertyElementName, parseDouble, resolveColor, tagName } from "../xaml.js";
+import {
+  isPropertyElement,
+  propertyElementName,
+  parseDouble,
+  resolveColor,
+  resolveImageSource,
+  tagName
+} from "../xaml.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const NO_ICON = "assets/pcl/images/Icons/NoIcon.png";
@@ -111,10 +118,33 @@ function gradientStops(element) {
     .map((stop) => `${stop.color} ${(stop.offset * 100).toFixed(2)}%`);
 }
 
+// Map a WPF Stretch/Alignment pair onto the CSS background-size /
+// background-position pair that paints the same way.
+const IMAGE_BRUSH_SIZE = {
+  uniformtofill: "cover",
+  uniform: "contain",
+  fill: "100% 100%",
+  none: "auto"
+};
+
+function imageBrushAlignment(value) {
+  switch (String(value || "Center").toLowerCase()) {
+    case "left":
+    case "top":
+      return "0%";
+    case "right":
+    case "bottom":
+      return "100%";
+    default:
+      return "50%";
+  }
+}
+
 // Resolve a WPF Brush object (usually inside a property element such as
-// <Rectangle.Fill>) to a CSS background value. PCL homepages commonly use
-// LinearGradientBrush for banner backgrounds, so ignoring it can leave white
-// text on a white card.
+// <Rectangle.Fill>) to a CSS paint description. Returns a CSS color/gradient
+// string for solid and gradient brushes, or an object describing a tiled or
+// stretched bitmap for <ImageBrush>, which PCL homepages use for full-bleed
+// wallpaper backgrounds.
 export function resolveBrush(element) {
   if (!element) return null;
   const name = tagName(element);
@@ -140,7 +170,37 @@ export function resolveBrush(element) {
     return stops.length ? `radial-gradient(circle at 50% 50%, ${stops.join(", ")})` : null;
   }
 
+  if (name === "ImageBrush") {
+    const source = resolveImageSource(getProp(props, "ImageSource"));
+    if (!source) return null;
+    const stretch = String(getProp(props, "Stretch") || "Fill").toLowerCase();
+    return {
+      image: `url("${source.replace(/"/g, "%22")}")`,
+      size: IMAGE_BRUSH_SIZE[stretch] || "100% 100%",
+      position: `${imageBrushAlignment(getProp(props, "AlignmentX"))} ${imageBrushAlignment(
+        getProp(props, "AlignmentY")
+      )}`,
+      repeat: /^(tile|repeat)$/i.test(String(getProp(props, "TileMode") || "")) ? "repeat" : "no-repeat"
+    };
+  }
+
   return null;
+}
+
+// Paint a resolved brush onto an element: colors and gradients go through
+// background, bitmaps through the matching background-* longhands.
+export function applyBrush(node, brush) {
+  if (!brush) return false;
+  if (typeof brush === "string") {
+    node.style.background = brush;
+    return true;
+  }
+  node.style.backgroundColor = "transparent";
+  node.style.backgroundImage = brush.image;
+  node.style.backgroundSize = brush.size;
+  node.style.backgroundPosition = brush.position;
+  node.style.backgroundRepeat = brush.repeat;
+  return true;
 }
 
 export function normalizeFillRule(data) {

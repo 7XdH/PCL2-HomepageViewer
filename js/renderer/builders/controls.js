@@ -19,7 +19,8 @@ import {
   findPropertyElement,
   directContentChildren,
   buildPathSvg,
-  resolveBrush
+  resolveBrush,
+  applyBrush
 } from "../helpers.js";
 
 export class PclControlBuilders extends PclLayoutBuilders {
@@ -674,7 +675,10 @@ export class PclControlBuilders extends PclLayoutBuilders {
       kind === "Rectangle" || kind === "Ellipse"
         ? resolveBrush(fillProperty ? directContentChildren(fillProperty)[0] : null)
         : null;
-    const fill = fillBrush || resolveColor(getProp(props, "Fill")) || "transparent";
+    // resolveBrush returns an object for <ImageBrush>; gradient and solid
+    // brushes stay plain CSS strings.
+    const plainFill = typeof fillBrush === "string" ? fillBrush : null;
+    const fill = plainFill || resolveColor(getProp(props, "Fill")) || "transparent";
     const stroke = resolveColor(getProp(props, "Stroke"));
     const strokeThickness = parseDouble(getProp(props, "StrokeThickness"), 0);
 
@@ -740,6 +744,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
     node.className = `pcl-shape pcl-shape--${kind === "Ellipse" ? "ellipse" : "rect"}`;
     node.dataset.pclType = kind;
     node.style.background = fill;
+    if (typeof fillBrush === "object" && fillBrush) applyBrush(node, fillBrush);
     if (stroke && strokeThickness > 0) node.style.border = `${strokeThickness}px solid ${stroke}`;
     if (kind === "Rectangle") {
       const radius = parseCornerRadius(getProp(props, "RadiusX", "RadiusY"));
