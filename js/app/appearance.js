@@ -1,19 +1,25 @@
 // Appearance: the shell around the PCL canvas.
 //
 // The canvas always renders exactly what PCL renders; this module only picks
-// which workspace surrounds it. `light` is the original bright workspace,
-// `dark` keeps the canvas lit as the subject, `amoled` drops the page to near
-// black so the canvas is the only bright thing on screen, and `auto` follows
-// the operating system. The two dark workspaces dim the canvas to 90% (see
+// which workspace surrounds it. `auto` follows the operating system and comes
+// first because it is the choice most people want; `light` is the original
+// bright workspace, `dark` keeps the canvas lit as the subject, and `amoled`
+// drops the page to near black so the canvas is the only bright thing on
+// screen. The two dark workspaces dim the canvas to 90% (see
 // --appearance-dim in appearance.css).
 
 const STORAGE_KEY = "pcl.lab.appearance.v1";
 const SYSTEM_QUERY = "(prefers-color-scheme: dark)";
-const VARIANTS = ["light", "dark", "amoled", "auto"];
+// Declared order is the order the switch shows and the order arrow keys walk,
+// so keep it aligned with index.html.
+const VARIANTS = ["auto", "light", "dark", "amoled"];
 const META_COLORS = { light: "#1370f3", dark: "#0b1016", amoled: "#05070a" };
+// Nothing stored yet (or storage blocked) falls back to the bright workspace,
+// which is what the tool looked like before the switch existed.
+const DEFAULT_VARIANT = "light";
 
 function normalize(value) {
-  return VARIANTS.includes(value) ? value : "light";
+  return VARIANTS.includes(value) ? value : DEFAULT_VARIANT;
 }
 
 export function systemPrefersDark() {
@@ -33,7 +39,7 @@ export function readStoredAppearance() {
   try {
     return normalize(window.localStorage.getItem(STORAGE_KEY));
   } catch {
-    return "light";
+    return DEFAULT_VARIANT;
   }
 }
 

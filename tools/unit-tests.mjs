@@ -257,6 +257,22 @@ test("appearance: auto follows the system and keeps the preference separate", ()
   assert.ok(bootTheme.includes('stored === "auto"'), "boot script must accept the auto preference");
 });
 
+test("appearance: the switch order matches the keyboard walk order", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const appearance = fs.readFileSync(new URL("../js/app/appearance.js", import.meta.url), "utf8");
+  const group = html.match(/<div class="theme-switch"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? "";
+  const domOrder = [...group.matchAll(/data-appearance="(\w+)"/g)].map((match) => match[1]);
+  // Auto is the option most people want, so it leads; arrow keys walk the same
+  // list, which only stays predictable if both orders are literally equal.
+  assert.deepEqual(domOrder, ["auto", "light", "dark", "amoled"]);
+  const declared = appearance.match(/const VARIANTS = \[([^\]]+)\]/)?.[1] ?? "";
+  const listOrder = [...declared.matchAll(/"(\w+)"/g)].map((match) => match[1]);
+  assert.deepEqual(listOrder, domOrder, "VARIANTS must mirror the markup order");
+  // A missing or unreadable stored value keeps the bright workspace, so an
+  // existing install does not suddenly turn dark on upgrade.
+  assert.match(appearance, /const DEFAULT_VARIANT = "light"/);
+});
+
 test("proxy core: URL, UA and redirect policy", () => {
   assert.throws(() => parseTarget("javascript:alert(1)"), proxyError(400));
   assert.throws(() => parseTarget("http://localhost/"), proxyError(403));

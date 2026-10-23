@@ -1721,7 +1721,7 @@ export async function runRegression() {
     if (!group) throw new Error("缺少外观切换控件");
     const buttons = [...group.querySelectorAll("[data-appearance]")];
     const names = buttons.map((button) => button.dataset.appearance);
-    if (names.join(",") !== "light,dark,amoled,auto") {
+    if (names.join(",") !== "auto,light,dark,amoled") {
       throw new Error("外观档位不是四档：" + names.join(","));
     }
     // Auto resolves to one of the concrete appearances, so leave it out of the
@@ -1787,7 +1787,7 @@ export async function runAppearanceAutoCheck() {
     if (!group) throw new Error("缺少外观切换控件");
     const buttons = [...group.querySelectorAll("[data-appearance]")];
     const names = buttons.map((button) => button.dataset.appearance);
-    if (names.join(",") !== "light,dark,amoled,auto") {
+    if (names.join(",") !== "auto,light,dark,amoled") {
       throw new Error("外观档位不是四档：" + names.join(","));
     }
 
