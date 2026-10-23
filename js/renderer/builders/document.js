@@ -192,7 +192,10 @@ export class PclDocumentBuilders extends PclControlBuilders {
     node.className = `pcl-check${isRadio ? " pcl-check--radio" : ""}`;
     node.dataset.pclType = kind;
     this.count(node);
-    const checked = parseBool(getProp(props, isRadio ? "Checked" : "IsChecked"), false);
+    // PCL declares "Checked" on MyCheckBox too (its WPF counterpart's
+    // IsChecked is not a member of the PCL control, so real homepages write
+    // Checked="True"); keep IsChecked as a fallback for WPF-style pages.
+    const checked = parseBool(getProp(props, "Checked", "IsChecked"), false);
     if (checked) node.classList.add("is-checked");
     const box = document.createElement("span");
     box.className = "pcl-check__box";

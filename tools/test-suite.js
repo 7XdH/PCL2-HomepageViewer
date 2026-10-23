@@ -709,6 +709,30 @@ export async function runRegression() {
     return { brushes };
   });
 
+  await makeCheck(results, "MyCheckBox 读取 PCL 的 Checked 属性并保留 IsChecked 兼容", async () => {
+    harness.renderer.render(`
+      <StackPanel>
+        <local:MyCheckBox Text="勾选我的世界" Checked="True" />
+        <local:MyCheckBox Text="未勾选" Checked="False" />
+        <local:MyCheckBox Text="WPF 写法" IsChecked="True" />
+      </StackPanel>
+    `);
+    const boxes = [...harness.root.querySelectorAll(".pcl-check")];
+    if (boxes.length !== 3) throw new Error(`复选框数量错误：${boxes.length}`);
+    const states = boxes.map((node) => ({
+      text: node.textContent.trim(),
+      checked: node.classList.contains("is-checked"),
+      aria: node.getAttribute("aria-checked")
+    }));
+    if (!states[0].checked) throw new Error('Checked="True" 没有渲染为勾选状态');
+    if (states[1].checked) throw new Error('Checked="False" 被渲染为勾选状态');
+    if (!states[2].checked) throw new Error("IsChecked 兼容读取失效");
+    if (states[0].aria !== "true" || states[1].aria !== "false") {
+      throw new Error(`aria-checked 与状态不同步：${states[0].aria}/${states[1].aria}`);
+    }
+    return { states };
+  });
+
   await makeCheck(results, "MyCard 标题、正文与按钮不重叠", async () => {
     harness.renderer.render(`
       <local:MyCard Margin="0">
