@@ -14,9 +14,10 @@ const SYSTEM_QUERY = "(prefers-color-scheme: dark)";
 // so keep it aligned with index.html.
 const VARIANTS = ["auto", "light", "dark", "amoled"];
 const META_COLORS = { light: "#1370f3", dark: "#0b1016", amoled: "#05070a" };
-// Nothing stored yet (or storage blocked) falls back to the bright workspace,
-// which is what the tool looked like before the switch existed.
-const DEFAULT_VARIANT = "light";
+// A first visit has no stored choice and starts on `auto`, so the workspace
+// matches whatever the operating system is already doing. Storage that is
+// blocked or holds an unknown value resolves to the same default.
+const DEFAULT_VARIANT = "auto";
 
 function normalize(value) {
   return VARIANTS.includes(value) ? value : DEFAULT_VARIANT;

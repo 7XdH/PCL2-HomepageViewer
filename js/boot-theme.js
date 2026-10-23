@@ -7,12 +7,17 @@
 (() => {
   const KEY = "pcl.lab.appearance.v1";
   const META_COLORS = { light: "#1370f3", dark: "#0b1016", amoled: "#05070a" };
-  let preference = "light";
+  // Mirror js/app/appearance.js: a first visit has no stored choice and starts
+  // on `auto`, so the head script must resolve the system preference too or the
+  // first frame would pick the wrong workspace and flash.
+  let preference = "auto";
   try {
     const stored = window.localStorage.getItem(KEY);
-    if (stored === "dark" || stored === "amoled" || stored === "auto") preference = stored;
+    if (stored === "light" || stored === "dark" || stored === "amoled" || stored === "auto") {
+      preference = stored;
+    }
   } catch {
-    /* storage blocked: keep the light default */
+    /* storage blocked: keep following the system */
   }
   // `auto` follows the operating system; an explicit choice ignores it.
   let theme = preference;

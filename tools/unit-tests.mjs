@@ -268,9 +268,15 @@ test("appearance: the switch order matches the keyboard walk order", () => {
   const declared = appearance.match(/const VARIANTS = \[([^\]]+)\]/)?.[1] ?? "";
   const listOrder = [...declared.matchAll(/"(\w+)"/g)].map((match) => match[1]);
   assert.deepEqual(listOrder, domOrder, "VARIANTS must mirror the markup order");
-  // A missing or unreadable stored value keeps the bright workspace, so an
-  // existing install does not suddenly turn dark on upgrade.
-  assert.match(appearance, /const DEFAULT_VARIANT = "light"/);
+  // A first visit has no stored choice and follows the system, which is also
+  // what the head script must do before paint.
+  assert.match(appearance, /const DEFAULT_VARIANT = "auto"/);
+  assert.match(appearance, /return DEFAULT_VARIANT;/);
+  const boot = fs.readFileSync(new URL("../js/boot-theme.js", import.meta.url), "utf8");
+  assert.match(boot, /let preference = "auto"/, "boot script must default to following the system");
+  const bootDefault = boot.match(/let preference = "(\w+)"/)?.[1];
+  const moduleDefault = appearance.match(/const DEFAULT_VARIANT = "(\w+)"/)?.[1];
+  assert.equal(moduleDefault, bootDefault, "both entry points must agree on the default");
 });
 
 test("proxy core: URL, UA and redirect policy", () => {
