@@ -10,6 +10,7 @@ import {
   isTextContentType,
   normalizeUserAgent,
   parseTarget,
+  proxyFailure,
   proxyRequestHeaders,
   resolveRedirect
 } from "./proxy-core.js";
@@ -22,6 +23,12 @@ function send(response, status, body, headers = {}) {
     response.setHeader(key, value);
   }
   response.end(body);
+}
+
+// Failures are reported through proxyFailure so that 5xx reasons survive CDNs.
+function sendFailure(response, status, body, imageMode = false) {
+  const failure = proxyFailure(status, body, { imageMode });
+  send(response, failure.status, failure.body, failure.headers);
 }
 
 async function discardBody(response) {
@@ -133,9 +140,10 @@ export default async function handler(request, response) {
     return;
   }
 
+  let imageMode = false;
   try {
     const target = requestUrl.searchParams.get("url");
-    const imageMode = requestUrl.searchParams.get("image") === "1";
+    imageMode = requestUrl.searchParams.get("image") === "1";
     const userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
     const result = await fetchTarget(target, userAgent, imageMode);
     const headers = {
@@ -158,6 +166,6 @@ export default async function handler(request, response) {
     send(response, 200, result.body, headers);
   } catch (error) {
     const status = error instanceof ProxyError ? error.status : 502;
-    send(response, status, String(error?.message || error));
+    sendFailure(response, status, String(error?.message || error), imageMode);
   }
 }

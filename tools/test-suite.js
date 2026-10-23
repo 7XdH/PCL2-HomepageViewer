@@ -106,6 +106,12 @@ const fetchRemoteXaml = async (url, runtime) => {
   try {
     const response = await fetch(proxy, { cache: "no-store", signal: controller.signal });
     const text = await response.text();
+    // Upstream 5xx reasons travel in X-PCL-Proxy-Status so CDNs cannot replace
+    // them with a generic error page; surface the real status here.
+    const reported = Number(response.headers.get("x-pcl-proxy-status"));
+    if (Number.isFinite(reported) && reported >= 400) {
+      throw new Error(`proxy HTTP ${reported}: ${text.trim().slice(0, 180)}`);
+    }
     if (!response.ok) throw new Error(`proxy HTTP ${response.status}: ${text.trim().slice(0, 180)}`);
     if (!/^\s*</.test(text)) throw new Error(`proxy 返回的不是 XAML：${text.trim().slice(0, 100)}`);
     return text;
@@ -549,6 +555,34 @@ export async function runRegression() {
       }
     }
     return { cases: cases.length };
+  });
+
+  await makeCheck(results, "代理失败原因不被 CDN 覆盖", async () => {
+    // Cloudflare replaces any 5xx body from the origin, so upstream failures
+    // must arrive as a 200 carrying X-PCL-Proxy-Status. Without this the viewer
+    // loses the reason and wrongly reports "no /api/proxy on this deployment".
+    const response = await fetch(
+      "/api/proxy?url=" + encodeURIComponent("https://raw.githubusercontent.com/nonexistent-zz/y.yaml"),
+      { cache: "no-store" }
+    );
+    const body = await response.text();
+    const reported = response.headers.get("x-pcl-proxy-status");
+    if (response.status !== 200) {
+      throw new Error(`上游 404 时不应再返回 ${response.status}，否则会被 CDN 替换成通用错误页`);
+    }
+    if (reported !== "502") throw new Error(`X-PCL-Proxy-Status 应为 502，实际 ${reported}`);
+    if (!/<html/i.test(body) && !/404|HTTP/.test(body)) {
+      throw new Error(`失败原因丢失：${body.slice(0, 120)}`);
+    }
+    // Image mode keeps the real status so <img> onerror still fires.
+    const image = await fetch(
+      "/api/proxy?url=" + encodeURIComponent("https://raw.githubusercontent.com/nonexistent-zz/y.png") + "&image=1",
+      { cache: "no-store" }
+    );
+    if (image.status < 400) {
+      throw new Error(`图片失败应保留 4xx/5xx 状态，实际 ${image.status}`);
+    }
+    return { reported, imageStatus: image.status };
   });
 
   await makeCheck(results, "XAML 安全过滤", async () => {

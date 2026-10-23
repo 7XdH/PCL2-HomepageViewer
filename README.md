@@ -193,6 +193,17 @@ PCL_PROXY_UA=PCL2-Homepage-Viewer
 
 Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDuration`。GitHub Pages 和 Netlify 静态部署不会包含这个函数。
 
+#### 失败状态为什么放在响应头里
+
+Cloudflare 之类的 CDN 会把源站返回的任何 5xx 换成自己的通用错误页，`api/proxy` 给出的真实原因（上游 404、DNS 失败、超时……）就丢失了，前端还会误判成“没有可用的 `/api/proxy`”。所以文本代理失败时：
+
+- HTTP 状态固定为 **200**，真实状态放在 **`X-PCL-Proxy-Status`**（例如 `502`、`504`）；
+- 响应体仍是可读的失败原因；
+- 4xx（缺参数、端口不允许、UA 非法）保持原状态码；
+- `image=1` 图片模式**保留真实 4xx/5xx**，否则 `<img>` 会把文本当成图片解码。
+
+前端在 `js/app/remote.js` 里先读这个响应头，再回退到 `response.ok`，因此本地 `node server.js`、Vercel、以及任何经过 CDN 的部署行为一致。仓库外的 `server.js` 使用同一个 `proxyFailure()`。
+
 ### Vercel 显示 `NOT_FOUND`
 
 如果 `/api/proxy` 可用，但 `/`、`/index.html` 和静态资源都是 404，通常是因为 Vercel 把仓库根目录的 `server.js` 自动识别成了 Express / Node 应用：

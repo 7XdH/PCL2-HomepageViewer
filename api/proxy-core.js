@@ -26,6 +26,31 @@ export class ProxyError extends Error {
   }
 }
 
+// Cloudflare (and several other CDNs) replace the body of any 5xx produced by
+// the origin with its own generic error page, so the reason the upstream failed
+// never reaches the viewer. Text failures therefore travel as a 200 whose real
+// status sits in this header; js/app/remote.js turns it back into an error.
+export const PROXY_STATUS_HEADER = "X-PCL-Proxy-Status";
+
+function normalizeFailureStatus(status) {
+  return Number.isInteger(status) && status >= 400 && status <= 599 ? status : 502;
+}
+
+export function proxyFailure(status, message, { imageMode = false } = {}) {
+  const safeStatus = normalizeFailureStatus(status);
+  const headers = {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+    [PROXY_STATUS_HEADER]: String(safeStatus)
+  };
+  // Images keep the real status: <img> only ever needs onerror, and a 200 with
+  // a text body would be decoded as a successful (garbage) image.
+  if (!imageMode && safeStatus >= 500) {
+    return { status: 200, headers, body: String(message ?? "") };
+  }
+  return { status: safeStatus, headers, body: String(message ?? "") };
+}
+
 const BLOCKED_ADDRESSES = new net.BlockList();
 for (const [address, prefix] of [
   ["0.0.0.0", 8],

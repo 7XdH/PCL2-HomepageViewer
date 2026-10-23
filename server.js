@@ -17,6 +17,7 @@ import {
   isTextContentType,
   normalizeUserAgent,
   parseTarget,
+  proxyFailure,
   proxyRequestHeaders,
   resolveRedirect
 } from "./api/proxy-core.js";
@@ -73,6 +74,14 @@ function send(res, status, body, headers = {}, { head = false, cors = false } = 
 
 function sendProxy(res, status, body, headers = {}) {
   send(res, status, body, headers, { cors: true });
+}
+
+// Report proxy failures the same way api/proxy.js does: a status read back from
+// X-PCL-Proxy-Status instead of a bare 5xx, so behaviour matches the Vercel
+// deployment and any CDN in front of it.
+function sendProxyFailure(res, status, body, imageMode = false) {
+  const failure = proxyFailure(status, body, { imageMode });
+  sendProxy(res, failure.status, failure.body, failure.headers);
 }
 
 function serveStatic(req, res, pathname) {
@@ -272,9 +281,7 @@ async function proxy(req, res, requestUrl) {
       "X-PCL-Proxy-Final-Url": result.finalUrl
     });
   } catch (error) {
-    sendProxy(res, error instanceof ProxyError ? error.status : 502, String(error?.message || error), {
-      "Content-Type": "text/plain; charset=utf-8"
-    });
+    sendProxyFailure(res, error instanceof ProxyError ? error.status : 502, String(error?.message || error), imageMode);
   }
 }
 

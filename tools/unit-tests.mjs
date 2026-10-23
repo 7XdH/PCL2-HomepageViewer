@@ -19,12 +19,14 @@ import { helpJsonTitle, resolveHelpUrls, resolveHelpXamlUrl } from "../js/help.j
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl } from "../js/url.js";
 import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
 import {
+  PROXY_STATUS_HEADER,
   ProxyError,
   assertPublicTarget,
   isImageContentType,
   isTextContentType,
   normalizeUserAgent,
   parseTarget,
+  proxyFailure,
   resolveRedirect
 } from "../api/proxy-core.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
@@ -266,4 +268,67 @@ test("Vercel proxy handler: rejects private targets and invalid requests", async
   assert.equal((await invoke("GET", "/api/proxy?url=http%3A%2F%2F127.0.0.1%2F")).status, 403);
   assert.equal((await invoke("GET", "/api/proxy?url=http%3A%2F%2Fexample.com%3A8080%2F")).status, 403);
   assert.equal((await invoke("GET", "/api/proxy?url=https%3A%2F%2Fexample.com%2F&ua=bad%0Aua")).status, 400);
+});
+
+test("proxy failure: 5xx reasons survive CDNs that rewrite error pages", () => {
+  const serverSide = proxyFailure(502, "远程服务器返回 HTTP 404");
+  assert.equal(serverSide.status, 200, "5xx must not reach Cloudflare as a 5xx");
+  assert.equal(serverSide.body, "远程服务器返回 HTTP 404");
+  assert.equal(serverSide.headers[PROXY_STATUS_HEADER], "502");
+  assert.equal(serverSide.headers["Cache-Control"], "no-store");
+
+  // 4xx pass through untouched so callers keep using the normal error path.
+  const forbidden = proxyFailure(403, "只允许 80 与 443 端口");
+  assert.equal(forbidden.status, 403);
+  assert.equal(forbidden.headers[PROXY_STATUS_HEADER], "403");
+
+  // Images keep the real status: a 200 text body would decode as a broken image.
+  const image = proxyFailure(504, "请求超时（25 秒）", { imageMode: true });
+  assert.equal(image.status, 504);
+  assert.equal(image.headers[PROXY_STATUS_HEADER], "504");
+
+  // Nonsense statuses fall back to 502 rather than emitting an invalid code.
+  assert.equal(proxyFailure(undefined, "x").headers[PROXY_STATUS_HEADER], "502");
+  assert.equal(proxyFailure(200, "x").headers[PROXY_STATUS_HEADER], "502");
+});
+
+test("Vercel proxy handler: upstream failures are not sent as 5xx", async () => {
+  const invoke = async (url) => {
+    let body = "";
+    const response = {
+      statusCode: 0,
+      headers: {},
+      setHeader(name, value) {
+        this.headers[name.toLowerCase()] = value;
+      },
+      end(chunk) {
+        body = chunk ? String(chunk) : "";
+      }
+    };
+    await proxyHandler({ method: "GET", url, headers: { host: "example.test" } }, response);
+    return { status: response.statusCode, body, headers: response.headers };
+  };
+
+  // Force the upstream request to fail without waiting on a real DNS timeout.
+  // example.com resolves quickly, so only the fetch itself needs stubbing.
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new TypeError("fetch failed");
+  };
+  try {
+    const failure = await invoke("/api/proxy?url=https%3A%2F%2Fexample.com%2Fx.xaml");
+    assert.equal(failure.status, 200, "5xx must not reach a CDN as a 5xx");
+    assert.equal(failure.headers[PROXY_STATUS_HEADER.toLowerCase()], "502");
+    assert.ok(failure.body.length > 0);
+
+    // Image mode must keep its real status so <img> onerror fires.
+    const imageFailure = await invoke("/api/proxy?url=https%3A%2F%2Fexample.com%2Fx.png&image=1");
+    assert.equal(imageFailure.status, 502);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  // 4xx still travel with their own status.
+  const blocked = await invoke("/api/proxy?url=https%3A%2F%2Fexample.com%3A8080%2F");
+  assert.equal(blocked.status, 403);
 });

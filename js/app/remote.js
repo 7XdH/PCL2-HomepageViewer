@@ -1,5 +1,8 @@
 import { MAX_SOURCE_BYTES, assertSourceWithinLimit, sourceLimitError } from "../limits.js";
 
+// Mirrors PROXY_STATUS_HEADER in api/proxy-core.js.
+const PROXY_STATUS_HEADER = "x-pcl-proxy-status";
+
 export async function readResponseTextLimited(response, label = "远程内容") {
   const contentLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_SOURCE_BYTES) {
@@ -42,11 +45,19 @@ export async function fetchViaProxy(url, signal, ua = "", label = "远程内容"
   if (ua) proxyUrl.searchParams.set("ua", ua);
   const response = await fetch(proxyUrl, { signal, cache: "no-store" });
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (!response.ok || contentType.includes("text/html")) {
+  // A 5xx from the function is rewritten by Cloudflare and similar CDNs into a
+  // generic HTML error page, so the proxy reports upstream failures as a 200
+  // carrying X-PCL-Proxy-Status. Read that first, then fall back to the real
+  // status for older deployments and non-CDN hosting.
+  const reported = Number(response.headers.get(PROXY_STATUS_HEADER));
+  const proxyStatus = Number.isFinite(reported) && reported >= 400 ? reported : 0;
+  if (proxyStatus || !response.ok || contentType.includes("text/html")) {
     const text = await readResponseTextLimited(response, `${label}错误响应`).catch(() => "");
-    const error = new Error(text.trim() || `代理返回 HTTP ${response.status}`);
-    error.status = response.status;
-    error.code = contentType.includes("text/html") ? "PROXY_HTML" : "PROXY_HTTP";
+    const error = new Error(text.trim() || `代理返回 HTTP ${proxyStatus || response.status}`);
+    // The upstream status drives the fallback policy in app/sources.js.
+    error.status = proxyStatus || response.status;
+    error.code =
+      !proxyStatus && contentType.includes("text/html") ? "PROXY_HTML" : "PROXY_HTTP";
     throw error;
   }
   return readResponseTextLimited(response, label);
