@@ -169,16 +169,7 @@ img {
   height: 48px;
   color: #fff;
   background: var(--pcl-title-gradient);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
   user-select: none;
-}
-
-.pcl-titlebar::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 58%);
 }
 
 .pcl-titlebar__spacer {
