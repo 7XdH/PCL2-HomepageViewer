@@ -1232,6 +1232,31 @@ body {
   letter-spacing: 0.02em;
 }
 
+.render-issues {
+  margin-right: 5px;
+  padding: 3px 8px;
+  border: 1px solid rgba(206, 33, 17, 0.42);
+  border-radius: 4px;
+  background: rgba(206, 33, 17, 0.08);
+  color: #ce2111;
+  font-family: var(--pcl-mono);
+  font-size: 8.5px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.render-issues:hover,
+.render-issues:focus-visible {
+  border-color: rgba(206, 33, 17, 0.72);
+  background: rgba(206, 33, 17, 0.16);
+}
+
+.render-issues[hidden] {
+  display: none;
+}
+
 .stage-icon-button {
   display: grid;
   place-items: center;

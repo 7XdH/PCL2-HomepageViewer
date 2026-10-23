@@ -72,6 +72,7 @@ const $ = {
   zoomLabel: el("zoomLabel"),
   sourceLabel: el("sourceLabel"),
   renderStats: el("renderStats"),
+  renderIssues: el("renderIssues"),
   runtimePill: el("runtimePill"),
   runtimeText: el("runtimeText"),
   fileInput: el("fileInput"),
@@ -273,6 +274,46 @@ function updateFileMeta() {
   }
 }
 
+let lastRenderIssues = [];
+
+function updateRenderIssues(issues) {
+  lastRenderIssues = issues;
+  const button = $.renderIssues;
+  if (!button) return;
+  const fatal = issues.filter((issue) => issue.severity === "error");
+  if (!issues.length) {
+    button.hidden = true;
+    button.textContent = "";
+    button.removeAttribute("title");
+    return;
+  }
+  button.hidden = false;
+  // PCL aborts the whole document on the first unknown member, so report how
+  // many of them would break the real launcher, not just how many exist.
+  button.textContent = fatal.length
+    ? `${fatal.length} 处在 PCL 中会加载失败`
+    : `${issues.length} 处属性可能不被 PCL 识别`;
+  button.title = issues.map((issue) => issue.message).join("\n");
+}
+
+function showRenderIssues() {
+  if (!lastRenderIssues.length) return;
+  const fatal = lastRenderIssues.filter((issue) => issue.severity === "error");
+  const heading = fatal.length
+    ? "以下属性在 PCL 中会导致主页加载失败（预览器仍会渲染）："
+    : "以下属性可能不会被 PCL 识别（预览器仍会渲染）：";
+  const lines = lastRenderIssues.map((issue) => `· ${issue.message}`);
+  const hint = fatal.length
+    ? "PCL 的原始提示是「加载主页失败 / 主页内容编写有误，请根据下列错误信息进行检查」，修好后再导入即可。"
+    : "预览器按浏览器规则渲染，PCL 可能会忽略这些属性。";
+  shell.showModal({
+    title: "兼容性警告",
+    caption: [heading, "", ...lines, "", hint].join("\n"),
+    buttons: ["确定"],
+    warn: Boolean(fatal.length)
+  });
+}
+
 function saveSourceState(content) {
   try {
     const payload = {
@@ -385,6 +426,7 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     $.sourceLabel.textContent = sources.sourceLabel();
     $.renderStats.textContent = `${result.controls} 个控件 · ${result.duration} ms${result.warnings.length ? ` · ${result.warnings.length} 个警告` : ""}`;
     $.renderStats.title = result.warnings.length ? result.warnings.join("\n") : "";
+    updateRenderIssues(result.issues || []);
     setRuntime("渲染就绪", "ready");
     setPresetActive(state.mode === "preset" ? state.preset : null);
     updateFileMeta();
@@ -396,6 +438,7 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     setRuntime("渲染失败", "error");
     $.renderStats.textContent = "渲染失败";
     $.renderStats.title = error.message || String(error);
+    updateRenderIssues([]);
     shell.setLoading(false);
     const message = String(error.message || error);
     const sourceTooLarge = error.code === "SOURCE_TOO_LARGE";
@@ -660,6 +703,7 @@ function bindUi() {
   $.renderBtn?.addEventListener("click", () => renderCurrent({ reason: "manual" }));
   $.refreshBtn?.addEventListener("click", () => renderCurrent({ reason: "refresh", forceRemote: true }));
   $.fullscreenBtn?.addEventListener("click", toggleFullscreen);
+  $.renderIssues?.addEventListener("click", showRenderIssues);
   $.exportBtn?.addEventListener("click", exportCurrent);
   $.helpBtn?.addEventListener("click", showHelp);
   $.eventLogBtn?.addEventListener("click", showEventLog);

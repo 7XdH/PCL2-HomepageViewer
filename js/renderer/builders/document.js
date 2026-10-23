@@ -1,6 +1,7 @@
 import { PclControlBuilders } from "./controls.js";
 import { tagName, readEvents, parseDouble, parseBool, parseThickness, extractText } from "../../xaml.js";
 import { getProp, readProps, directContentChildren } from "../helpers.js";
+import { isKnownControl } from "../known-attributes.js";
 
 export class PclDocumentBuilders extends PclControlBuilders {
   buildFlowDocumentScrollViewer(element, layout) {
@@ -224,8 +225,20 @@ export class PclDocumentBuilders extends PclControlBuilders {
     const props = readProps(element);
     const node = document.createElement("div");
     node.className = "pcl-unsupported";
-    node.textContent = `不支持的控件类型：${name}`;
-    this.warn(`不支持的控件类型：${name}`);
+    // PCL has no such control, so XamlReader fails with the same wording it
+    // uses for unknown members. Distinguish "PCL never had it" from "the
+    // previewer has not implemented it yet".
+    const declared = isKnownControl(name);
+    node.textContent = declared ? `暂未实现的控件：${name}` : `PCL 中不存在的控件：${name}`;
+    this.issues.push({
+      severity: "error",
+      tag: name,
+      member: name,
+      line: 0,
+      column: 0,
+      message: declared ? `『预览器暂未实现控件“${name}”，PCL 中可正常使用。』` : `『无法识别控件类型“${name}”。』`
+    });
+    this.warn(declared ? `暂未实现的控件：${name}` : `PCL 中不存在的控件：${name}`);
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
     return node;

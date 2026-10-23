@@ -1,6 +1,7 @@
 import { parseXaml, tagName, isPropertyElement, propertyElementName, attributeValue } from "./xaml.js";
 import { PclDocumentBuilders } from "./renderer/builders/document.js";
 import { RESOURCE_REF_RE, getProp, findPropertyElement } from "./renderer/helpers.js";
+import { classifyAttribute, locateAttribute } from "./renderer/known-attributes.js";
 
 export class PclRenderer extends PclDocumentBuilders {
   constructor({ root, runtime, getProxyUa, getProxyUas, lazyImages = true } = {}) {
@@ -11,6 +12,7 @@ export class PclRenderer extends PclDocumentBuilders {
     this.getProxyUas = getProxyUas;
     this.lazyImages = lazyImages;
     this.warnings = [];
+    this.issues = [];
     this.controlCount = 0;
     this.resources = new Map();
     this.implicitStyles = new Map();
@@ -61,6 +63,7 @@ export class PclRenderer extends PclDocumentBuilders {
     const elements = this.collectResources(documentRoot);
     this.applyStyles(documentRoot, elements);
     this.resolveResourceReferences(documentRoot, elements);
+    this.auditAttributes(documentRoot, source);
     const stack = document.createElement("div");
     stack.className = "pcl-xaml-root";
 
@@ -75,7 +78,48 @@ export class PclRenderer extends PclDocumentBuilders {
     this.clampCardTexts();
     this.root.scrollTop = 0;
     const duration = Math.max(1, Math.round(performance.now() - started));
-    return { controls: this.controlCount, duration, warnings: this.warnings.slice() };
+    return {
+      controls: this.controlCount,
+      duration,
+      warnings: this.warnings.slice(),
+      issues: this.issues.slice()
+    };
+  }
+
+  auditAttributes(documentRoot, source) {
+    // PCL feeds Custom.xaml to XamlReader, so a member the target type does not
+    // declare aborts the load with 「无法设置未知成员…，行号为 N，行位置为 M」.
+    // The previewer keeps rendering by design, but the same members are
+    // reported here with the matching line/position so a page that only works
+    // in the previewer is obvious.
+    this.issues = [];
+    if (!source) return;
+    const text = String(source);
+    let cursor = 0;
+    for (const element of documentRoot.querySelectorAll("*")) {
+      const tag = tagName(element);
+      if (!tag || tag === "PCLRoot") continue;
+      for (const attribute of Array.from(element.attributes)) {
+        const finding = classifyAttribute(tag.toLowerCase(), attribute.name, tag);
+        if (!finding) continue;
+        const position = locateAttribute(text, attribute.name, cursor);
+        cursor = position.cursor;
+        const location = position.line ? `，行号为“${position.line}”，行位置为“${position.column}”` : "";
+        const message =
+          finding.severity === "error"
+            ? `『无法设置未知成员“${finding.member}”。』${location}`
+            : `${finding.reason}${location}`;
+        this.issues.push({
+          severity: finding.severity,
+          tag: tag,
+          member: finding.member,
+          line: position.line,
+          column: position.column,
+          message
+        });
+        this.warn(finding.severity === "error" ? `PCL 会拒绝该属性：${message}` : message);
+      }
+    }
   }
 
   syncGroupBoxFrames() {

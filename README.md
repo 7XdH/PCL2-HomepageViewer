@@ -352,6 +352,10 @@ Root Directory: 留空
 - 文本换行、字体度量与 WPF 不是逐像素完全相同；已对齐主要尺寸、边距、颜色与字号。
 - 远程主页中的相对图片路径不会自动按远程 URL 解析。
 
+## 与 PCL 的加载语义差异
+
+PCL 用 `XamlReader` 加载 `Custom.xaml`，遇到类型上不存在的成员会整页失败并提示「加载主页失败 / 主页内容编写有误，请根据下列错误信息进行检查：『无法设置未知成员“PCL.xxx.yyy”。』，行号为“N”，行位置为“M”」。预览器**故意保持宽容**：未知成员照常忽略并继续渲染，但会在预览右上角显示「兼容性警告」徽标，点开可看到与 PCL 措辞一致、带行号和行位置的完整清单。落到红框的控件也分成两种提示——PCL 中存在但预览器暂未实现的，与 PCL 中根本不存在的。
+
 ## 项目结构
 
 ```text
@@ -372,6 +376,7 @@ js/pcl-presets.js          PCL2 25 个预设清单（UI 与测试共用）
 js/xaml.js                 XAML 解析、替换标记、安全过滤
 js/renderer.js             WPF / PCL 控件到 DOM 的渲染器入口
 js/renderer/helpers.js     渲染器共用的解析/几何/文本辅助函数
+js/renderer/known-attributes.js  PCL 控件属性白名单，用于兼容性警告
 js/renderer/builders/      布局、控件、文档流三类控件构建器
 js/runtime.js              自定义事件引擎
 js/shell.js                窗口外壳入口

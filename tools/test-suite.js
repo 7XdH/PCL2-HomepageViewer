@@ -81,6 +81,7 @@ const measure = (root, result) => {
     controls: result.controls,
     duration: result.duration,
     warnings: result.warnings.slice(),
+    issues: (result.issues || []).slice(),
     unsupported: root.querySelectorAll(".pcl-unsupported").length,
     cards: root.querySelectorAll(".pcl-card").length,
     images: images.length,
@@ -1421,6 +1422,43 @@ export async function runRegression() {
       const node = harness.root.querySelector(`[data-pcl-type="${type}"]`);
       if (!node) throw new Error(`${type} 未渲染`);
       if (!node.hidden) throw new Error(`${type} 在未设置 Show 时应隐藏`);
+    }
+    return metrics;
+  });
+
+  await makeCheck(results, "未知属性按 PCL 的成员名与行号报告", async () => {
+    const xaml = `<StackPanel Margin="0">
+  <local:MyButton Text="好" />
+  <local:MyButton Text="坏" TextColor="Red" />
+  <local:MyCard Title="卡片" Height="40" BgColor="#fff" />
+</StackPanel>`;
+    const metrics = await renderSource(harness, xaml);
+    if (!metrics.issues.length) throw new Error("未知属性未被报告");
+    const [first, second] = metrics.issues;
+    if (first.member !== "PCL.MyButton.TextColor") {
+      throw new Error(`成员名：期望 PCL.MyButton.TextColor，实际 ${first.member}`);
+    }
+    // The authored file keeps the leading newline, so the failing tag is line 3.
+    if (first.line !== 3) throw new Error(`行号：期望 3，实际 ${first.line}`);
+    if (second.member !== "PCL.MyCard.BgColor") {
+      throw new Error(`成员名：期望 PCL.MyCard.BgColor，实际 ${second.member}`);
+    }
+    if (!first.message.includes("无法设置未知成员")) {
+      throw new Error(`提示文案未沿用 PCL 的原话：${first.message}`);
+    }
+
+    // Attributes PCL really accepts must not be reported, otherwise every page
+    // would light up the badge.
+    const legit = `<StackPanel>
+  <local:MyButton Text="按钮" ColorType="Highlight" />
+  <local:MyCard Title="卡片" Height="40" CanSwap="True" IsSwapped="True" />
+  <local:MyHint Text="提示" Theme="Blue" CanClose="True" />
+  <local:MyImage Source="https://example.com/a.png" Stretch="UniformToFill" FallbackSource="x.png" />
+  <local:MyListItem Title="列表" Info="副标题" Logo="Blocks/CobbleStone.png" LogoScale="0.8" Type="Button" />
+</StackPanel>`;
+    const clean = await renderSource(harness, legit);
+    if (clean.issues.length) {
+      throw new Error(`误报：${clean.issues.map((issue) => issue.member).join("、")}`);
     }
     return metrics;
   });
