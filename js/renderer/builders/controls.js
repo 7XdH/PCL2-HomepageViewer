@@ -873,13 +873,21 @@ export class PclControlBuilders extends PclLayoutBuilders {
     // out a definite cell (Grid/Border/ScrollViewer/MyCard) therefore make a
     // stretched image fill the cell — the banner artwork in PCL homepages
     // depends on it — while stacks keep the intrinsic size.
+    //
+    // UniformToFill and Fill ask for the whole slot by themselves: Image's
+    // measure pass reports the constraint, so the bitmap is scaled to cover the
+    // cell and the overflow is clipped. Alignment only shrinks the desired size
+    // for the modes that can be smaller than the slot (Uniform/None), which is
+    // why PCL's news banner pairs `Stretch=UniformToFill` with
+    // `VerticalAlignment=Center` and still crops top and bottom.
     const stretches =
       String(getProp(props, "HorizontalAlignment") || "Stretch").toLowerCase() === "stretch" &&
       String(getProp(props, "VerticalAlignment") || "Stretch").toLowerCase() === "stretch";
+    const wantsWholeSlot = stretch === "uniformtofill" || stretch === "fill";
     const fillsCell =
       width == null &&
       height == null &&
-      stretches &&
+      (stretches || wantsWholeSlot) &&
       ["grid", "uniformgrid", "card", "border", "scroll"].includes(layout?.kind);
 
     // PCL applies <Image> Height/Width (XamlReader semantics): the mod-card

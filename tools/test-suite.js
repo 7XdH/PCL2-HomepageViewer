@@ -685,6 +685,44 @@ export async function runRegression() {
     return { inBorder: Math.round(inBorder.height), inGrid: Math.round(inGrid.height) };
   });
 
+  // PCL's news homepage paints its version banner with a style that sets
+  // `Stretch=UniformToFill` plus `VerticalAlignment=Center`: WPF measures the
+  // image at the slot size because UniformToFill can never be smaller than the
+  // slot, so the bitmap covers the border and the overflow is clipped top and
+  // bottom. Treating the centered alignment as "do not fill" left the banner
+  // letterboxed with empty margins on the left and right.
+  await makeCheck(results, "UniformToFill 图片即使垂直居中也会铺满并裁剪", async () => {
+    const wide =
+      "data:image/svg+xml;utf8," +
+      encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1170" height="500"><rect width="1170" height="500" fill="#127ae1"/></svg>'
+      );
+    harness.renderer.render(`
+      <StackPanel>
+        <Border Width="460" MaxHeight="140" BorderThickness="4" VerticalAlignment="Top">
+          <Image Source="${wide}" Stretch="UniformToFill" VerticalAlignment="Center" />
+        </Border>
+      </StackPanel>
+    `);
+    const wrap = harness.root.querySelector(".pcl-image-wrap");
+    const border = harness.root.querySelector(".pcl-border");
+    const frame = border.getBoundingClientRect();
+    const box = wrap.getBoundingClientRect();
+    if (!wrap.classList.contains("pcl-image-wrap--fill")) {
+      throw new Error("UniformToFill + VerticalAlignment=Center 没有启用填充");
+    }
+    const inner = frame.width - 8;
+    if (Math.abs(box.width - inner) > 1) {
+      throw new Error(`图片没有铺满边框宽度：${box.width.toFixed(1)} vs ${inner.toFixed(1)}`);
+    }
+    const img = wrap.querySelector("img");
+    if (img.style.width !== "100%" || img.style.height !== "100%") {
+      throw new Error(`图片没有撑满容器：${img.style.width} × ${img.style.height}`);
+    }
+    if (img.style.objectFit !== "cover") throw new Error(`UniformToFill 应映射为 cover，实际 ${img.style.objectFit}`);
+    return { width: Math.round(box.width), height: Math.round(box.height) };
+  });
+
   await makeCheck(results, "Border.Background 的 ImageBrush 按 Stretch 与对齐铺满", async () => {
     // PCL wallpapers paint a full-bleed Border background with
     // <Border.Background><ImageBrush …/></Border.Background>; resolveColor
