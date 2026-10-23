@@ -847,8 +847,7 @@
 
 .pcl-listitem__info {
   overflow: hidden;
-  margin-top: 1px;
-  color: var(--pcl-gray2);
+  color: var(--pcl-c1);
   font-size: 12px;
   line-height: 1.1509;
   opacity: 0.6;
@@ -856,6 +855,12 @@
   white-space: nowrap;
 }
 
+/* MyListItem.xaml.vb sets LabTitle's bottom margin to 2px whenever the row is
+   at least 40px tall, and LabInfo sits in the next Auto row with no top
+   margin; the old extra 1px above the subtitle therefore pushed it a pixel
+   below where PCL centres the pair. LabInfo also leaves Foreground unset, so
+   it inherits ColorBrush1 and reads as #848b91 at Opacity 0.6 over the card,
+   while the old gray source colour washed out to #ababab. */
 .pcl-listitem.has-info .pcl-listitem__title {
   margin-bottom: 2px;
 }
