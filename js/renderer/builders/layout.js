@@ -63,6 +63,20 @@ export class PclLayoutBuilders {
         return this.buildMyHint(element, layout);
       case "MyButton":
         return this.buildMyButton(element, layout);
+      case "MyTextBox":
+        return this.buildMyTextBox(element, layout);
+      case "MyComboBox":
+        return this.buildMyComboBox(element, layout);
+      case "MyComboBoxItem":
+        return this.buildMyComboBoxItem(element, layout);
+      case "MySearchBox":
+        return this.buildMySearchBox(element, layout);
+      case "MySlider":
+        return this.buildMySlider(element, layout);
+      case "MyExtraButton":
+        return this.buildMyExtraButton(element, layout);
+      case "MyExtraTextButton":
+        return this.buildMyExtraTextButton(element, layout);
       case "MyTextButton":
         return this.buildMyTextButton(element, layout);
       case "MyIconButton":

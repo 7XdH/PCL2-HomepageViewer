@@ -1370,6 +1370,61 @@ export async function runRegression() {
     return metrics;
   });
 
+  await makeCheck(results, "缺失的 PCL 输入控件不再落到不支持分支", async () => {
+    const xaml = `
+      <StackPanel>
+        <local:MyTextBox Text="值" HintText="提示" />
+        <local:MyComboBox SelectedIndex="1">
+          <local:MyComboBoxItem Content="甲" />
+          <local:MyComboBoxItem Content="乙" />
+        </local:MyComboBox>
+        <local:MySearchBox />
+        <local:MySlider MaxValue="10" Value="4" />
+        <local:MyExtraButton Logo="F1 M2,0 L0,2 8,10 0,18 2,20 10,12 18,20 20,18 12,10 20,2 18,0 10,8 2,0Z" Show="True" />
+        <local:MyExtraTextButton Text="附加" Show="True" />
+      </StackPanel>`;
+    const metrics = await renderSource(harness, xaml);
+    const unsupported = Array.from(harness.root.querySelectorAll(".pcl-unsupported")).map((node) => node.textContent);
+    if (unsupported.length) throw new Error(`仍有不支持控件：${unsupported.join("、")}`);
+
+    const input = harness.root.querySelector('[data-pcl-type="MyTextBox"] .pcl-input__field');
+    if (!input) throw new Error("MyTextBox 未渲染输入框");
+    if (input.value !== "值") throw new Error(`MyTextBox 文本：期望 值，实际 ${input.value}`);
+    if (input.placeholder !== "提示") throw new Error(`MyTextBox 提示：期望 提示，实际 ${input.placeholder}`);
+
+    const combo = harness.root.querySelector('[data-pcl-type="MyComboBox"]');
+    if (!combo) throw new Error("MyComboBox 未渲染");
+    const comboValue = combo.querySelector(".pcl-combo__value").textContent;
+    if (comboValue !== "乙") throw new Error(`MyComboBox 选中项：期望 乙，实际 ${comboValue}`);
+    const items = combo.querySelectorAll(".pcl-combo__item");
+    if (items.length !== 2) throw new Error(`MyComboBox 选项数：期望 2，实际 ${items.length}`);
+
+    if (!harness.root.querySelector('[data-pcl-type="MySearchBox"] .pcl-input__field')) {
+      throw new Error("MySearchBox 未渲染输入框");
+    }
+
+    const slider = harness.root.querySelector('[data-pcl-type="MySlider"]');
+    if (!slider) throw new Error("MySlider 未渲染");
+    if (slider.getAttribute("aria-valuenow") !== "4") {
+      throw new Error(`MySlider 数值：期望 4，实际 ${slider.getAttribute("aria-valuenow")}`);
+    }
+    const ratio = Number.parseFloat(slider.querySelector(".pcl-slider__dot").style.left);
+    if (Math.abs(ratio - 40) > 0.5) throw new Error(`MySlider 位置：期望 40%，实际 ${ratio}%`);
+
+    // Show defaults to False in PCL, so both corner buttons start collapsed.
+    const hidden = `<StackPanel>
+        <local:MyExtraButton Logo="F1 M0,0 L10,10Z" />
+        <local:MyExtraTextButton Text="隐藏" />
+      </StackPanel>`;
+    await renderSource(harness, hidden);
+    for (const type of ["MyExtraButton", "MyExtraTextButton"]) {
+      const node = harness.root.querySelector(`[data-pcl-type="${type}"]`);
+      if (!node) throw new Error(`${type} 未渲染`);
+      if (!node.hidden) throw new Error(`${type} 在未设置 Show 时应隐藏`);
+    }
+    return metrics;
+  });
+
   await makeCheck(results, "PCL 替换标记", async () => {
     const expected = {
       pcl_version: "2.99.0.0",

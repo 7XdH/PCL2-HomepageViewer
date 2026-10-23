@@ -1113,3 +1113,360 @@
   vertical-align: baseline;
 }
 
+
+/* --------------------------------------------------------------------------
+   MyTextBox — Application.xaml:241 (1px ColorBrushBg0 border, 28px row,
+   ColorBrushHalfWhite background, gray4 hint text)
+   -------------------------------------------------------------------------- */
+
+.pcl-input {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 28px;
+  border: 1px solid var(--pcl-bg0);
+  border-radius: 3px;
+  background: var(--pcl-half-white);
+  color: var(--pcl-c1);
+  font-family: var(--pcl-font);
+  font-size: 13px;
+  line-height: 1.1509;
+}
+
+.pcl-input.is-plain {
+  background: transparent;
+}
+
+.pcl-input.is-plain,
+.pcl-input.is-borderless {
+  border-color: transparent;
+}
+
+.pcl-input__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 0 0 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  caret-color: var(--pcl-c3);
+}
+
+.pcl-input__field::placeholder {
+  color: var(--pcl-gray4);
+  opacity: 1;
+}
+
+.pcl-input.is-disabled {
+  border-color: var(--pcl-gray5);
+  background: var(--pcl-gray6);
+  color: var(--pcl-gray5);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   MyComboBox / MyComboBoxItem — Application.xaml:336
+   -------------------------------------------------------------------------- */
+
+.pcl-combo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 26px;
+  border: 1px solid var(--pcl-bg0);
+  border-radius: 3px;
+  background: var(--pcl-half-white);
+  color: var(--pcl-bg0);
+  font-family: var(--pcl-font);
+  font-size: 13px;
+  line-height: 1.1509;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pcl-combo__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 21.5px 0 8.5px;
+  overflow: hidden;
+  color: var(--pcl-c1);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pcl-combo__arrow {
+  position: absolute;
+  top: 50%;
+  right: 1.5px;
+  width: 15px;
+  height: 15px;
+  margin-top: -7.5px;
+  pointer-events: none;
+  transition: transform 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+.pcl-combo.is-open .pcl-combo__arrow {
+  transform: rotate(180deg);
+}
+
+.pcl-combo__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 3;
+  display: none;
+  box-sizing: border-box;
+  min-width: 100%;
+  max-height: 320px;
+  margin-top: -1.5px;
+  overflow: auto;
+  border: 1px solid var(--pcl-bg0);
+  border-radius: 3px;
+  background: #ffffff;
+}
+
+.pcl-combo.is-open .pcl-combo__list {
+  display: block;
+}
+
+.pcl-combo__item {
+  padding: 4px 6px;
+  color: var(--pcl-c1);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pcl-combo__item:hover {
+  background: var(--pcl-c6);
+}
+
+.pcl-combo.is-disabled {
+  border-color: var(--pcl-gray5);
+  background: var(--pcl-gray6);
+  color: var(--pcl-gray5);
+  pointer-events: none;
+}
+
+.pcl-comboitem {
+  padding: 4px 6px;
+  color: var(--pcl-c1);
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------------------
+   MySearchBox — MySearchBox.xaml (a 40px MyCard around a borderless input)
+   -------------------------------------------------------------------------- */
+
+.pcl-searchbox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 40px;
+  min-width: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 1px 3px rgba(52, 61, 74, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+}
+
+.pcl-searchbox__icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  color: var(--pcl-c1);
+  pointer-events: none;
+}
+
+.pcl-searchbox .pcl-input {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.pcl-searchbox .pcl-input__field {
+  margin: 0;
+}
+
+.pcl-searchbox__box {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 40px 0 32px;
+}
+
+/* --------------------------------------------------------------------------
+   MySlider — MySlider.xaml (16px track, 10px dot, ColorBrushBg0)
+   -------------------------------------------------------------------------- */
+
+.pcl-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 16px;
+  min-width: 60px;
+  background: var(--pcl-semi-white);
+  touch-action: none;
+  cursor: pointer;
+}
+
+.pcl-slider__back,
+.pcl-slider__fore {
+  position: absolute;
+  top: 50%;
+  height: 0;
+  pointer-events: none;
+}
+
+.pcl-slider__back {
+  right: 1px;
+  left: 0;
+  margin-left: 0;
+  border-top: 1px solid var(--pcl-bg0);
+  opacity: 0.3;
+}
+
+.pcl-slider__fore {
+  left: 1px;
+  border-top: 2px solid var(--pcl-bg0);
+  margin-top: -0.5px;
+}
+
+.pcl-slider__dot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  margin-left: -5px;
+  box-sizing: border-box;
+  border: 1.2px solid var(--pcl-bg0);
+  border-radius: 50%;
+  background: var(--pcl-bg0);
+  pointer-events: none;
+}
+
+.pcl-slider.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   MyExtraButton / MyExtraTextButton — bottom-right corner buttons
+   -------------------------------------------------------------------------- */
+
+.pcl-extrabutton {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 50px;
+  border-radius: 1000px;
+  color: var(--pcl-c8);
+  cursor: pointer;
+}
+
+.pcl-extrabutton[hidden] {
+  display: none;
+}
+
+.pcl-extrabutton__back {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--pcl-semi-white);
+}
+
+.pcl-extrabutton__face {
+  position: absolute;
+  right: 0;
+  bottom: 10px;
+  left: 0;
+  top: 10px;
+  border-radius: inherit;
+  background: var(--pcl-c3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.pcl-extrabutton__logo {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+
+.pcl-extrabutton__progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.184);
+  pointer-events: none;
+}
+
+.pcl-extrabutton:hover .pcl-extrabutton__face {
+  filter: brightness(1.06);
+}
+
+.pcl-extratextbutton {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  box-sizing: border-box;
+  height: 52px;
+  border-radius: 20.8px;
+  background: var(--pcl-semi-white);
+  color: var(--pcl-c8);
+  cursor: pointer;
+}
+
+.pcl-extratextbutton[hidden] {
+  display: none;
+}
+
+.pcl-extratextbutton__face {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  margin: 10px 0 0;
+  padding: 0 20px;
+  border-radius: 20.8px;
+  background: var(--pcl-c3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.pcl-extratextbutton__logo {
+  width: 16px;
+  height: 16px;
+  margin: 0 0 0 2px;
+}
+
+.pcl-extratextbutton__text {
+  margin: 0 0 0.8px 12px;
+  font-size: 16px;
+  line-height: 1.1509;
+  white-space: nowrap;
+}
+
+.pcl-extrabutton:focus-visible,
+.pcl-extratextbutton:focus-visible,
+.pcl-combo:focus-visible,
+.pcl-slider:focus-visible {
+  outline: 2px solid var(--pcl-c4);
+  outline-offset: 1px;
+}

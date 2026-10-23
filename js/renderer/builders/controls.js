@@ -7,7 +7,8 @@ import {
   parseBool,
   parseThickness,
   parseCornerRadius,
-  resolveImageSource
+  resolveImageSource,
+  extractText
 } from "../../xaml.js";
 import {
   SVG_NS,
@@ -415,6 +416,323 @@ export class PclControlBuilders extends PclLayoutBuilders {
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout, { horizontal: "Center" });
     this.applyEnabled(node, props);
+    this.bindEvents(node, element);
+    return node;
+  }
+
+  // MyTextBox inherits WPF TextBox; Application.xaml:241 gives it a 28px row,
+  // a 1px ColorBrushBg0 border and the half-white background.
+  buildMyTextBox(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-input";
+    node.dataset.pclType = "MyTextBox";
+    this.count(node);
+
+    const hasBackground = parseBool(getProp(props, "HasBackground"), true);
+    if (!hasBackground) node.classList.add("is-plain");
+    if (parseDouble(getProp(props, "BorderThickness")) === 0) node.classList.add("is-borderless");
+    const radius = parseCornerRadius(getProp(props, "CornerRadius"));
+    if (radius) node.style.borderRadius = radius;
+    this.applyBackground(node, element, props);
+    this.applyForeground(node, props);
+
+    const field = document.createElement("input");
+    field.type = "text";
+    field.className = "pcl-input__field";
+    const value = getProp(props, "Text");
+    if (value != null) field.value = value;
+    const hint = getProp(props, "HintText");
+    if (hint) field.placeholder = hint;
+    const maxLength = parseDouble(getProp(props, "MaxLength"));
+    if (maxLength != null) field.maxLength = maxLength;
+    const padding = parseThickness(getProp(props, "Padding"));
+    if (padding) field.style.margin = padding.css;
+    this.applyTextStyles(field, props);
+    if (parseBool(getProp(props, "IsReadOnly"), false)) field.readOnly = true;
+    node.append(field);
+
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+    this.applyEnabled(node, props);
+    return node;
+  }
+
+  comboItemLabel(element) {
+    const props = readProps(element);
+    const value = getProp(props, "Content", "Text");
+    return value != null ? String(value) : extractText(element).trim();
+  }
+
+  buildMyComboBox(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-combo";
+    node.dataset.pclType = "MyComboBox";
+    this.count(node);
+    node.tabIndex = 0;
+    node.setAttribute("role", "combobox");
+    node.setAttribute("aria-expanded", "false");
+
+    const items = directContentChildren(element).filter((child) => tagName(child) === "MyComboBoxItem");
+    const selectedIndex = parseDouble(getProp(props, "SelectedIndex"), 0);
+
+    const value = document.createElement("span");
+    value.className = "pcl-combo__value";
+    const initial = getProp(props, "Text");
+    value.textContent =
+      initial != null ? initial : items[selectedIndex] ? this.comboItemLabel(items[selectedIndex]) : "";
+    node.append(value);
+
+    const arrow = document.createElement("span");
+    arrow.className = "pcl-combo__arrow";
+    const { svg } = buildPathSvg("M1,1 L4.5,4.5 L8,1", {
+      stretch: "Uniform",
+      stroke: "currentColor",
+      strokeThickness: 1.5
+    });
+    arrow.append(svg);
+    node.append(arrow);
+
+    const list = document.createElement("div");
+    list.className = "pcl-combo__list";
+    list.setAttribute("role", "listbox");
+    items.forEach((itemElement, index) => {
+      const item = document.createElement("div");
+      item.className = "pcl-combo__item";
+      item.setAttribute("role", "option");
+      item.textContent = this.comboItemLabel(itemElement);
+      if (index === selectedIndex) item.setAttribute("aria-selected", "true");
+      const itemEvents = readEvents(itemElement);
+      item.addEventListener("click", (event) => {
+        event.stopPropagation();
+        value.textContent = item.textContent;
+        node.classList.remove("is-open");
+        node.setAttribute("aria-expanded", "false");
+        if (itemEvents.length) this.runtime.raise(itemEvents, item);
+      });
+      list.append(item);
+    });
+    node.append(list);
+
+    const toggle = () => {
+      const open = node.classList.toggle("is-open");
+      node.setAttribute("aria-expanded", String(open));
+    };
+    node.addEventListener("click", (event) => {
+      if (event.target.closest(".pcl-combo__item")) return;
+      event.stopPropagation();
+      toggle();
+    });
+    node.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      toggle();
+    });
+
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+    this.applyEnabled(node, props);
+    return node;
+  }
+
+  buildMyComboBoxItem(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-comboitem";
+    node.dataset.pclType = "MyComboBoxItem";
+    this.count(node);
+    node.textContent = this.comboItemLabel(element);
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+    return node;
+  }
+
+  // MySearchBox.xaml is a 40px MyCard wrapping a borderless MyTextBox with a
+  // magnifier Path on the left and a clear button on the right.
+  buildMySearchBox(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-searchbox";
+    node.dataset.pclType = "MySearchBox";
+    this.count(node);
+
+    const icon = document.createElement("span");
+    icon.className = "pcl-searchbox__icon";
+    const { svg } = buildPathSvg(
+      "M675.9168 242.816C556.3008 123.2 362.4448 123.2 242.8288 242.816 123.2128 362.432 123.2128 556.288 242.8288 675.904 362.4448 795.52 556.3008 795.52 675.9168 675.904 795.5328 556.288 795.5328 362.432 675.9168 242.816L675.9168 242.816ZM1000.7168 892.48C1030.6048 922.368 1030.6048 970.816 1000.7168 1000.704 970.8288 1030.656 922.3808 1030.656 892.4288 1000.704L730.0608 838.336C728.1408 836.416 727.4368 833.92 725.7728 831.872 546.3168 960.448 295.7568 945.408 134.5408 784.192-44.8512 604.8-44.8512 313.92 134.5408 134.528 313.9328-44.864 604.8128-44.864 784.2048 134.528 945.4208 295.744 960.4608 546.304 831.8848 725.76 833.9328 727.424 836.4288 728.128 838.3488 730.048L1000.7168 892.48Z",
+      { stretch: "Uniform", fill: "currentColor" }
+    );
+    icon.append(svg);
+    node.append(icon);
+
+    const box = document.createElement("div");
+    box.className = "pcl-searchbox__box pcl-input is-plain is-borderless";
+    box.style.minHeight = "0";
+    const field = document.createElement("input");
+    field.type = "text";
+    field.className = "pcl-input__field";
+    field.placeholder = getProp(props, "HintText") || "";
+    const maxLength = parseDouble(getProp(props, "MaxLength"), 50);
+    if (maxLength != null) field.maxLength = maxLength;
+    box.append(field);
+    node.append(box);
+
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+    this.applyEnabled(node, props);
+    return node;
+  }
+
+  // MySlider.xaml: a 16px Border with a 4px back line, a 2px fore line and a
+  // 10px dot, all tinted by ColorBrushBg0.
+  buildMySlider(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-slider";
+    node.dataset.pclType = "MySlider";
+    this.count(node);
+    node.tabIndex = 0;
+    node.setAttribute("role", "slider");
+
+    const max = parseDouble(getProp(props, "MaxValue"), 100);
+    let current = parseDouble(getProp(props, "Value"), 0);
+    current = Math.max(0, Math.min(max, current));
+    const borderColor = resolveColor(getProp(props, "BorderBrush"));
+    if (borderColor) {
+      node.style.setProperty("--pcl-bg0", borderColor);
+    }
+
+    const back = document.createElement("span");
+    back.className = "pcl-slider__back";
+    const fore = document.createElement("span");
+    fore.className = "pcl-slider__fore";
+    const dot = document.createElement("span");
+    dot.className = "pcl-slider__dot";
+    node.append(back, fore, dot);
+
+    const paint = () => {
+      const ratio = max > 0 ? current / max : 0;
+      fore.style.width = `calc(${(ratio * 100).toFixed(4)}% - 1px)`;
+      dot.style.left = `calc(${(ratio * 100).toFixed(4)}%)`;
+      node.setAttribute("aria-valuenow", String(current));
+      node.setAttribute("aria-valuemin", "0");
+      node.setAttribute("aria-valuemax", String(max));
+    };
+    paint();
+
+    const setFromPointer = (event) => {
+      const rect = node.getBoundingClientRect();
+      if (!rect.width) return;
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      current = Math.round(ratio * max);
+      paint();
+    };
+    let dragging = false;
+    node.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      dragging = true;
+      node.setPointerCapture?.(event.pointerId);
+      setFromPointer(event);
+    });
+    node.addEventListener("pointermove", (event) => {
+      if (dragging) setFromPointer(event);
+    });
+    const stop = () => {
+      dragging = false;
+    };
+    node.addEventListener("pointerup", stop);
+    node.addEventListener("pointercancel", stop);
+    node.addEventListener("keydown", (event) => {
+      const step = event.shiftKey ? 10 : 1;
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") current = Math.max(0, current - step);
+      else if (event.key === "ArrowRight" || event.key === "ArrowUp") current = Math.min(max, current + step);
+      else return;
+      event.preventDefault();
+      paint();
+    });
+
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+    this.applyEnabled(node, props);
+    return node;
+  }
+
+  // MyExtraButton / MyExtraTextButton sit in the bottom-right corner stack and
+  // are collapsed until Show="True" (both default to False in PCL).
+  buildMyExtraButton(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-extrabutton";
+    node.dataset.pclType = "MyExtraButton";
+    this.count(node);
+    node.tabIndex = 0;
+    node.setAttribute("role", "button");
+
+    const back = document.createElement("span");
+    back.className = "pcl-extrabutton__back";
+    const face = document.createElement("span");
+    face.className = "pcl-extrabutton__face";
+    node.append(back, face);
+
+    const progress = parseDouble(getProp(props, "Progress"), 0);
+    if (progress) {
+      const bar = document.createElement("span");
+      bar.className = "pcl-extrabutton__progress";
+      bar.style.height = `${(Math.max(0, Math.min(1, progress)) * 100).toFixed(2)}%`;
+      node.append(bar);
+    }
+
+    const logo = getProp(props, "Logo");
+    if (logo) {
+      const { svg } = buildPathSvg(logo, { stretch: "Uniform", fill: "currentColor" });
+      svg.classList.add("pcl-extrabutton__logo");
+      node.append(svg);
+    }
+    const logoScale = parseDouble(getProp(props, "LogoScale"), 1);
+    node.style.setProperty("--logo-scale", String(logoScale));
+
+    if (!parseBool(getProp(props, "Show"), false)) node.hidden = true;
+    const tooltip = getProp(props, "ToolTip");
+    if (tooltip && !String(tooltip).trim().startsWith("{")) node.title = tooltip;
+
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
+    this.bindEvents(node, element);
+    return node;
+  }
+
+  buildMyExtraTextButton(element, layout) {
+    const props = readProps(element);
+    const node = document.createElement("div");
+    node.className = "pcl-extratextbutton";
+    node.dataset.pclType = "MyExtraTextButton";
+    this.count(node);
+    node.tabIndex = 0;
+    node.setAttribute("role", "button");
+
+    const face = document.createElement("span");
+    face.className = "pcl-extratextbutton__face";
+    const logo = getProp(props, "Logo");
+    if (logo) {
+      const { svg } = buildPathSvg(logo, { stretch: "Uniform", fill: "currentColor" });
+      svg.classList.add("pcl-extratextbutton__logo");
+      face.append(svg);
+    }
+    const text = document.createElement("span");
+    text.className = "pcl-extratextbutton__text";
+    const label = getProp(props, "Text");
+    if (label != null) text.textContent = label;
+    this.appendInlines(element, text);
+    face.append(text);
+    node.append(face);
+
+    if (!parseBool(getProp(props, "Show"), false)) node.hidden = true;
+    const tooltip = getProp(props, "ToolTip");
+    if (tooltip && !String(tooltip).trim().startsWith("{")) node.title = tooltip;
+
+    this.applyBox(node, props);
+    this.applyAlignment(node, props, layout);
     this.bindEvents(node, element);
     return node;
   }
