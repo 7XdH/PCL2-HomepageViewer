@@ -191,7 +191,7 @@ img {
 .pcl-nav {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 10px;
   height: 27px;
   justify-self: center;
 }
@@ -199,9 +199,9 @@ img {
 .pcl-nav__item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 27px;
-  padding: 0 10px;
+  padding: 0 14px;
   border: 0;
   border-radius: 13.5px;
   background: transparent;
@@ -213,8 +213,8 @@ img {
 }
 
 .pcl-nav__item svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex: none;
   opacity: 0.94;
   transition: opacity 140ms ease;
