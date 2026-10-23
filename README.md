@@ -137,7 +137,7 @@ Netlify 导入仓库后填写：
 | **Publish directory**   | `dist`                                                 |
 | **Functions directory** | `netlify/functions`（`netlify.toml` 已声明，留空即可） |
 
-Netlify 现在也包含 `/api/proxy`：`netlify/functions/proxy.mjs` 把 Netlify 的 Web `Request`/`Response` 适配到与 Vercel 相同的 `api/proxy.js`，`netlify.toml` 再用一条 `force` 重写把 `/api/proxy` 指过去。因此联网主页、PCL2 在线预设和远程图片在 Netlify 上与 Vercel 行为一致，同样受 `PCL_PROXY_ALLOWLIST` / `PCL_PROXY_UA` 环境变量约束（在 **Site configuration → Environment variables** 中设置）。
+Netlify 现在也包含 `/api/proxy`：`netlify/functions/proxy.mjs` 把 Netlify 的函数入口适配到与 Vercel 相同的 `api/proxy.js`（Functions 2.0 的 `Request`/`Response` 与 Functions 1.0 的 event → `{statusCode, body}` 两种形态都支持，二进制响应自动转 base64），`netlify.toml` 再用一条 `force` 重写把 `/api/proxy` 指过去。因此联网主页、PCL2 在线预设和远程图片在 Netlify 上与 Vercel 行为一致，同样受 `PCL_PROXY_ALLOWLIST` / `PCL_PROXY_UA` 环境变量约束（在 **Site configuration → Environment variables** 中设置）。
 
 Netlify 的函数默认在 `cmh`（美国俄亥俄）；如果你的读者主要在亚洲，可以在 **Project configuration → Functions → Region** 改成 `sin`、`nrt` 等更近的区域后重新部署。
 

@@ -1,11 +1,14 @@
 import proxyHandler from "../../api/proxy.js";
 
-// Netlify Functions hand the handler a web Request and expect a web Response,
-// while api/proxy.js is written against the Node (req, res) pair that Vercel and
-// server.js provide. This shim collects the Node-style writes and replays them as
-// a Response, so every deployment runs exactly the same proxy code path.
-// netlify.toml rewrites /api/proxy to /.netlify/functions/proxy, so the viewer
-// keeps the single same-origin URL it already uses.
+// Netlify can invoke a function through either of its two APIs:
+//   * Functions 2.0 — a web Request goes in and a web Response comes out.
+//   * Functions 1.0 — a Lambda-style event goes in and an {statusCode, headers,
+//     body} object comes out.
+// api/proxy.js is written against the Node (req, res) pair that Vercel and
+// server.js provide, so this module adapts both directions and then hands over
+// to the very same handler. netlify.toml rewrites /api/proxy to
+// /.netlify/functions/proxy, so the viewer keeps the one same-origin URL it
+// already uses on every deployment.
 
 function createNodeResponse() {
   const headers = new Headers();
@@ -39,7 +42,7 @@ function createNodeResponse() {
   };
 }
 
-export default async function netlifyProxy(request) {
+async function handleWebRequest(request) {
   const { response, toResponse } = createNodeResponse();
   const nodeRequest = {
     method: request.method,
@@ -55,4 +58,42 @@ export default async function netlifyProxy(request) {
     });
   }
   return toResponse();
+}
+
+// Functions 1.0 event → web Request. rawUrl carries the query string verbatim,
+// which is what the proxy needs to read ?url=; older payloads only expose
+// multiValueQueryStringParameters.
+function eventToRequest(event) {
+  const host = event.headers?.host || event.headers?.Host || "localhost";
+  const path = event.rawPath || event.path || "/api/proxy";
+  let query = event.rawQuery || "";
+  if (!query && event.multiValueQueryStringParameters) {
+    query = new URLSearchParams(
+      Object.entries(event.multiValueQueryStringParameters).flatMap(([key, values]) =>
+        (values || []).map((value) => [key, value])
+      )
+    ).toString();
+  }
+  const url = event.rawUrl || `https://${host}${path}${query ? `?${query}` : ""}`;
+  return new Request(url, { method: event.httpMethod || "GET", headers: event.headers || {} });
+}
+
+async function responseToLambda(response) {
+  const headers = {};
+  for (const [name, value] of response.headers) headers[name] = value;
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const textual = /^(?:text\/|application\/(?:json|xml|xaml))/.test(contentType);
+  return {
+    statusCode: response.status,
+    headers,
+    body: textual ? bytes.toString("utf8") : bytes.toString("base64"),
+    isBase64Encoded: !textual
+  };
+}
+
+export default async function netlifyProxy(input) {
+  if (input instanceof Request) return handleWebRequest(input);
+  const request = eventToRequest(input || {});
+  return responseToLambda(await handleWebRequest(request));
 }

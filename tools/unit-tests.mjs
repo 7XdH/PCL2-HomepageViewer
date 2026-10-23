@@ -379,6 +379,66 @@ test("Netlify function: speaks the same proxy contract as the Vercel handler", a
   }
 });
 
+test("Netlify function: also accepts the Lambda-style event used by Functions 1.0", async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () =>
+      new Response("<PCLRoot><local:MyCard /></PCLRoot>", {
+        status: 200,
+        headers: { "content-type": "application/xml" }
+      });
+
+    // rawQuery is the only place the query string survives in a v1 event.
+    const byRawQuery = await netlifyProxy({
+      httpMethod: "GET",
+      path: "/.netlify/functions/proxy",
+      rawQuery: "url=https%3A%2F%2F93.184.216.34%2Fx.xaml",
+      headers: { host: "example.test" }
+    });
+    assert.equal(byRawQuery.statusCode, 200);
+    assert.match(byRawQuery.body, /MyCard/);
+    assert.equal(byRawQuery.isBase64Encoded, false);
+    assert.equal(byRawQuery.headers["x-pcl-proxy"], "netlify");
+
+    const byMultiValue = await netlifyProxy({
+      httpMethod: "GET",
+      path: "/api/proxy",
+      multiValueQueryStringParameters: { url: ["https://93.184.216.34/x.xaml"] },
+      headers: { host: "example.test" }
+    });
+    assert.equal(byMultiValue.statusCode, 200);
+    assert.match(byMultiValue.body, /MyCard/);
+
+    const blocked = await netlifyProxy({
+      httpMethod: "GET",
+      path: "/api/proxy",
+      rawQuery: `url=${encodeURIComponent("http://example.com:8080/x")}`,
+      headers: {}
+    });
+    assert.equal(blocked.statusCode, 403);
+    assert.equal(blocked.headers["x-pcl-proxy-status"], "403");
+    assert.equal(blocked.body, "只允许 80 与 443 端口");
+
+    // Binary replies have to be base64-encoded for the Lambda contract.
+    globalThis.fetch = async () =>
+      new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
+        status: 200,
+        headers: { "content-type": "image/png" }
+      });
+    const image = await netlifyProxy({
+      httpMethod: "GET",
+      path: "/api/proxy",
+      rawQuery: `url=${encodeURIComponent("https://93.184.216.34/x.png")}&image=1`,
+      headers: { host: "example.test" }
+    });
+    assert.equal(image.statusCode, 200);
+    assert.equal(image.isBase64Encoded, true);
+    assert.deepEqual([...Buffer.from(image.body, "base64")], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("Netlify config: routes /api/proxy to the function bundle", () => {
   const toml = fs.readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
   assert.match(toml, /^\[functions\]$/m, "netlify.toml must declare [functions]");
