@@ -1341,6 +1341,35 @@ export async function runRegression() {
     return metrics;
   });
 
+  await makeCheck(results, "GroupBox 默认边框取 WPF Aero2 的灰蓝", async () => {
+    const xaml = `
+      <WrapPanel>
+        <GroupBox Header="默认" Content="1" MinWidth="90" MinHeight="60" />
+      </WrapPanel>`;
+    const metrics = await renderSource(harness, xaml);
+    const group = harness.root.querySelector('[data-pcl-type="GroupBox"]');
+    if (!group) throw new Error("GroupBox 未渲染");
+    const frame = group.querySelector(".pcl-groupbox__frame");
+    const outline = getComputedStyle(frame, "::before").borderTopColor;
+    if (outline !== "rgb(213, 223, 229)") {
+      throw new Error(`默认边框：期望 rgb(213, 223, 229)，实际 ${outline}`);
+    }
+
+    // An explicit BorderBrush must still win over the Aero2 fallback.
+    const explicit = `
+      <WrapPanel>
+        <GroupBox Header="显式" Content="1" MinWidth="90" MinHeight="60"
+                  BorderBrush="{DynamicResource ColorBrush3}" />
+      </WrapPanel>`;
+    await renderSource(harness, explicit);
+    const tinted = harness.root.querySelector(".pcl-groupbox__frame");
+    const tintedOutline = getComputedStyle(tinted, "::before").borderTopColor;
+    if (tintedOutline !== "rgb(18, 122, 225)") {
+      throw new Error(`显式边框：期望 rgb(18, 122, 225)，实际 ${tintedOutline}`);
+    }
+    return metrics;
+  });
+
   await makeCheck(results, "PCL 替换标记", async () => {
     const expected = {
       pcl_version: "2.99.0.0",

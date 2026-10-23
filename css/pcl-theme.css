@@ -26,16 +26,16 @@
   --pcl-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   --pcl-hue: 210;
-  --pcl-c1: #343d4a;
-  --pcl-c2: #0b5bcb;
-  --pcl-c3: #1370f3;
-  --pcl-c4: #4890f5;
-  --pcl-c5: #96c0f9;
-  --pcl-c6: #d5e6fd;
-  --pcl-c7: #e0eafd;
-  --pcl-c8: #eaf2fe;
-  --pcl-bg0: #96c0f9;
-  --pcl-bg1: rgba(224, 234, 253, 0.75);
+  --pcl-c1: #333e48;
+  --pcl-c2: #0f64b8;
+  --pcl-c3: #127ae1;
+  --pcl-c4: #3c96ef;
+  --pcl-c5: #90c3f6;
+  --pcl-c6: #cde4fb;
+  --pcl-c7: #e3f0fd;
+  --pcl-c8: #eef6fe;
+  --pcl-bg0: #73abe3;
+  --pcl-bg1: rgba(227, 240, 253, 0.745);
 
   --pcl-gray1: #404040;
   --pcl-gray2: #737373;
@@ -54,8 +54,8 @@
   --pcl-semi-white: rgba(255, 255, 255, 0.733);
   --pcl-sidebar: rgba(255, 255, 255, 0.945);
 
-  --pcl-title-gradient: linear-gradient(90deg, hsl(210 85% 48%), hsl(210 85% 54%), hsl(210 85% 48%));
-  --pcl-page-gradient: linear-gradient(225deg, hsl(195 68% 91%) 0%, hsl(210 68% 91%) 42%, hsl(225 68% 91%) 100%);
+  --pcl-title-gradient: linear-gradient(90deg, #106ac4, #1277dd, #106ac4);
+  --pcl-page-gradient: linear-gradient(233.67deg, #caeaf5 -1.62%, #d3e5f7 41.4%, #dbe2f8 101.62%);
   --pcl-hairline: rgba(52, 61, 74, 0.08);
 
   --pcl-scale: 1;
