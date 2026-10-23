@@ -2,6 +2,18 @@
   command = "npm run build"
   publish = "dist"
 
+# The proxy lives in netlify/functions so the same api/proxy.js code that Vercel
+# runs can serve /api/proxy here too; esbuild bundles the shared module.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/proxy"
+  to = "/.netlify/functions/proxy"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]

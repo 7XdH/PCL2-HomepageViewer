@@ -54,7 +54,7 @@ npm test
 
 ## 部署到静态托管
 
-可以以前端静态方式部署到 GitHub Pages、Netlify、Vercel。核心渲染、四个内置预设、本地文件与源码编辑都不依赖后端；PCL2 在线预设与“联网 URL”一样，需要可用的 `/api/proxy`，纯静态部署只能访问允许 CORS 的源。
+可以以前端静态方式部署到 GitHub Pages、Netlify、Vercel。核心渲染、四个内置预设、本地文件与源码编辑都不依赖后端；PCL2 在线预设与“联网 URL”一样，需要可用的 `/api/proxy`。Vercel 与 Netlify 都会自动提供这个同源代理，GitHub Pages 是纯静态托管，只能访问允许 CORS 的源。
 
 ```powershell
 npm run build
@@ -65,14 +65,14 @@ npm run build
 | 平台             | 配置                                                                                                                                                                                                                           |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **GitHub Pages** | 仓库 **Settings → Pages → Source → GitHub Actions**。推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动构建 `dist/` 并部署。项目使用相对路径，支持 `https://<user>.github.io/<repo>/` 子路径。                       |
-| **Netlify**      | 导入仓库即可；`netlify.toml` 已配置 `npm run build` 与发布目录 `dist/`。                                                                                                                                                       |
+| **Netlify**      | 导入仓库即可；`netlify.toml` 已配置 `npm run build`、发布目录 `dist/`、函数目录 `netlify/functions` 与 `/api/proxy` 重写。                                                                                                     |
 | **Vercel**       | 导入仓库即可；`vercel.json` 已配置 `framework: null`（避免把本地 `server.js` 误识别为 Node/Express 应用）、构建命令、`dist/` 输出目录和 `api/proxy.js` 的 30 秒执行时间。Vercel 会自动把 `api/proxy.js` 部署为 Node Function。 |
 
 静态部署的限制：
 
 - 没有服务端函数时，联网标签页会改为浏览器直接 `fetch`，目标站点必须返回允许跨域的响应头（如 `Access-Control-Allow-Origin: *`），例如 `raw.githubusercontent.com`。
-- 像 `https://news.bugjump.net/` 这类没有开放 CORS 的地址，在 GitHub Pages / Netlify 纯静态站点中无法加载；请运行 `node server.js`，或使用带代理的部署。
-- **Vercel 例外**：仓库已包含 `api/proxy.js`，部署到 Vercel 后会自动生成同源 `/api/proxy`，因此可以加载未开放 CORS 的新闻主页。前端会优先使用它。
+- 像 `https://news.bugjump.net/` 这类没有开放 CORS 的地址，在 GitHub Pages 纯静态站点中无法加载；请运行 `node server.js`，或使用带代理的部署。
+- **Vercel 与 Netlify**：仓库已包含代理实现（`api/proxy.js` 与 `netlify/functions/proxy.mjs`），部署后会自动生成同源 `/api/proxy`，因此可以加载未开放 CORS 的新闻主页。前端会优先使用它。
 - GitHub Pages 若仓库为私有，需要对应账号计划支持 Pages；公开仓库通常可直接使用。
 
 ### Vercel 导入配置
@@ -130,14 +130,25 @@ Static site built to dist
 
 Netlify 导入仓库后填写：
 
-| 配置项                  | 填写值                                |
-| ----------------------- | ------------------------------------- |
-| **Base directory**      | 留空                                  |
-| **Build command**       | `npm run build`                       |
-| **Publish directory**   | `dist`                                |
-| **Functions directory** | 留空（本仓库未提供 Netlify Function） |
+| 配置项                  | 填写值                                                 |
+| ----------------------- | ------------------------------------------------------ |
+| **Base directory**      | 留空                                                   |
+| **Build command**       | `npm run build`                                        |
+| **Publish directory**   | `dist`                                                 |
+| **Functions directory** | `netlify/functions`（`netlify.toml` 已声明，留空即可） |
 
-Netlify 不包含 `/api/proxy`；联网主页只能依赖目标站的 CORS，或改用 Vercel 部署。
+Netlify 现在也包含 `/api/proxy`：`netlify/functions/proxy.mjs` 把 Netlify 的 Web `Request`/`Response` 适配到与 Vercel 相同的 `api/proxy.js`，`netlify.toml` 再用一条 `force` 重写把 `/api/proxy` 指过去。因此联网主页、PCL2 在线预设和远程图片在 Netlify 上与 Vercel 行为一致，同样受 `PCL_PROXY_ALLOWLIST` / `PCL_PROXY_UA` 环境变量约束（在 **Site configuration → Environment variables** 中设置）。
+
+Netlify 的函数默认在 `cmh`（美国俄亥俄）；如果你的读者主要在亚洲，可以在 **Project configuration → Functions → Region** 改成 `sin`、`nrt` 等更近的区域后重新部署。
+
+### Netlify 环境变量
+
+与 Vercel 相同的两个变量，在 **Site configuration → Environment variables** 中添加：
+
+| 变量                  | 是否必填 | 示例                                         |
+| --------------------- | -------- | -------------------------------------------- |
+| `PCL_PROXY_ALLOWLIST` | 建议     | `news.bugjump.net,raw.githubusercontent.com` |
+| `PCL_PROXY_UA`        | 可选     | `PCL2-Homepage-Viewer`                       |
 
 ### Vercel 环境变量
 
@@ -191,7 +202,7 @@ PCL_PROXY_UA=PCL2-Homepage-Viewer
 
 不设置白名单时允许访问任意公网 HTTP(S) 文本地址。它仍然是一个出站代理，公开运行时请按需增加平台限流；不要把代理用作通用开放代理。
 
-Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDuration`。GitHub Pages 和 Netlify 静态部署不会包含这个函数。
+Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDuration`；Netlify 通过 `netlify/functions/proxy.mjs` 复用同一份代码。GitHub Pages 是纯静态托管，不包含这个函数。
 
 #### 失败状态为什么放在响应头里
 
@@ -399,6 +410,7 @@ assets/pcl/                PCL 图片、图标与字体
 assets/presets/            教程 / 画廊 / 事件 / 提示预设
 server.js                  静态服务器 + 本地文本代理
 api/proxy.js               Vercel Node Function 代理（SSRF 防护 / 白名单）
+netlify/functions/proxy.mjs Netlify Functions 适配层，复用 api/proxy.js
 api/proxy-core.js          本地与 Vercel 代理共用的 URL / SSRF / UA / 内容类型策略
 api/proxy-policy.js        代理图片/SVG 响应策略与安全头
 api/security-headers.js    页面与静态服务器共用的 CSP / 安全响应头

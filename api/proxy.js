@@ -26,9 +26,11 @@ function send(response, status, body, headers = {}) {
 }
 
 // Failures are reported through proxyFailure so that 5xx reasons survive CDNs.
-function sendFailure(response, status, body, imageMode = false) {
+// The platform tag also rides along, so a failure response still says which
+// deployment produced it.
+function sendFailure(response, status, body, imageMode = false, platform = "vercel") {
   const failure = proxyFailure(status, body, { imageMode });
-  send(response, failure.status, failure.body, failure.headers);
+  send(response, failure.status, failure.body, { ...failure.headers, "X-PCL-Proxy": platform });
 }
 
 async function discardBody(response) {
@@ -125,7 +127,7 @@ async function fetchTarget(initialTarget, userAgent, imageMode = false) {
   }
 }
 
-export default async function handler(request, response) {
+export default async function handler(request, response, { platform = "vercel" } = {}) {
   if (request.method !== "GET") {
     response.setHeader("Allow", "GET");
     send(response, 405, "Method Not Allowed");
@@ -147,7 +149,7 @@ export default async function handler(request, response) {
     const userAgent = normalizeUserAgent(requestUrl.searchParams.get("ua"));
     const result = await fetchTarget(target, userAgent, imageMode);
     const headers = {
-      "X-PCL-Proxy": "vercel",
+      "X-PCL-Proxy": platform,
       "X-PCL-Proxy-Ua": encodeURIComponent(userAgent),
       "X-PCL-Proxy-Final-Url": encodeURI(result.finalUrl)
     };
@@ -166,6 +168,6 @@ export default async function handler(request, response) {
     send(response, 200, result.body, headers);
   } catch (error) {
     const status = error instanceof ProxyError ? error.status : 502;
-    sendFailure(response, status, String(error?.message || error), imageMode);
+    sendFailure(response, status, String(error?.message || error), imageMode, platform);
   }
 }

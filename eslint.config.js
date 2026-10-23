@@ -81,7 +81,7 @@ export default [
   },
   {
     ...common,
-    files: ["api/**/*.js", "server.js", "tools/**/*.mjs", "eslint.config.js"],
+    files: ["api/**/*.js", "netlify/functions/**/*.mjs", "server.js", "tools/**/*.mjs", "eslint.config.js"],
     languageOptions: {
       ...common.languageOptions,
       globals: nodeGlobals

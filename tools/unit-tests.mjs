@@ -31,6 +31,7 @@ import {
 } from "../api/proxy-core.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
 import proxyHandler from "../api/proxy.js";
+import netlifyProxy from "../netlify/functions/proxy.mjs";
 
 const proxyError = (status) => (error) => {
   assert.ok(error instanceof ProxyError, `expected ProxyError, got ${error}`);
@@ -331,4 +332,71 @@ test("Vercel proxy handler: upstream failures are not sent as 5xx", async () => 
   // 4xx still travel with their own status.
   const blocked = await invoke("/api/proxy?url=https%3A%2F%2Fexample.com%3A8080%2F");
   assert.equal(blocked.status, 403);
+});
+test("Netlify function: speaks the same proxy contract as the Vercel handler", async () => {
+  const call = async (url, init = {}) => {
+    const response = await netlifyProxy(new Request(url, init));
+    const body = await response.text();
+    return { status: response.status, headers: response.headers, body };
+  };
+
+  const blocked = await call("https://example.test/api/proxy?url=https%3A%2F%2Fexample.com%3A8080%2F");
+  assert.equal(blocked.status, 403);
+
+  const wrongMethod = await call("https://example.test/api/proxy?url=https%3A%2F%2Fexample.com%2F", {
+    method: "POST"
+  });
+  assert.equal(wrongMethod.status, 405);
+  assert.equal(wrongMethod.headers.get("allow"), "GET");
+
+  const realFetch = globalThis.fetch;
+  try {
+    // An IP literal keeps assertPublicTarget offline-safe while still exercising
+    // the full read/validate path.
+    globalThis.fetch = async () =>
+      new Response("<PCLRoot><local:MyCard /></PCLRoot>", {
+        status: 200,
+        headers: { "content-type": "application/xml" }
+      });
+    const ok = await call("https://example.test/api/proxy?url=https%3A%2F%2F93.184.216.34%2Fx.xaml");
+    assert.equal(ok.status, 200);
+    assert.match(ok.body, /MyCard/);
+    assert.equal(ok.headers.get("x-pcl-proxy"), "netlify");
+    assert.equal(ok.headers.get("content-type"), "text/plain; charset=utf-8");
+
+    globalThis.fetch = async () => {
+      throw new TypeError("fetch failed");
+    };
+    const failure = await call("https://example.test/api/proxy?url=https%3A%2F%2F93.184.216.34%2Fx.xaml");
+    assert.equal(failure.status, 200, "5xx must not reach a CDN as a 5xx");
+    assert.equal(failure.headers.get("x-pcl-proxy-status"), "502");
+    assert.equal(failure.headers.get("x-pcl-proxy"), "netlify");
+
+    const imageFailure = await call("https://example.test/api/proxy?url=https%3A%2F%2F93.184.216.34%2Fx.png&image=1");
+    assert.equal(imageFailure.status, 502, "image mode keeps its real status");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("Netlify config: routes /api/proxy to the function bundle", () => {
+  const toml = fs.readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
+  assert.match(toml, /^\[functions\]$/m, "netlify.toml must declare [functions]");
+  assert.match(toml, /^\s*directory\s*=\s*"netlify\/functions"$/m);
+  assert.match(toml, /^\s*node_bundler\s*=\s*"esbuild"$/m);
+  // A rewrite (200 + force) keeps the /api/proxy URL the viewer already uses.
+  assert.match(
+    toml,
+    /\[\[redirects\]\][\s\S]*?from\s*=\s*"\/api\/proxy"[\s\S]*?to\s*=\s*"\/\.netlify\/functions\/proxy"[\s\S]*?status\s*=\s*200[\s\S]*?force\s*=\s*true/
+  );
+
+  const readme = fs.readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  assert.ok(!readme.includes("Netlify 不包含"), "README still claims Netlify ships no proxy");
+  assert.match(readme, /netlify\/functions\/proxy\.mjs/);
+
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.ok(
+    !html.includes("GitHub Pages、Netlify 等纯静态部署没有代理"),
+    "index.html still claims Netlify has no proxy"
+  );
 });

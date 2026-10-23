@@ -104,14 +104,14 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
           !proxyError || proxyError.status === 404 || proxyError.status === 405 || proxyError.code === "PROXY_HTML";
         const proxyHint = proxyError
           ? proxyMissing
-            ? `未找到可用的 /api/proxy（${proxyError.message}）。当前部署可能是纯静态站点。`
+            ? `未找到可用的 /api/proxy（${proxyError.message}）。当前部署可能是纯静态站点（例如 GitHub Pages）。`
             : `代理请求失败（${proxyError.message}）。`
           : "未找到可用的 /api/proxy。";
         throw new Error(
           `无法拉取${label}：${error.message}\n\n` +
             proxyHint +
             "\n" +
-            "目标站点未开放 CORS 时，需要可用的服务端代理（例如 Vercel Function /api/proxy），" +
+            "目标站点未开放 CORS 时，需要可用的服务端代理（Vercel Functions 或 Netlify Functions 的 /api/proxy），" +
             "或运行 node server.js 使用本地代理。"
         );
       }
