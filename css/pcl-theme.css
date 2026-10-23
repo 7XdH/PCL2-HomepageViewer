@@ -173,7 +173,19 @@ img {
 }
 
 .pcl-titlebar__spacer {
+  display: flex;
+  align-self: stretch;
+  align-items: flex-start;
   min-width: 0;
+}
+
+.pcl-titlebar__logo {
+  flex: none;
+  width: 38px;
+  height: 15.5px;
+  margin: 15.5px 0 0 19px;
+  color: #fff;
+  pointer-events: none;
 }
 
 .pcl-nav {
