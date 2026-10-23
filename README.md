@@ -251,9 +251,10 @@ Root Directory: 留空
 - **PCL2 预设面板**：接入 PCL2 启动器内置的 25 个主页预设，支持搜索名称 / 域名，标注“通常可用 / 上游可能不可用 / 会被安全阻止”；在线项优先使用 `PCL2/2.99.0.0` UA，并在内存中缓存，刷新按钮可强制重新拉取。
 - **1:1 PCL 外观**：850 × 500 窗口、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。
 - **跨浏览器滚动条**：Chromium 使用 8px WebKit 滚动条，Firefox 使用标准 `scrollbar-width: thin` / `scrollbar-color`，保持透明轨道和半透明滑块。
-- **三档界面外观**：右上角可切换「浅色 / 深色 / AMOLED」，选择保存在 `localStorage`（`pcl.lab.appearance.v1`）。三档只改变工具外壳与画布的衬底，画布内渲染的 XAML 完全一致；两档深色都会把 850 × 500 画布压到 90% 亮度（`--appearance-dim`），避免白底卡片在暗环境里刺眼。
+- **四档界面外观**：右上角可切换「浅色 / 深色 / AMOLED / 跟随系统」，选择保存在 `localStorage`（`pcl.lab.appearance.v1`）。各档只改变工具外壳与画布的衬底，画布内渲染的 XAML 完全一致；深色的两档都会把 850 × 500 画布压到 90% 亮度（`--appearance-dim`），避免白底卡片在暗环境里刺眼。
   - **深色**：画布是主角。外壳保留冷色光晕、玻璃托底、1px 发丝描边与中等落影，截图或投屏时画布与外壳是一个整体。
   - **AMOLED**：画布是画面里唯一亮的东西。去掉光晕、玻璃与落影，页面底色压到近黑（`#05070a`），只留一圈极淡描边，夜里不干扰阅读。
+  - **跟随系统**：由 `prefers-color-scheme` 决定用浅色还是深色，系统在日落后切换时会跟着变；更动系统设置不会覆盖手选的档位。首帧就按系统解析（`js/boot-theme.js`），不会先闪一下浅色再变暗。
 - **静态资源优化**：favicon 仅保留 16 / 32 / 48 三个 32bpp 帧，`LogoHex.png` 按 2× 显示尺寸输出为 64 × 72 PNG，减少首屏资源体积。
 - **资源与样式**：支持 `StackPanel.Resources` 中的 `sys:String`、`Style` 与 `{StaticResource}` / `{DynamicResource}` 字符串引用，包含隐式样式、显式 `Style`、`BasedOn` 和 `Setter`。
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线；分隔线文字会按内容伸展并自动换行，不再截成省略号。
@@ -356,7 +357,7 @@ Root Directory: 留空
 
 ## 主题色说明
 
-工具外壳（左侧控制面板、标题、背景）默认使用 PCL 蓝色，可切换为「深色 / AMOLED」两种深色外观（见「功能」）。主页源码中的 `{setup:UiLauncherHue}` 与 `修改设置 UiLauncherHue|<数值>` 只会重绘 850 × 500 的 PCL 预览画布，用来检查自定义主页在 PCL 不同色相下的外观。色阶按 PCL 的 `MyColor.FromHSL2` 亮度补偿公式计算；210° 使用 PCL 公布的 `ColorBrush` 表。
+工具外壳（左侧控制面板、标题、背景）默认使用 PCL 蓝色，可切换为「深色 / AMOLED」两种深色外观，也可选「跟随系统」由系统偏好决定（见「功能」）。主页源码中的 `{setup:UiLauncherHue}` 与 `修改设置 UiLauncherHue|<数值>` 只会重绘 850 × 500 的 PCL 预览画布，用来检查自定义主页在 PCL 不同色相下的外观。色阶按 PCL 的 `MyColor.FromHSL2` 亮度补偿公式计算；210° 使用 PCL 公布的 `ColorBrush` 表。
 
 ## 安全边界
 
@@ -388,7 +389,7 @@ index.html                 工具外壳 + 850 × 500 PCL 预览
 css/pcl-theme.css          PCL 窗口、标题栏、侧栏、滚动条、提示、弹窗
 css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
-css/appearance.css         浅色 / 深色 / AMOLED 三档外壳与画布压暗
+css/appearance.css         浅色 / 深色 / AMOLED / 跟随系统四档外壳与画布压暗
 js/app.js                  应用入口、状态、渲染流程、快捷键与 UI 绑定
 js/app/remote.js           远程读取、大小上限、XAML/JSON 响应校验
 js/app/sources.js          预设/文件/联网来源加载与来源标签

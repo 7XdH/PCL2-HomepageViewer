@@ -48,10 +48,30 @@
   letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition:
     color 140ms ease,
     background-color 140ms ease,
     box-shadow 140ms ease;
+}
+
+.theme-switch__label-short {
+  display: none;
+}
+
+/* The switch sits next to the runtime pill and the help button, so the
+   longest label is abbreviated on narrow screens to keep the header on one
+   row instead of wrapping. */
+@media (max-width: 520px) {
+  .theme-switch__label {
+    display: none;
+  }
+
+  .theme-switch__label-short {
+    display: inline;
+  }
 }
 
 .theme-switch__item:hover {

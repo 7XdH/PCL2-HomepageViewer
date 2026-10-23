@@ -469,6 +469,23 @@ const main = async () => {
       } finally {
         await browser.cdp.send("Emulation.clearDeviceMetricsOverride", {}, browser.sessionId);
       }
+
+      // The auto appearance follows the system, so drive prefers-color-scheme
+      // both ways instead of trusting whatever the host OS reports.
+      for (const scheme of ["dark", "light"]) {
+        await browser.cdp.send(
+          "Emulation.setEmulatedMedia",
+          { features: [{ name: "prefers-color-scheme", value: scheme }] },
+          browser.sessionId
+        );
+        try {
+          const autoResult = await loadSuite(browser.cdp, browser.sessionId, baseUrl, "runAppearanceAutoCheck");
+          printRegression(autoResult);
+          if (!autoResult.ok) failed = true;
+        } finally {
+          await browser.cdp.send("Emulation.setEmulatedMedia", { features: [] }, browser.sessionId);
+        }
+      }
     }
 
     if (WANT_PRESETS) {

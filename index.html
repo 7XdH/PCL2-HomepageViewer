@@ -43,14 +43,19 @@
                 data-appearance="dark" aria-label="深色外观">深色</button>
         <button class="theme-switch__item" type="button" role="radio" aria-checked="false"
                 data-appearance="amoled" aria-label="纯黑外观">AMOLED</button>
+        <button class="theme-switch__item" type="button" role="radio" aria-checked="false"
+                data-appearance="auto" aria-label="跟随系统外观">
+          <span class="theme-switch__label">跟随系统</span>
+          <span class="theme-switch__label-short" aria-hidden="true">系统</span>
+        </button>
       </div>
       <span class="runtime-pill" id="runtimePill">
         <span class="runtime-pill__dot"></span>
         <span id="runtimeText">正在初始化</span>
       </span>
-      <button class="lab-text-button" id="helpBtn" type="button">
+      <button class="lab-text-button" id="helpBtn" type="button" aria-label="使用说明">
         <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.15 6.2a1.9 1.9 0 1 1 2.32 1.85c-.3.1-.47.38-.47.7v.35" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="11.4" r=".8" fill="currentColor"/></svg>
-        使用说明
+        <span class="lab-text-button__label">使用说明</span>
       </button>
     </div>
   </header>

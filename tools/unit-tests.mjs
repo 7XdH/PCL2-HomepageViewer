@@ -236,6 +236,27 @@ test("appearance: the stored theme is restored before the first frame", () => {
   assert.match(css, /--appearance-dim:\s*0\.9;/);
 });
 
+test("appearance: auto follows the system and keeps the preference separate", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /data-appearance="auto"/, "index.html must offer the auto option");
+  assert.match(html, /data-appearance="light"/);
+  assert.match(html, /data-appearance="dark"/);
+  assert.match(html, /data-appearance="amoled"/);
+
+  const appearance = fs.readFileSync(new URL("../js/app/appearance.js", import.meta.url), "utf8");
+  // The preference is stored as-is; only the resolved workspace is written to
+  // <html>, so a later OS switch still applies while on auto.
+  assert.match(appearance, /prefers-color-scheme: dark/);
+  assert.match(appearance, /dataset\.appearance\s*=/, "preference must be exposed on <html>");
+  assert.match(appearance, /dataset\.theme\s*=/, "resolved workspace must be exposed on <html>");
+  assert.match(appearance, /function resolveAppearance\(value\)[\s\S]*?preference !== "auto"/);
+  assert.match(appearance, /systemPrefersDark\(\) \? "dark" : "light"/);
+
+  const bootTheme = fs.readFileSync(new URL("../js/boot-theme.js", import.meta.url), "utf8");
+  assert.match(bootTheme, /prefers-color-scheme: dark/, "boot script must resolve auto before paint");
+  assert.ok(bootTheme.includes('stored === "auto"'), "boot script must accept the auto preference");
+});
+
 test("proxy core: URL, UA and redirect policy", () => {
   assert.throws(() => parseTarget("javascript:alert(1)"), proxyError(400));
   assert.throws(() => parseTarget("http://localhost/"), proxyError(403));

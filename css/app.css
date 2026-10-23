@@ -1703,6 +1703,23 @@ body {
   }
 }
 
+/* Below this width the four appearance options plus the help button leave the
+   product name with almost nothing, so the help button drops to its icon. The
+   label stays in the accessible name, keeping the button understandable. */
+@media (max-width: 400px) {
+  .lab-text-button__label {
+    display: none;
+  }
+}
+
+/* Squeezing the name down to "Pl…" reads as broken rather than compact, so on
+   the narrowest screens the mark stands in for the brand on its own. */
+@media (max-width: 360px) {
+  .lab-brand__text {
+    display: none;
+  }
+}
+
 @media (max-height: 780px) and (min-width: 1241px) {
   .lab-header {
     height: 62px;

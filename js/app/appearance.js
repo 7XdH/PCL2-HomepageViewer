@@ -2,16 +2,31 @@
 //
 // The canvas always renders exactly what PCL renders; this module only picks
 // which workspace surrounds it. `light` is the original bright workspace,
-// `dark` keeps the canvas lit as the subject, and `amoled` drops the page to
-// near black so the canvas is the only bright thing on screen. Both dark
-// appearances dim the canvas to 90% (see --appearance-dim in appearance.css).
+// `dark` keeps the canvas lit as the subject, `amoled` drops the page to near
+// black so the canvas is the only bright thing on screen, and `auto` follows
+// the operating system. The two dark workspaces dim the canvas to 90% (see
+// --appearance-dim in appearance.css).
 
 const STORAGE_KEY = "pcl.lab.appearance.v1";
-const VARIANTS = ["light", "dark", "amoled"];
+const SYSTEM_QUERY = "(prefers-color-scheme: dark)";
+const VARIANTS = ["light", "dark", "amoled", "auto"];
 const META_COLORS = { light: "#1370f3", dark: "#0b1016", amoled: "#05070a" };
 
 function normalize(value) {
   return VARIANTS.includes(value) ? value : "light";
+}
+
+export function systemPrefersDark() {
+  return Boolean(window.matchMedia?.(SYSTEM_QUERY).matches);
+}
+
+// `auto` resolves to the dark workspace when the system asks for dark and to
+// the light one otherwise. The canvas dim only applies to the dark result, so
+// a light-system user never sees a dimmed canvas.
+export function resolveAppearance(value) {
+  const preference = normalize(value);
+  if (preference !== "auto") return preference;
+  return systemPrefersDark() ? "dark" : "light";
 }
 
 export function readStoredAppearance() {
@@ -22,18 +37,23 @@ export function readStoredAppearance() {
   }
 }
 
+// Writes the preference and the workspace it resolves to. Returns the
+// preference, which is what the switch and storage track.
 export function applyAppearance(value) {
-  const next = normalize(value);
+  const preference = normalize(value);
+  const theme = resolveAppearance(preference);
   const root = document.documentElement;
-  root.dataset.theme = next;
+  root.dataset.theme = theme;
+  root.dataset.appearance = preference;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", META_COLORS[next]);
-  return next;
+  if (meta) meta.setAttribute("content", META_COLORS[theme]);
+  return preference;
 }
 
 export function createAppearance({ group, onChange } = {}) {
   let current = applyAppearance(readStoredAppearance());
   const buttons = group ? Array.from(group.querySelectorAll("[data-appearance]")) : [];
+  const media = window.matchMedia?.(SYSTEM_QUERY) ?? null;
 
   function paint() {
     for (const button of buttons) {
@@ -61,8 +81,21 @@ export function createAppearance({ group, onChange } = {}) {
     return current;
   }
 
+  // Only the `auto` preference tracks the system; an explicit choice stays put
+  // when the OS flips at sunset.
+  function followSystem() {
+    if (current !== "auto") return;
+    applyAppearance(current);
+    onChange?.(current);
+  }
+
   for (const button of buttons) {
     button.addEventListener("click", () => set(button.dataset.appearance));
+  }
+
+  if (media) {
+    if (media.addEventListener) media.addEventListener("change", followSystem);
+    else media.addListener?.(followSystem);
   }
 
   group?.addEventListener("keydown", (event) => {
@@ -84,6 +117,10 @@ export function createAppearance({ group, onChange } = {}) {
     get current() {
       return current;
     },
+    get resolved() {
+      return resolveAppearance(current);
+    },
+    followsSystem: Boolean(media),
     set,
     variants: VARIANTS.slice()
   };

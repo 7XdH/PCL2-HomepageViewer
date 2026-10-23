@@ -1712,26 +1712,30 @@ export async function runRegression() {
     }
     return { layers };
   });
-  await makeCheck(results, "三档外观切换与画布压暗", async () => {
-    // The shell offers light / dark / amoled. The two dark ones differ only in
-    // how they back the canvas, and both dim the canvas to 90% brightness. The
-    // canvas keeps rendering the same PCL pixels in every appearance.
+  await makeCheck(results, "四档外观切换与画布压暗", async () => {
+    // The shell offers light / dark / amoled plus an auto option that follows
+    // the system (covered by runAppearanceAutoCheck). The two dark ones differ
+    // only in how they back the canvas, and both dim the canvas to 90%
+    // brightness. The canvas keeps rendering the same PCL pixels throughout.
     const group = document.getElementById("themeSwitch");
     if (!group) throw new Error("缺少外观切换控件");
     const buttons = [...group.querySelectorAll("[data-appearance]")];
     const names = buttons.map((button) => button.dataset.appearance);
-    if (names.join(",") !== "light,dark,amoled") {
-      throw new Error("外观档位不是三档：" + names.join(","));
+    if (names.join(",") !== "light,dark,amoled,auto") {
+      throw new Error("外观档位不是四档：" + names.join(","));
     }
+    // Auto resolves to one of the concrete appearances, so leave it out of the
+    // fixed-workspace loop below.
+    const fixed = names.filter((name) => name !== "auto");
 
     const root = document.documentElement;
     const canvas = document.getElementById("pclWindow");
     if (!canvas) throw new Error("缺少预览画布");
-    const previous = root.dataset.theme;
+    const previous = root.dataset.appearance || root.dataset.theme;
     const previousStored = window.localStorage.getItem("pcl.lab.appearance.v1");
     const seen = {};
     try {
-      for (const name of names) {
+      for (const name of fixed) {
         buttons.find((button) => button.dataset.appearance === name).click();
         await sleep(120);
         const checked = buttons
@@ -1755,7 +1759,6 @@ export async function runRegression() {
       if (seen.dark.body === seen.amoled.body) throw new Error("深色与 AMOLED 外壳没有区别");
       if (seen.dark.body === seen.light.body) throw new Error("深色与浅色外壳没有区别");
     } finally {
-      root.dataset.theme = previous || "light";
       try {
         if (previousStored == null) window.localStorage.removeItem("pcl.lab.appearance.v1");
         else window.localStorage.setItem("pcl.lab.appearance.v1", previousStored);
@@ -1769,6 +1772,73 @@ export async function runRegression() {
 
   const ok = results.every((item) => item.ok);
   window.__PCL_TEST_RESULT__ = { suite: "regression", ok, results };
+  return window.__PCL_TEST_RESULT__;
+}
+
+export async function runAppearanceAutoCheck() {
+  const results = [];
+
+  await makeCheck(results, "跟随系统外观遵循 prefers-color-scheme", async () => {
+    // The host OS is emulated by the harness, so read the same query the
+    // module reads instead of assuming dark or light.
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const expectDark = media.matches;
+    const group = document.getElementById("themeSwitch");
+    if (!group) throw new Error("缺少外观切换控件");
+    const buttons = [...group.querySelectorAll("[data-appearance]")];
+    const names = buttons.map((button) => button.dataset.appearance);
+    if (names.join(",") !== "light,dark,amoled,auto") {
+      throw new Error("外观档位不是四档：" + names.join(","));
+    }
+
+    const root = document.documentElement;
+    const canvas = document.getElementById("pclWindow");
+    const previous = root.dataset.appearance;
+    const previousStored = window.localStorage.getItem("pcl.lab.appearance.v1");
+    const seen = {};
+    try {
+      buttons.find((button) => button.dataset.appearance === "auto").click();
+      await sleep(120);
+      if (window.localStorage.getItem("pcl.lab.appearance.v1") !== "auto") {
+        throw new Error("未记住跟随系统档位");
+      }
+      // data-appearance keeps the preference while data-theme holds the
+      // workspace the preference resolves to.
+      if (root.dataset.appearance !== "auto") {
+        throw new Error("data-appearance 不是 auto：" + root.dataset.appearance);
+      }
+      const expectedTheme = expectDark ? "dark" : "light";
+      if (root.dataset.theme !== expectedTheme) {
+        throw new Error(`跟随系统解析错误：期望 ${expectedTheme}，实际 ${root.dataset.theme}`);
+      }
+      const filter = getComputedStyle(canvas).filter;
+      const expectedFilter = expectDark ? "brightness(0.9)" : "none";
+      if (filter !== expectedFilter) {
+        throw new Error(`跟随系统的画布亮度错误：期望 ${expectedFilter}，实际 ${filter}`);
+      }
+      seen.scheme = expectDark ? "dark" : "light";
+      seen.theme = root.dataset.theme;
+      seen.filter = filter;
+
+      // An explicit choice must ignore the system preference.
+      buttons.find((button) => button.dataset.appearance === "amoled").click();
+      await sleep(120);
+      if (root.dataset.theme !== "amoled") throw new Error("显式选择被系统覆盖：" + root.dataset.theme);
+      if (root.dataset.appearance !== "amoled") throw new Error("data-appearance 未更新：" + root.dataset.appearance);
+    } finally {
+      try {
+        if (previousStored == null) window.localStorage.removeItem("pcl.lab.appearance.v1");
+        else window.localStorage.setItem("pcl.lab.appearance.v1", previousStored);
+      } catch {
+        /* storage may be unavailable; the result is already collected */
+      }
+      buttons.find((button) => button.dataset.appearance === (previous || "light"))?.click();
+    }
+    return seen;
+  });
+
+  const ok = results.every((item) => item.ok);
+  window.__PCL_TEST_RESULT__ = { suite: "appearance-auto", ok, results };
   return window.__PCL_TEST_RESULT__;
 }
 
@@ -1804,6 +1874,36 @@ export async function runMobileRegression() {
       throw new Error("移动端缺少横向滑动提示");
     }
     return { scale, clientWidth: frame.clientWidth, scrollWidth: frame.scrollWidth };
+  });
+
+  await makeCheck(results, "移动端标题栏容纳四档外观且不溢出", async () => {
+    // Four appearance options plus the help button used to push the product
+    // name down to a few pixels, so the header is checked for overflow and for
+    // the collapsed help label rather than trusting the stylesheet.
+    const header = document.querySelector(".lab-header");
+    const brand = document.querySelector(".lab-brand");
+    const group = document.getElementById("themeSwitch");
+    const help = document.getElementById("helpBtn");
+    if (!header || !brand || !group || !help) throw new Error("缺少标题栏节点");
+    const items = [...group.querySelectorAll("[data-appearance]")];
+    if (items.length !== 4) throw new Error("外观档位不是四档：" + items.length);
+    if (header.scrollWidth > header.clientWidth + 1) {
+      throw new Error(`标题栏溢出：${header.scrollWidth} > ${header.clientWidth}`);
+    }
+    if (group.getBoundingClientRect().right > header.getBoundingClientRect().right + 1) {
+      throw new Error("外观切换控件超出标题栏");
+    }
+    const label = help.querySelector(".lab-text-button__label");
+    if (label && getComputedStyle(label).display !== "none") {
+      throw new Error("窄屏下说明按钮的文字没有收起");
+    }
+    if (!help.getAttribute("aria-label")) throw new Error("说明按钮收起文字后缺少可访问名称");
+    const brandText = document.querySelector(".lab-brand__text");
+    const expectBrandText = window.innerWidth > 360;
+    if (expectBrandText === (getComputedStyle(brandText).display === "none")) {
+      throw new Error(`品牌文字在最窄屏幕的显示状态不对：${window.innerWidth}px`);
+    }
+    return { viewport: window.innerWidth, help: Math.round(help.getBoundingClientRect().width) };
   });
 
   const ok = results.every((item) => item.ok);
