@@ -701,15 +701,17 @@ img {
 }
 
 /*
- * PCL's 8px scrollbar sits in the 25px right margin, so the homepage content
- * stays exactly 500px wide (550 - 25 - 17 - 8). Keeping the scrollbar gutter
- * permanent avoids a 15px card-width jump between short and long pages.
+ * PCL's MyScrollViewer puts the 8px scrollbar in its own column, so the
+ * homepage content stays exactly 500px wide whatever the scrollbar does.
+ * Pinning the width here keeps that guarantee without a scrollbar column.
  */
 .pcl-home-root {
   display: flex;
+  flex: none;
   flex-direction: column;
+  width: 525px;
   min-height: 100%;
-  padding: 25px 17px 10px 25px;
+  padding: 25px 0 10px 25px;
 }
 
 .pcl-render-placeholder {
@@ -841,20 +843,20 @@ img {
 
 .pcl-scroll::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
-  border-radius: 4px;
-  background: rgba(52, 61, 74, 0.16);
+  border-radius: 3px;
+  background: rgba(60, 150, 239, 0.5);
   background-clip: padding-box;
 }
 
 .pcl-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(52, 61, 74, 0.28);
+  background: rgba(18, 122, 225, 0.9);
   background-clip: padding-box;
 }
 
 /* Firefox uses the standard scrollbar properties instead of ::-webkit-scrollbar. */
 .pcl-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(52, 61, 74, 0.16) transparent;
+  scrollbar-color: rgba(60, 150, 239, 0.5) transparent;
 }
 
 
