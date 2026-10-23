@@ -58,55 +58,36 @@ export function fromHsl2(hue, saturation, lightness) {
   return hslToRgb(h, s, adjustedLight);
 }
 
-const DEFAULT_PALETTE = {
-  c1: "#343d4a",
-  c2: "#0b5bcb",
-  c3: "#1370f3",
-  c4: "#4890f5",
-  c5: "#96c0f9",
-  c6: "#d5e6fd",
-  c7: "#e0eafd",
-  c8: "#eaf2fe",
-  bg0: "#96c0f9"
-};
+// PCL's shipped defaults (Modules/ModSecret.vb: ColorHue / ColorSat).
+const DEFAULT_SAT = 85;
 
 export function buildPalette(hue) {
   const h = normalizeHue(hue);
-  if (h === 210) {
-    const title0 = fromHsl2(215, 90, 48);
-    const title1 = fromHsl2(215, 90, 54);
-    const page0 = fromHsl2(200, 68, 91);
-    const page1 = fromHsl2(215, 68, 91);
-    const page2 = fromHsl2(230, 68, 91);
-    return {
-      hue: h,
-      ...DEFAULT_PALETTE,
-      bg1: "rgba(224, 234, 253, 0.745)",
-      title: `linear-gradient(90deg, ${rgbToHex(title0)}, ${rgbToHex(title1)}, ${rgbToHex(title0)})`,
-      page: `linear-gradient(225deg, ${rgbToHex(page0)} 0%, ${rgbToHex(page1)} 42%, ${rgbToHex(page2)} 100%)`
-    };
-  }
-
-  // PCL’s runtime theme uses FromHSL2. The blue preset above mirrors PCL’s
-  // published ColorBrush table; custom hues follow the same compensated ramp.
-  const c1 = fromHsl2(h + 5, 18, 25);
-  const c2 = fromHsl2(h + 5, 90, 45);
-  const c3 = fromHsl2(h + 5, 90, 55);
-  const c4 = fromHsl2(h + 5, 90, 65);
-  const c5 = fromHsl2(h + 5, 90, 80);
-  const c6 = fromHsl2(h + 5, 90, 91);
-  const c7 = fromHsl2(h + 5, 90, 95);
-  const c8 = fromHsl2(h + 5, 90, 97);
+  const sat = DEFAULT_SAT;
+  const c = (lightness, saturation = sat, delta = 0) => fromHsl2(h + delta, saturation, lightness);
+  const c1 = c(25, sat * 0.2);
+  const c2 = c(45);
+  const c3 = c(55);
+  const c4 = c(65);
+  const c5 = c(80);
+  const c6 = c(91);
+  const c7 = c(95);
+  const c8 = c(97);
   const bg0 = mixRgb([
     { rgb: c4, weight: 0.4 },
     { rgb: c5, weight: 0.4 },
     { rgb: [166, 166, 166], weight: 0.2 }
   ]);
-  const title0 = fromHsl2(h + 5, 90, 48);
-  const title1 = fromHsl2(h + 5, 90, 54);
-  const page0 = fromHsl2(h - 10, 68, 91);
-  const page1 = fromHsl2(h + 5, 68, 91);
-  const page2 = fromHsl2(h + 20, 68, 91);
+  // Title bar: WPF LinearGradientBrush StartPoint(0,0) EndPoint(1,0), three
+  // stops at 0 / 0.5 / 1 with lightness 48 / 54 / 48.
+  const title = `linear-gradient(90deg, ${rgbToHex(c(48))}, ${rgbToHex(c(54))}, ${rgbToHex(c(48))})`;
+  // Page: StartPoint(0.9,0) EndPoint(0.1,1), stops at -0.1 / 0.4 / 1.1 with
+  // hue offsets -15 / 0 / +15, saturation ColorSat * 0.8, lightness 91.
+  // Projecting that WPF axis onto a CSS gradient line gives 233.67deg, where
+  // the three offsets land at -1.62% / 41.4% / 101.62%.
+  const page = `linear-gradient(233.67deg, ${rgbToHex(c(91, sat * 0.8, -15))} -1.62%, ${rgbToHex(
+    c(91, sat * 0.8)
+  )} 41.4%, ${rgbToHex(c(91, sat * 0.8, 15))} 101.62%)`;
   return {
     hue: h,
     c1: rgbToHex(c1),
@@ -118,9 +99,10 @@ export function buildPalette(hue) {
     c7: rgbToHex(c7),
     c8: rgbToHex(c8),
     bg0: rgbToHex(bg0),
+    // ColorBg1 = MyColor(190, Color7), i.e. 190/255 alpha on ColorBrush7.
     bg1: `rgba(${c7.join(", ")}, 0.745)`,
-    title: `linear-gradient(90deg, ${rgbToHex(title0)}, ${rgbToHex(title1)}, ${rgbToHex(title0)})`,
-    page: `linear-gradient(225deg, ${rgbToHex(page0)} 0%, ${rgbToHex(page1)} 42%, ${rgbToHex(page2)} 100%)`
+    title,
+    page
   };
 }
 

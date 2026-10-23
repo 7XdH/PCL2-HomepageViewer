@@ -115,6 +115,44 @@ test("theme: hue boundary normalization", () => {
   }
 });
 
+test("theme: palette matches PCL's runtime FromHSL2 ramp", () => {
+  // Values come from Modules/ModSecret.vb: ColorHue 210, ColorSat 85, the
+  // Color1–8 lightness ramp and the two gradient definitions.
+  const palette = buildPalette(210);
+  assert.deepEqual(
+    {
+      c1: palette.c1,
+      c2: palette.c2,
+      c3: palette.c3,
+      c4: palette.c4,
+      c5: palette.c5,
+      c6: palette.c6,
+      c7: palette.c7,
+      c8: palette.c8
+    },
+    {
+      c1: "#333e48",
+      c2: "#0f64b8",
+      c3: "#127ae1",
+      c4: "#3c96ef",
+      c5: "#90c3f6",
+      c6: "#cde4fb",
+      c7: "#e3f0fd",
+      c8: "#eef6fe"
+    }
+  );
+  assert.ok(palette.title.includes("#106ac4"), palette.title);
+  assert.ok(palette.title.includes("#1277dd"), palette.title);
+  assert.ok(palette.page.includes("#caeaf5"), palette.page);
+  assert.ok(palette.page.includes("#d3e5f7"), palette.page);
+  assert.ok(palette.page.includes("#dbe2f8"), palette.page);
+  assert.ok(palette.page.startsWith("linear-gradient(233.67deg"), palette.page);
+  assert.ok(
+    /^rgba\(227, 240, 253, 0\.74\d?\)$/.test(palette.bg1),
+    `ColorBg1 由 Color7 的 190/255 透明度得到：${palette.bg1}`
+  );
+});
+
 test("help: URL conversion and metadata", () => {
   const urls = resolveHelpUrls("https://mcnews.meloong.com/VersionArchiveList.json");
   assert.equal(urls.jsonUrl, "https://mcnews.meloong.com/VersionArchiveList.json");
