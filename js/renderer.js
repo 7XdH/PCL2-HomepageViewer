@@ -118,9 +118,16 @@ export class PclRenderer extends PclDocumentBuilders {
         const savedAlign = text.style.alignSelf;
         text.style.height = "auto";
         text.style.alignSelf = "start";
+        // offsetHeight is an unscaled layout value, unlike
+        // getBoundingClientRect().height, which carries the stage's
+        // --pcl-scale. Comparing the scaled rect against this unscaled line
+        // budget made every prefix fail once the preview zoomed past ~1.02, so
+        // the whole text collapsed to a single ellipsis. scrollHeight is no
+        // good either: glyph ink spilling out of the line box counts as
+        // scrollable overflow and overstates the height by one or two pixels.
         const fits = (length) => {
           text.textContent = `${full.slice(0, length).trimEnd()}…`;
-          return text.getBoundingClientRect().height <= maxHeight;
+          return text.offsetHeight <= maxHeight;
         };
         let low = 0;
         let high = full.length;
@@ -129,7 +136,10 @@ export class PclRenderer extends PclDocumentBuilders {
           if (fits(mid)) low = mid;
           else high = mid - 1;
         }
-        text.textContent = `${full.slice(0, low).trimEnd()}…`;
+        // Only add an ellipsis when something was actually cut. A prefix that
+        // measures as fitting may still be the whole string, and appending an
+        // ellipsis there leaves a stray dot on every re-render.
+        text.textContent = low < full.length ? `${full.slice(0, low).trimEnd()}…` : full;
         text.style.height = savedHeight;
         text.style.alignSelf = savedAlign;
       }

@@ -685,6 +685,46 @@ export async function runRegression() {
     return { ellipsis, textHeight: textRect.height, buttonTop: buttonRect.top };
   });
 
+  await makeCheck(results, "放大预览时大字号正文不会被截成单个省略号", async () => {
+    // The stage scales #pclWindow with --pcl-scale, so getBoundingClientRect()
+    // reports scaled pixels while the line budget is unscaled. Before the fix
+    // every prefix of a fractional line height measured "too tall" and the
+    // binary search settled on length 0, replacing the whole string with "…".
+    const scaleProperty = document.documentElement.style.getPropertyValue("--pcl-scale");
+    const scalePriority = document.documentElement.style.getPropertyPriority("--pcl-scale");
+    harness.renderer.render(`
+      <local:MyCard Margin="0" Width="300">
+        <TextBlock Margin="10,8,10,0" FontSize="52" Text="10 23" />
+        <TextBlock Margin="10,8,10,0" FontSize="36" Text="17°C" />
+      </local:MyCard>
+    `);
+    const nodes = [...harness.root.querySelectorAll(".pcl-text")];
+    const original = nodes.map((node) => node.textContent);
+    const samples = [];
+    for (const scale of [1, 1.063, 1.3]) {
+      document.documentElement.style.setProperty("--pcl-scale", String(scale));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      harness.renderer.render(`
+        <local:MyCard Margin="0" Width="300">
+          <TextBlock Margin="10,8,10,0" FontSize="52" Text="10 23" />
+          <TextBlock Margin="10,8,10,0" FontSize="36" Text="17°C" />
+        </local:MyCard>
+      `);
+      const texts = [...harness.root.querySelectorAll(".pcl-text")].map((node) => node.textContent);
+      samples.push({ scale, texts });
+      const collapsed = texts.filter((text) => (text || "").trim() === "…");
+      if (collapsed.length) {
+        throw new Error(`scale ${scale} 下正文被截成省略号：${JSON.stringify(texts)}`);
+      }
+      if (JSON.stringify(texts) !== JSON.stringify(original)) {
+        throw new Error(`scale ${scale} 下短文本被改写：${JSON.stringify(texts)}`);
+      }
+    }
+    if (scaleProperty) document.documentElement.style.setProperty("--pcl-scale", scaleProperty, scalePriority);
+    else document.documentElement.style.removeProperty("--pcl-scale");
+    return { samples };
+  });
+
   await makeCheck(results, "MyCard 按钮行与图标底部齐平且无多余空白", async () => {
     const icon =
       "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMjgnIGhlaWdodD0nMTI4Jz48cmVjdCB3aWR0aD0nMTI4JyBoZWlnaHQ9JzEyOCcgZmlsbD0nIzQ0ODhDQycvPjwvc3ZnPg==";
