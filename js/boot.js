@@ -1,5 +1,6 @@
 // Keep the startup fallback outside index.html so the page can use a strict
-// CSP without inline script exceptions.
+// CSP without inline script exceptions. The stored appearance is restored
+// earlier, by js/boot-theme.js in <head>.
 (() => {
   let attempts = 0;
   const timer = window.setInterval(() => {

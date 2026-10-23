@@ -216,6 +216,26 @@ test("styles: Firefox scrollbar fallbacks", () => {
   assert.match(css, /\.pcl-modal__caption\s*\{[^}]*scrollbar-width:\s*thin;[^}]*scrollbar-color:[^;]+;/s);
 });
 
+test("appearance: the stored theme is restored before the first frame", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const head = html.slice(0, html.indexOf("</head>"));
+  assert.match(head, /<script src="js\/boot-theme\.js"><\/script>/, "<head> must load js/boot-theme.js");
+
+  const bootTheme = fs.readFileSync(new URL("../js/boot-theme.js", import.meta.url), "utf8");
+  const appearance = fs.readFileSync(new URL("../js/app/appearance.js", import.meta.url), "utf8");
+  const key = (source) => source.match(/"(pcl\.lab\.appearance\.v1)"/)?.[1];
+  assert.equal(key(bootTheme), "pcl.lab.appearance.v1");
+  assert.equal(key(appearance), key(bootTheme), "both scripts must share the storage key");
+  // The head script may only read; the module owns persistence.
+  assert.ok(!bootTheme.includes("setItem"), "js/boot-theme.js must not write storage");
+
+  const css = fs.readFileSync(new URL("../css/appearance.css", import.meta.url), "utf8");
+  for (const theme of ["light", "dark", "amoled"]) {
+    assert.match(css, new RegExp(`data-theme="${theme}"|:root`), `missing ${theme} rules`);
+  }
+  assert.match(css, /--appearance-dim:\s*0\.9;/);
+});
+
 test("proxy core: URL, UA and redirect policy", () => {
   assert.throws(() => parseTarget("javascript:alert(1)"), proxyError(400));
   assert.throws(() => parseTarget("http://localhost/"), proxyError(403));

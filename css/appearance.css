@@ -1,0 +1,708 @@
+/* --------------------------------------------------------------------------
+   Appearance — the shell around the PCL canvas.
+
+   The canvas itself always renders exactly what PCL renders; only the
+   workspace around it changes. Three appearances are offered:
+
+   light  the original bright workspace.
+   dark   the canvas is the subject: it keeps a cool aura, a glass backing, a
+          crisp hairline and a medium drop shadow, so photos and recordings
+          show it as one piece with the shell.
+   amoled the canvas is the only bright thing: the aura, the glass and the
+          shadow all go away and the page drops to near black, so nothing
+          around the canvas competes with it at night.
+
+   Both dark appearances dim the canvas to 90% brightness — the level that
+   keeps white cards legible while removing the glare.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --appearance-dim: 0.9;
+}
+
+/* Theme switch */
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: 0 2px 8px rgba(52, 61, 74, 0.04);
+  backdrop-filter: blur(10px);
+}
+
+.theme-switch__item {
+  flex: none;
+  height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--pcl-gray2);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.theme-switch__item:hover {
+  color: var(--pcl-c3);
+}
+
+.theme-switch__item[aria-checked="true"] {
+  color: #fff;
+  background: linear-gradient(180deg, var(--pcl-c3), var(--pcl-c2));
+  box-shadow: 0 2px 6px -3px rgba(11, 91, 203, 0.9);
+}
+
+.theme-switch__item:focus-visible {
+  outline: 2px solid var(--pcl-c4);
+  outline-offset: 1px;
+}
+
+/* --------------------------------------------------------------------------
+   Shared dark shell
+   -------------------------------------------------------------------------- */
+
+html:is([data-theme="dark"], [data-theme="amoled"]) {
+  color-scheme: dark;
+  background: #05070a;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .theme-switch {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .theme-switch__item {
+  color: #7d8c9c;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .theme-switch__item:hover {
+  color: #9dc4e6;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .theme-switch__item[aria-checked="true"] {
+  color: #eaf2fb;
+  background: rgba(90, 140, 190, 0.42);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .ambient__sky,
+html:is([data-theme="dark"], [data-theme="amoled"]) .ambient__glow {
+  display: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .ambient__grid {
+  opacity: 1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  mask-image: radial-gradient(ellipse at 50% 48%, #000 24%, transparent 80%);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .ambient__wordmark {
+  color: rgba(255, 255, 255, 0.03);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .ambient__block {
+  opacity: 0.14;
+  filter: none;
+}
+
+/* Header */
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-brand__eyebrow {
+  color: #3f5b78;
+  opacity: 1;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-brand__title {
+  color: #aab6c2;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .runtime-pill {
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #7d8c9c;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-text-button {
+  color: #5d8db8;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-text-button:hover {
+  color: #8fc0e8;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Source panel */
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-panel {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(20, 26, 33, 0.94);
+  box-shadow:
+    0 28px 60px -34px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-panel::before {
+  opacity: 0.5;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-panel__scroll {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-panel__scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-heading__index,
+html:is([data-theme="dark"], [data-theme="amoled"]) .section-heading__index {
+  color: #35506b;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-heading__title,
+html:is([data-theme="dark"], [data-theme="amoled"]) .section-heading__title {
+  color: #b6c2ce;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-heading__badge {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #5d87ad;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-heading__caption {
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-heading__caption code,
+html:is([data-theme="dark"], [data-theme="amoled"]) .field-note code,
+html:is([data-theme="dark"], [data-theme="amoled"]) .var-chips code {
+  color: #5f97c9;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .source-tabs {
+  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .source-tab {
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .source-tab:hover {
+  color: #7fb2dd;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .source-tab.is-active {
+  color: #9ec6e8;
+  background: #1a2129;
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone {
+  border-color: rgba(90, 140, 190, 0.24);
+  color: #6b7885;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), rgba(255, 255, 255, 0.012);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone:hover,
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone.is-dragover {
+  border-color: rgba(120, 175, 230, 0.44);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), rgba(90, 140, 190, 0.06);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone__icon {
+  color: #5f97c9;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone__title {
+  color: #a6b3c0;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone__title code {
+  color: #7fb2dd;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone__hint {
+  color: #5c6874;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .dropzone__meta {
+  color: #4f7799;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .field-label {
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-input {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #b6c2ce;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-input::placeholder {
+  color: #4d5864;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-input:focus {
+  border-color: rgba(120, 175, 230, 0.5);
+  box-shadow: 0 0 0 3px rgba(90, 140, 190, 0.12);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .compact-button {
+  border-color: rgba(120, 175, 230, 0.42);
+  color: #7fb2dd;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .compact-button:hover {
+  border-color: #6ba3d6;
+  color: #8fc0e8;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .compact-button--accent {
+  border-color: #2f6ea8;
+  color: #dbe8f5;
+  background: #2f6ea8;
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .compact-button--accent:hover {
+  border-color: #3b81c1;
+  background: #3b81c1;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .field-note {
+  color: #5c6874;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .example-strip {
+  border-top-color: rgba(255, 255, 255, 0.06);
+  color: #5c6874;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .example-strip button {
+  color: #5f97c9;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .example-strip button:hover {
+  color: #7fb2dd;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-section {
+  border-top-color: rgba(255, 255, 255, 0.055);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .section-heading__en {
+  color: #46525e;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .section-heading__action {
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .section-heading__action:hover {
+  color: #7fb2dd;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item {
+  color: #a6b3c0;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item.is-active {
+  border-color: rgba(120, 175, 230, 0.2);
+  background: #171e26;
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item__glyph {
+  color: #6b7885;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item.is-active .preset-item__glyph {
+  color: #7fb2dd;
+  background: rgba(63, 125, 190, 0.16);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item__body small {
+  color: #5c6874;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item__arrow {
+  color: #47709a;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-subheading {
+  border-top-color: rgba(255, 255, 255, 0.06);
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-subheading__count {
+  color: #46525e;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-search {
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #b6c2ce;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-search::placeholder {
+  color: #4d5864;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-search:focus {
+  border-color: rgba(120, 175, 230, 0.42);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-list--online {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-list--online::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-state--ok {
+  color: #4c9c73;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-state--warn {
+  color: #a3791f;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-state--blocked {
+  color: #d4523f;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-state--inline {
+  color: #5f97c9;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item--warn .preset-item__glyph {
+  color: #b08423;
+  background: rgba(240, 160, 32, 0.1);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item--blocked .preset-item__glyph {
+  color: #d4523f;
+  background: rgba(255, 76, 76, 0.1);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-item--inline .preset-item__glyph {
+  color: #5f97c9;
+  background: rgba(19, 112, 243, 0.12);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .preset-empty,
+html:is([data-theme="dark"], [data-theme="amoled"]) .var-chips__empty {
+  color: #4d5864;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .var-chip {
+  border-color: rgba(120, 175, 230, 0.24);
+  color: #7fb2dd;
+  background: rgba(90, 140, 190, 0.1);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .var-chip span {
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-section--about .about-credit {
+  color: #a6b3c0;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-section--about .about-credit strong {
+  color: #7fb2dd;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-section--about a {
+  color: #7fb2dd;
+  border-bottom-color: rgba(120, 175, 230, 0.26);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .panel-section--about a:hover {
+  border-bottom-color: #7fb2dd;
+}
+
+/* Footer */
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .lab-panel__footer {
+  border-top-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .render-button {
+  border-color: #2b6396;
+  background: linear-gradient(180deg, #34719f, #2b6396);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .render-button:hover {
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .icon-button {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #7d8c9c;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .icon-button:hover {
+  border-color: rgba(120, 175, 230, 0.4);
+  color: #8fc0e8;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Stage */
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__label {
+  color: #40658c;
+  opacity: 1;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__source {
+  color: #b6c2ce;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .render-stats {
+  color: #7b8998;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .render-issues {
+  border-color: rgba(212, 82, 63, 0.5);
+  background: rgba(212, 82, 63, 0.14);
+  color: #e08b7d;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .render-issues:hover,
+html:is([data-theme="dark"], [data-theme="amoled"]) .render-issues:focus-visible {
+  border-color: rgba(224, 139, 125, 0.72);
+  background: rgba(212, 82, 63, 0.22);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage-icon-button {
+  color: #7d8c9c;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage-icon-button:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #8fc0e8;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__caption {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__caption-key {
+  color: rgba(255, 255, 255, 0.52);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__caption-divider {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__caption-scroll {
+  color: #5d8db8;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__caption-zoom {
+  color: #5b93c6;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__empty {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(20, 26, 33, 0.88);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__empty-title {
+  color: #c3ced9;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage__empty-text {
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .stage:fullscreen {
+  background: radial-gradient(ellipse at 50% 30%, rgba(120, 170, 220, 0.1), transparent 56%), #0d1319;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .event-strip {
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #6b7885;
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: none;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .event-strip__prompt {
+  color: #5f97c9;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .event-strip__more {
+  color: #6b7885;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .event-strip__more:hover {
+  color: #8fc0e8;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .event-strip__more span {
+  color: #7fb2dd;
+  background: rgba(90, 140, 190, 0.16);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .boot-fallback {
+  border-color: rgba(120, 175, 230, 0.24);
+  color: #9aa7b4;
+  background: rgba(20, 26, 33, 0.97);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.9);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .boot-fallback strong {
+  color: #7fb2dd;
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) .boot-fallback code {
+  color: #c3ced9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) body.is-dragging-file .stage__frame::after {
+  border-color: rgba(120, 175, 230, 0.6);
+  color: #cfe2f3;
+  background: rgba(20, 30, 42, 0.86);
+}
+
+/* The canvas itself: dim the PCL window so white cards stop glaring. The
+   filter sits on the window, so the shell keeps its own brightness. */
+html:is([data-theme="dark"], [data-theme="amoled"]) .pcl-window {
+  filter: brightness(var(--appearance-dim));
+}
+
+/* --------------------------------------------------------------------------
+   AMOLED — the canvas is the only bright thing.
+   -------------------------------------------------------------------------- */
+
+html[data-theme="amoled"] body {
+  background: radial-gradient(ellipse at 50% -10%, #0f141a 0%, #080b0f 55%, #05070a 100%);
+}
+
+html[data-theme="amoled"] .ambient__grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  mask-image: radial-gradient(ellipse at 50% 46%, #000 12%, transparent 68%);
+}
+
+html[data-theme="amoled"] .ambient__wordmark {
+  color: rgba(255, 255, 255, 0.022);
+}
+
+html[data-theme="amoled"] .ambient__block {
+  opacity: 0.1;
+}
+
+html[data-theme="amoled"] .lab-panel {
+  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(14, 18, 23, 0.92);
+  box-shadow: none;
+}
+
+html[data-theme="amoled"] .lab-panel::before {
+  opacity: 0.3;
+}
+
+html[data-theme="amoled"] .lab-panel__footer {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+html[data-theme="amoled"] .stage__aura {
+  display: none;
+}
+
+html[data-theme="amoled"] .pcl-scaler::before {
+  border-color: rgba(255, 255, 255, 0.045);
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme="amoled"] .stage .pcl-window {
+  outline: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   DARK — the canvas is the subject, so the shell carries it.
+   -------------------------------------------------------------------------- */
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse at 50% 46%, rgba(72, 132, 196, 0.14), transparent 58%),
+    radial-gradient(ellipse at 50% -12%, #1b2632 0%, #121a23 52%, #0b1016 100%);
+}
+
+html[data-theme="dark"] .stage__aura {
+  background: radial-gradient(ellipse, rgba(150, 195, 240, 0.16), rgba(150, 195, 240, 0) 68%);
+  filter: blur(26px);
+}
+
+html[data-theme="dark"] .pcl-scaler::before {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 34%), rgba(255, 255, 255, 0.03);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 40px 90px -56px rgba(0, 0, 0, 0.95);
+}
+
+html[data-theme="dark"] .stage .pcl-window {
+  outline: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 26px 70px -30px rgba(0, 0, 0, 0.85),
+    0 6px 22px -14px rgba(0, 0, 0, 0.7);
+}
+
+@media (max-width: 520px) {
+  .theme-switch__item {
+    padding: 0 7px;
+    font-size: 9.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch__item {
+    transition: none;
+  }
+}

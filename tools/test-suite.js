@@ -1712,6 +1712,61 @@ export async function runRegression() {
     }
     return { layers };
   });
+  await makeCheck(results, "三档外观切换与画布压暗", async () => {
+    // The shell offers light / dark / amoled. The two dark ones differ only in
+    // how they back the canvas, and both dim the canvas to 90% brightness. The
+    // canvas keeps rendering the same PCL pixels in every appearance.
+    const group = document.getElementById("themeSwitch");
+    if (!group) throw new Error("缺少外观切换控件");
+    const buttons = [...group.querySelectorAll("[data-appearance]")];
+    const names = buttons.map((button) => button.dataset.appearance);
+    if (names.join(",") !== "light,dark,amoled") {
+      throw new Error("外观档位不是三档：" + names.join(","));
+    }
+
+    const root = document.documentElement;
+    const canvas = document.getElementById("pclWindow");
+    if (!canvas) throw new Error("缺少预览画布");
+    const previous = root.dataset.theme;
+    const previousStored = window.localStorage.getItem("pcl.lab.appearance.v1");
+    const seen = {};
+    try {
+      for (const name of names) {
+        buttons.find((button) => button.dataset.appearance === name).click();
+        await sleep(120);
+        const checked = buttons
+          .filter((button) => button.getAttribute("aria-checked") === "true")
+          .map((button) => button.dataset.appearance);
+        if (checked.length !== 1 || checked[0] !== name) {
+          throw new Error("选中状态错误：" + name + " -> " + checked.join(","));
+        }
+        if (root.dataset.theme !== name) throw new Error("未写入 data-theme：" + root.dataset.theme);
+        if (window.localStorage.getItem("pcl.lab.appearance.v1") !== name) {
+          throw new Error("未记住外观选择：" + name);
+        }
+        const filter = getComputedStyle(canvas).filter;
+        const expected = name === "light" ? "none" : "brightness(0.9)";
+        if (filter !== expected) throw new Error(name + " 的画布压暗错误：" + filter);
+        seen[name] = {
+          filter,
+          body: getComputedStyle(document.body).backgroundImage.slice(0, 48)
+        };
+      }
+      if (seen.dark.body === seen.amoled.body) throw new Error("深色与 AMOLED 外壳没有区别");
+      if (seen.dark.body === seen.light.body) throw new Error("深色与浅色外壳没有区别");
+    } finally {
+      root.dataset.theme = previous || "light";
+      try {
+        if (previousStored == null) window.localStorage.removeItem("pcl.lab.appearance.v1");
+        else window.localStorage.setItem("pcl.lab.appearance.v1", previousStored);
+      } catch {
+        /* storage may be unavailable; the result is already collected */
+      }
+      buttons.find((button) => button.dataset.appearance === (previous || "light"))?.click();
+    }
+    return seen;
+  });
+
   const ok = results.every((item) => item.ok);
   window.__PCL_TEST_RESULT__ = { suite: "regression", ok, results };
   return window.__PCL_TEST_RESULT__;

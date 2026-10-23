@@ -241,9 +241,11 @@ body {
   padding: 0 10px;
   border: 0;
   border-radius: 4px;
+  flex: none;
   color: var(--pcl-c3);
   background: transparent;
   font-size: 11px;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color 140ms ease, color 140ms ease;
 }

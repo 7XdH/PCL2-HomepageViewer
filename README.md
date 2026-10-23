@@ -251,6 +251,9 @@ Root Directory: 留空
 - **PCL2 预设面板**：接入 PCL2 启动器内置的 25 个主页预设，支持搜索名称 / 域名，标注“通常可用 / 上游可能不可用 / 会被安全阻止”；在线项优先使用 `PCL2/2.99.0.0` UA，并在内存中缓存，刷新按钮可强制重新拉取。
 - **1:1 PCL 外观**：850 × 500 窗口、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。
 - **跨浏览器滚动条**：Chromium 使用 8px WebKit 滚动条，Firefox 使用标准 `scrollbar-width: thin` / `scrollbar-color`，保持透明轨道和半透明滑块。
+- **三档界面外观**：右上角可切换「浅色 / 深色 / AMOLED」，选择保存在 `localStorage`（`pcl.lab.appearance.v1`）。三档只改变工具外壳与画布的衬底，画布内渲染的 XAML 完全一致；两档深色都会把 850 × 500 画布压到 90% 亮度（`--appearance-dim`），避免白底卡片在暗环境里刺眼。
+  - **深色**：画布是主角。外壳保留冷色光晕、玻璃托底、1px 发丝描边与中等落影，截图或投屏时画布与外壳是一个整体。
+  - **AMOLED**：画布是画面里唯一亮的东西。去掉光晕、玻璃与落影，页面底色压到近黑（`#05070a`），只留一圈极淡描边，夜里不干扰阅读。
 - **静态资源优化**：favicon 仅保留 16 / 32 / 48 三个 32bpp 帧，`LogoHex.png` 按 2× 显示尺寸输出为 64 × 72 PNG，减少首屏资源体积。
 - **资源与样式**：支持 `StackPanel.Resources` 中的 `sys:String`、`Style` 与 `{StaticResource}` / `{DynamicResource}` 字符串引用，包含隐式样式、显式 `Style`、`BasedOn` 和 `Setter`。
 - **FlowDocument**：支持 PCL 新闻主页使用的 `FlowDocumentScrollViewer` / `FlowDocument` / `Paragraph` / `List` / `ListItem` / `Section`，以及段落内的 `Run`、`Bold`、`Underline`、`TextBox` 行内代码和 `ContentControl` 分隔线；分隔线文字会按内容伸展并自动换行，不再截成省略号。
@@ -353,12 +356,12 @@ Root Directory: 留空
 
 ## 主题色说明
 
-工具外壳（左侧控制面板、标题、背景）始终保持 PCL 蓝色，不提供外壳主题解锁。主页源码中的 `{setup:UiLauncherHue}` 与 `修改设置 UiLauncherHue|<数值>` 只会重绘 850 × 500 的 PCL 预览画布，用来检查自定义主页在 PCL 不同色相下的外观。色阶按 PCL 的 `MyColor.FromHSL2` 亮度补偿公式计算；210° 使用 PCL 公布的 `ColorBrush` 表。
+工具外壳（左侧控制面板、标题、背景）默认使用 PCL 蓝色，可切换为「深色 / AMOLED」两种深色外观（见「功能」）。主页源码中的 `{setup:UiLauncherHue}` 与 `修改设置 UiLauncherHue|<数值>` 只会重绘 850 × 500 的 PCL 预览画布，用来检查自定义主页在 PCL 不同色相下的外观。色阶按 PCL 的 `MyColor.FromHSL2` 亮度补偿公式计算；210° 使用 PCL 公布的 `ColorBrush` 表。
 
 ## 安全边界
 
 - 不执行 JavaScript、VBScript、`x:Code`、`x:Static`、`ObjectDataProvider`、`XamlReader`、`WebBrowser`、`Frame` 等。
-- 页面使用严格 CSP：脚本、样式和字体只允许同源资源。启动兜底脚本已放到 `js/boot.js`，页面没有内联脚本或内联样式；远程图片和 XAML 直连仍允许 `http(s)`，`data:` / `blob:` 仅用于图片。`server.js`、Vercel 和 Netlify 会发送 CSP 与 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、COOP 等安全头；GitHub Pages 等无法自定义响应头的静态托管依靠 `index.html` 中的 meta CSP。
+- 页面使用严格 CSP：脚本、样式和字体只允许同源资源。首帧外观恢复脚本放在 `js/boot-theme.js`，启动兜底脚本已放到 `js/boot.js`，页面没有内联脚本或内联样式；远程图片和 XAML 直连仍允许 `http(s)`，`data:` / `blob:` 仅用于图片。`server.js`、Vercel 和 Netlify 会发送 CSP 与 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、COOP 等安全头；GitHub Pages 等无法自定义响应头的静态托管依靠 `index.html` 中的 meta CSP。
 - 本地文件、编辑器源码、远程 XAML / 帮助页统一限制为 **4 MiB**；超限会拒绝渲染并显示实际大小，不会截断 XAML。远程直连响应采用流式累计字节，超过上限立即取消；`localStorage` 只持久化约 **500 KB** 的内容，超过时会提示使用“导出”保存。
 - 链接只允许 `http` / `https` / `mailto`，以及与 PCL 兼容的 `minecraft://` / `minecraft-preview://`；`打开网页` 与 `下载文件` 会校验协议，`javascript:`、`file:`、`data:`、其他自定义协议等会被拒绝。
 - `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 与 Vercel 的 `api/proxy.js` 共用 `api/proxy-core.js`，都会拦截本机 / 内网 / 保留地址、非 80 / 443 端口、带用户名密码的 URL、HTML 响应和超限内容，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应；远程 SVG 仍允许渲染，但会附加沙箱 CSP，禁止脚本、外部资源、对象和导航，避免直接打开代理 SVG 时执行脚本。公开部署时仍建议设置白名单并按需限流。本地 `server.js` 不内置速率限制，公开运行时必须在反向代理 / 平台层限制请求频率；仅在本地探针 / 开发需要访问内网 fixture 时才可设置 `PCL_PROXY_ALLOW_LOCAL=1`；它会放开内网地址与任意端口限制，不要用于公开服务。
@@ -385,11 +388,14 @@ index.html                 工具外壳 + 850 × 500 PCL 预览
 css/pcl-theme.css          PCL 窗口、标题栏、侧栏、滚动条、提示、弹窗
 css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
+css/appearance.css         浅色 / 深色 / AMOLED 三档外壳与画布压暗
 js/app.js                  应用入口、状态、渲染流程、快捷键与 UI 绑定
 js/app/remote.js           远程读取、大小上限、XAML/JSON 响应校验
 js/app/sources.js          预设/文件/联网来源加载与来源标签
 js/app/help-navigation.js  帮助页历史、请求取消与返回焦点
 js/app/presets.js          PCL2 预设列表 DOM 渲染
+js/app/appearance.js       外观档位读写、持久化与键盘操作
+js/boot-theme.js           首帧前恢复已保存的外观（<head> 内同步脚本）
 js/boot.js                 file:// 启动失败兜底提示（外部脚本，兼容严格 CSP）
 js/limits.js               主页大小限制与字节格式化
 js/help.js                 PCL 帮助页地址解析与标题提取

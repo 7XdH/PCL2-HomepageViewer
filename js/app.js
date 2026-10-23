@@ -7,6 +7,7 @@ import { PCL2_PRESETS } from "./pcl-presets.js";
 import { createHelpNavigation } from "./app/help-navigation.js";
 import { renderPresetList } from "./app/presets.js";
 import { createSourceLoader } from "./app/sources.js";
+import { createAppearance } from "./app/appearance.js";
 import { SOURCE_STATE_PERSIST_LIMIT, assertSourceWithinLimit } from "./limits.js";
 
 const SOURCE_KEY = "pcl.lab.source.v1";
@@ -101,7 +102,8 @@ const $ = {
   urlLoadBtn: el("urlLoadBtn"),
   clearVarsBtn: el("clearVarsBtn"),
   eventLogBtn: el("eventLogBtn"),
-  stageEmpty: el("stageEmpty")
+  stageEmpty: el("stageEmpty"),
+  themeSwitch: el("themeSwitch")
 };
 
 const state = {
@@ -640,6 +642,8 @@ function toggleFullscreen() {
 }
 
 function bindUi() {
+  createAppearance({ group: $.themeSwitch });
+
   for (const button of document.querySelectorAll(".source-tab")) {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   }
