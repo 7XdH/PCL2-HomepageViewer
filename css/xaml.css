@@ -7,6 +7,18 @@
   min-width: 0;
 }
 
+/* WPF paints children in document order and treats Opacity as an
+   after-the-fact composite, so a half-transparent Border never covers a
+   sibling TextBlock. In CSS any element with opacity below 1 becomes a
+   stacking context and jumps above the inline content of its non-positioned
+   siblings, which made preset 22 paint its scrim over the caption. An explicit
+   z-index keeps every layout child in the same layer, so they composite in
+   document order like WPF. Flex and grid items accept z-index without a
+   positioned ancestor, so nothing moves. */
+.pcl-xaml-root :where(.pcl-stack, .pcl-stack--h, .pcl-grid, .pcl-uniformgrid, .pcl-wrap, .pcl-canvas, .pcl-border) > * {
+  z-index: 0;
+}
+
 .pcl-stack {
   display: flex;
   flex-direction: column;

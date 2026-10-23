@@ -1688,6 +1688,30 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "半透明兄弟元素不会盖住文本", async () => {
+    // WPF composites Opacity after painting, so a Border with Opacity="0.5"
+    // placed before a TextBlock in a Grid never covers it. CSS would turn the
+    // Border into a stacking context and lift it above the text, so every
+    // layout child gets z-index:0 to keep document order authoritative.
+    await renderSource(
+      harness,
+      `<Grid>
+        <Border Background="#000000" Opacity="0.5" />
+        <TextBlock Text="Nguyen Hoang Bridge" />
+      </Grid>`
+    );
+    const grid = harness.root.querySelector(".pcl-grid");
+    if (!grid) throw new Error("网格没有渲染");
+    const layers = [...grid.children].map((node) => ({
+      cls: node.className,
+      z: getComputedStyle(node).zIndex
+    }));
+    if (layers.length !== 2) throw new Error(`子元素数量错误：${layers.length}`);
+    for (const layer of layers) {
+      if (layer.z !== "0") throw new Error(`层叠层级不是 0：${layer.cls} -> ${layer.z}`);
+    }
+    return { layers };
+  });
   const ok = results.every((item) => item.ok);
   window.__PCL_TEST_RESULT__ = { suite: "regression", ok, results };
   return window.__PCL_TEST_RESULT__;
