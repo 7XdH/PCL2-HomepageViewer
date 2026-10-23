@@ -550,6 +550,19 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const stretch = String(getProp(props, "Stretch") || "Uniform").toLowerCase();
     const objectFit =
       stretch === "fill" ? "fill" : stretch === "uniformtofill" ? "cover" : stretch === "none" ? "none" : "contain";
+    // A WPF Image without Width/Height still arranges into its layout slot: the
+    // Stretch mode then scales the bitmap inside that slot. Panels that hand
+    // out a definite cell (Grid/Border/ScrollViewer/MyCard) therefore make a
+    // stretched image fill the cell — the banner artwork in PCL homepages
+    // depends on it — while stacks keep the intrinsic size.
+    const stretches =
+      String(getProp(props, "HorizontalAlignment") || "Stretch").toLowerCase() === "stretch" &&
+      String(getProp(props, "VerticalAlignment") || "Stretch").toLowerCase() === "stretch";
+    const fillsCell =
+      width == null &&
+      height == null &&
+      stretches &&
+      ["grid", "uniformgrid", "card", "border", "scroll"].includes(layout?.kind);
 
     // PCL applies <Image> Height/Width (XamlReader semantics): the mod-card
     // layout only works with the authored 75px icons (title margin 89 assumes
@@ -563,7 +576,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
       img.loading = this.lazyImages ? "lazy" : "eager";
       img.decoding = "async";
       img.style.objectFit = objectFit;
-      if (width != null && height != null) {
+      if ((width != null && height != null) || fillsCell) {
         node.classList.add("pcl-image-wrap--fill");
         img.style.width = "100%";
         img.style.height = "100%";

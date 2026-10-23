@@ -671,7 +671,19 @@ export class PclLayoutBuilders {
     const children = childProperty ? directContentChildren(childProperty) : directContentChildren(element);
     if (children.length === 1) {
       const childNode = this.buildNode(children[0], { kind: "border" });
-      if (childNode) node.append(childNode);
+      if (childNode) {
+        // WPF Border arranges its single child into the content rect, so a
+        // stretched child without an authored height fills the border instead
+        // of hugging its own content. Without this the banner Image keeps its
+        // intrinsic aspect ratio and leaves a gap under the artwork.
+        const childProps = readProps(children[0]);
+        const childAlign = String(getProp(childProps, "VerticalAlignment") || "Stretch").toLowerCase();
+        if (childAlign === "stretch" && parseSize(getProp(childProps, "Height")) == null) {
+          childNode.style.flex = "1 1 auto";
+          childNode.style.minHeight = "0";
+        }
+        node.append(childNode);
+      }
     } else if (children.length > 1) {
       const stack = document.createElement("div");
       stack.className = "pcl-stack";

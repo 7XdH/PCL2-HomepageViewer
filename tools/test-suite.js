@@ -617,6 +617,39 @@ export async function runRegression() {
     return { gradient };
   });
 
+  await makeCheck(results, "无尺寸 MyImage 在格子中按 Stretch 填满，堆叠中保留原尺寸", async () => {
+    // PCL banners rely on a stretched <Image> filling its Border/Grid cell.
+    // Stack children keep their intrinsic bitmap size.
+    const pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    harness.renderer.render(`
+      <StackPanel>
+        <Border Height="200">
+          <Image Source="${pixel}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+        </Border>
+        <Grid Height="120">
+          <Image Source="${pixel}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+        </Grid>
+        <Image Source="${pixel}" />
+      </StackPanel>
+    `);
+    const wraps = [...harness.root.querySelectorAll(".pcl-image-wrap")];
+    if (wraps.length !== 3) throw new Error(`图片数量错误：${wraps.length}`);
+    const inBorder = wraps[0].getBoundingClientRect();
+    const inGrid = wraps[1].getBoundingClientRect();
+    const inStack = wraps[2].getBoundingClientRect();
+    if (Math.round(inBorder.height) !== 200) {
+      throw new Error(`Border 内图片没有填满高度：${inBorder.height}`);
+    }
+    if (Math.round(inGrid.height) !== 120) {
+      throw new Error(`Grid 内图片没有填满高度：${inGrid.height}`);
+    }
+    if (!wraps[0].classList.contains("pcl-image-wrap--fill")) {
+      throw new Error("Border 内图片没有启用填充类");
+    }
+    if (inStack.height > 60) throw new Error(`堆叠中的图片被拉伸：${inStack.height}`);
+    return { inBorder: Math.round(inBorder.height), inGrid: Math.round(inGrid.height) };
+  });
+
   await makeCheck(results, "Border.Background 的 ImageBrush 按 Stretch 与对齐铺满", async () => {
     // PCL wallpapers paint a full-bleed Border background with
     // <Border.Background><ImageBrush …/></Border.Background>; resolveColor
