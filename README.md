@@ -387,6 +387,7 @@ Root Directory: 留空
 - 文本换行、字体度量与 WPF 不是逐像素完全相同；已对齐主要尺寸、边距、颜色与字号。
 - 远程主页中的相对图片路径会按文档自身的 URL 解析（见上文「资源、样式与图片」）；这一项预览器比 PCL 更宽松，PCL 的 `XamlReader.Load` 没有基地址，取不到相对路径的图片。
 - 颜色、`Cursor`、`FontFamily` 与 `Style` 的 `Setter` 都按白名单过滤：颜色只接受十六进制、`rgb()/rgba()/hsl()`、`ColorBrush*` 等主题变量与 WPF 命名色；`url(...)`、`expression(...)`、`@import` 与反斜杠一律丢弃，`Setter` 只允许渲染器实际支持的成员。带引号的 `FontFamily` 与位图 `Cursor` 因此不会生效。
+- `MyHint` 的 `RelativeSetup` 存在两处差异。其一，预览器把「不再提示」记在 `localStorage["pcl.hint.<名字>"]`，而 PCL 用 `Settings.Get(Of Boolean)(RelativeSetup)` **按名字查已注册的设置项**，名字没在 `PCL\Setup.ini` / 注册表里注册过就会抛 `KeyNotFoundException`（真实日志：`未找到设置项：GalleryHintClosed`，调用栈是 `PCL.Settings.Get` ← `PCL.MyHint.MyHint_Loaded`），整条提示因此渲染失败。预览器无法枚举 PCL 的设置项注册表，所以保持宽容：写 `RelativeSetup` 就能关闭，无需额外注册。其二，两者都只在 `CanClose="True"` 时读这个标记（PCL 的来源是 `If CanClose AndAlso Settings.Get(…Semantics)`），预览器的判断顺序与此一致。
 
 ## 与 PCL 的加载语义差异
 

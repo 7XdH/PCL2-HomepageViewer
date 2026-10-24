@@ -216,7 +216,12 @@ export class PclControlBuilders extends PclLayoutBuilders {
     this.appendInlines(element, textNode);
     node.append(textNode);
 
-    const relativeSetup = getProp(props, "RelativeSetup");
+    // PCL's MyHint_Loaded reads the flag only through `If CanClose AndAlso
+    // Settings.Get(Of Boolean)(RelativeSetup)`, so a RelativeSetup on a hint
+    // without CanClose is inert there. Keeping the same guard means a stored
+    // dismissal cannot hide a hint that PCL would always show.
+    const canClose = parseBool(getProp(props, "CanClose"), false);
+    const relativeSetup = canClose ? String(getProp(props, "RelativeSetup") ?? "").trim() : "";
     const storageKey = relativeSetup ? `pcl.hint.${relativeSetup}` : null;
     let dismissed = false;
     if (storageKey) {
@@ -227,7 +232,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
       }
     }
 
-    if (parseBool(getProp(props, "CanClose"), false)) {
+    if (canClose) {
       const close = document.createElement("button");
       close.type = "button";
       close.className = "pcl-hint__close";

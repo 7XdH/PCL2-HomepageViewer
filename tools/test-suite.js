@@ -2650,6 +2650,48 @@ export async function runRegression() {
       stack.remove();
     }
   });
+  await makeCheck(results, "MyHint 的 RelativeSetup 只在 CanClose 生效", async () => {
+    // PCL: `If CanClose AndAlso Settings.Get(Of Boolean)(RelativeSetup) Then
+    // Visibility = Collapsed` (MyHint.xaml.vb MyHint_Loaded). So a hint without
+    // CanClose must stay visible even when the dismissal flag exists; one with
+    // CanClose hides, and its close button records the flag.
+    const keys = ["pcl.hint.RegressionHintOff", "pcl.hint.RegressionHintOn"];
+    for (const key of keys) localStorage.removeItem(key);
+    try {
+      localStorage.setItem(keys[0], "true");
+      const metrics = await renderSource(
+        harness,
+        `<StackPanel>
+          <local:MyHint x:Name="noClose" Text="没有关闭按钮" RelativeSetup="RegressionHintOff" />
+          <local:MyHint x:Name="closable" Text="可以关闭" CanClose="True" RelativeSetup="RegressionHintOn" />
+        </StackPanel>`
+      );
+      const hints = [...harness.root.querySelectorAll(".pcl-hint")];
+      if (hints.length !== 2) throw new Error(`提示条数量：期望 2，实际 ${hints.length}`);
+      const [noClose, closable] = hints;
+      if (noClose.style.display === "none") {
+        throw new Error("没有 CanClose 的提示被 RelativeSetup 隐藏了，PCL 不会这样做");
+      }
+      if (!closable.querySelector(".pcl-hint__close")) throw new Error("CanClose 的提示缺少关闭按钮");
+
+      // Dismiss the closable one: it hides and persists the flag.
+      closable.querySelector(".pcl-hint__close").click();
+      await sleep(260);
+      if (closable.style.display !== "none") throw new Error("关闭后没有隐藏提示");
+      if (localStorage.getItem(keys[1]) !== "true") throw new Error("关闭后没有写入 localStorage 标记");
+
+      // A fresh render of the same document honours the flag.
+      await renderSource(
+        harness,
+        `<StackPanel><local:MyHint Text="可以关闭" CanClose="True" RelativeSetup="RegressionHintOn" /></StackPanel>`
+      );
+      const again = harness.root.querySelector(".pcl-hint");
+      if (again.style.display !== "none") throw new Error("重新渲染后已关闭的提示又出现了");
+      return { issues: metrics.issues.length, storage: localStorage.getItem(keys[1]) };
+    } finally {
+      for (const key of keys) localStorage.removeItem(key);
+    }
+  });
   await makeCheck(results, "四档外观切换与画布压暗", async () => {
     // The shell offers light / dark / amoled plus an auto option that follows
     // the system (covered by runAppearanceAutoCheck). The two dark ones differ
