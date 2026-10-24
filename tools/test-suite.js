@@ -1859,6 +1859,58 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "非法联网地址在发出请求前就被拒绝", async () => {
+    const api = window.__PCL_RENDERER__;
+    if (!api?.renderCurrent || !api.state) throw new Error("找不到渲染器接口");
+    const savedState = {
+      mode: api.state.mode,
+      preset: api.state.preset,
+      url: api.state.url,
+      urlContent: api.state.urlContent
+    };
+    const originalFetch = window.fetch;
+    const originalModal = api.shell.showModal;
+    let proxyCalls = 0;
+    const modals = [];
+    window.fetch = (input, init = {}) => {
+      const target = String(input?.url || input);
+      if (target.includes("/api/proxy")) proxyCalls += 1;
+      return originalFetch(input, init);
+    };
+    api.shell.showModal = async (options) => {
+      modals.push(options);
+      return 1;
+    };
+    const cases = [
+      ["https://user:pass@example.com/Custom.xaml", /用户名或密码/],
+      ["https://example.com:8080/Custom.xaml", /80 与 443/],
+      ["http://", /完整的 URL/]
+    ];
+    try {
+      for (const [url, pattern] of cases) {
+        api.state.mode = "url";
+        api.state.url = url;
+        api.state.urlContent = "";
+        const ok = await api.renderCurrent({ reason: "url-validation" });
+        if (ok) throw new Error(`${url} 竟然渲染成功`);
+        if (proxyCalls !== 0) throw new Error(`${url} 在拒绝前就发出了代理请求`);
+        const caption = String(modals.at(-1)?.caption || "");
+        if (!pattern.test(caption)) throw new Error(`${url} 的提示不具体：${caption}`);
+      }
+      return { rejected: cases.length, proxyCalls };
+    } finally {
+      window.fetch = originalFetch;
+      api.shell.showModal = originalModal;
+      const restoreState = { ...savedState };
+      if (restoreState.mode === "url" && !restoreState.urlContent) {
+        restoreState.mode = "preset";
+        restoreState.preset = "tutorial";
+      }
+      Object.assign(api.state, restoreState);
+      await api.renderCurrent({ reason: "restore" });
+    }
+  });
+
   await makeCheck(results, "半透明兄弟元素不会盖住文本", async () => {
     // WPF composites Opacity after painting, so a Border with Opacity="0.5"
     // placed before a TextBlock in a Grid never covers it. CSS would turn the

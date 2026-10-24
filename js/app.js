@@ -8,6 +8,7 @@ import { renderPresetList } from "./app/presets.js";
 import { createSourceLoader } from "./app/sources.js";
 import { createAppearance } from "./app/appearance.js";
 import { SOURCE_STATE_PERSIST_LIMIT, assertSourceWithinLimit } from "./limits.js";
+import { parseRemoteHomeUrl } from "./url.js";
 import { PRESETS, FALLBACK_XAML } from "./app/preset-catalog.js";
 import {
   applySourceState,
@@ -373,26 +374,31 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     shell.setLoading(false);
     const message = String(error.message || error);
     const sourceTooLarge = error.code === "SOURCE_TOO_LARGE";
+    // A bad address is a user-input problem, not a broken homepage, so it gets
+    // its own wording instead of "主页内容编写有误".
+    const invalidUrl = error.code === "REMOTE_URL_INVALID";
     const networkFailure = (state.mode === "url" || remotePreset) && message.includes("无法拉取联网主页");
     shell
       .showModal({
         title: sourceTooLarge
           ? "主页内容过大"
-          : networkFailure
-            ? remotePreset
-              ? "PCL2 预设加载失败"
-              : "联网主页加载失败"
-            : "加载主页失败",
+          : invalidUrl
+            ? "网址无效"
+            : networkFailure
+              ? remotePreset
+                ? "PCL2 预设加载失败"
+                : "联网主页加载失败"
+              : "加载主页失败",
         caption: sourceTooLarge
           ? message
-          : networkFailure
+          : invalidUrl || networkFailure
             ? message
             : `主页内容编写有误，请根据下列错误信息进行检查：\n\n${message}`,
-        buttons: sourceTooLarge ? ["确定"] : ["重试", "取消"],
+        buttons: sourceTooLarge || invalidUrl ? ["确定"] : ["重试", "取消"],
         warn: true
       })
       .then((choice) => {
-        if (!sourceTooLarge && choice === 0) renderCurrent({ forceRemote: true });
+        if (!sourceTooLarge && !invalidUrl && choice === 0) renderCurrent({ forceRemote: true });
       });
     return false;
   } finally {
@@ -469,16 +475,17 @@ async function loadPresetAndRender(id) {
 }
 
 async function loadUrlAndRender() {
-  const url = $.urlInput.value.trim();
-  if (!/^https?:\/\//i.test(url)) {
+  const parsed = parseRemoteHomeUrl($.urlInput.value);
+  if (!parsed.ok) {
     shell.showModal({
       title: "网址无效",
-      caption: "联网主页地址必须以 http:// 或 https:// 开头。",
+      caption: parsed.reason,
       buttons: ["确定"],
       warn: true
     });
     return;
   }
+  const url = parsed.url;
   const ua = $.uaInput.value.trim();
   if (ua.length > 512 || (ua && !/^[\x20-\x7E]+$/.test(ua))) {
     shell.showModal({

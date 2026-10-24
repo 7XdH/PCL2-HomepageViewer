@@ -19,7 +19,7 @@ import {
 import { buildPalette, normalizeHue } from "../js/theme.js";
 import { BBOX_CACHE_LIMIT, bboxCache, rememberBBox } from "../js/renderer/helpers.js";
 import { helpJsonTitle, resolveHelpUrls, resolveHelpXamlUrl } from "../js/help.js";
-import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl } from "../js/url.js";
+import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl, parseRemoteHomeUrl } from "../js/url.js";
 import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
 import {
   PROXY_STATUS_HEADER,
@@ -248,6 +248,32 @@ test("url: external protocol whitelist", () => {
   assert.equal(isOpenableExternalUrl("steam://run/730"), false);
   assert.equal(isMinecraftUrl("minecraft://"), true);
   assert.equal(isMinecraftUrl("https://example.com"), false);
+});
+
+test("url: remote homepage addresses are validated before fetching", () => {
+  assert.deepEqual(parseRemoteHomeUrl("https://example.com/Custom.xaml"), {
+    ok: true,
+    url: "https://example.com/Custom.xaml"
+  });
+  assert.equal(parseRemoteHomeUrl("http://example.com").ok, true);
+  assert.equal(parseRemoteHomeUrl("  https://example.com  ").ok, true);
+
+  const reasons = (input) => {
+    const result = parseRemoteHomeUrl(input);
+    assert.equal(result.ok, false, `${input} 不应通过`);
+    return result.reason;
+  };
+  assert.match(reasons(""), /请填写/);
+  assert.match(reasons("   "), /请填写/);
+  assert.match(reasons("http://"), /完整的 URL/);
+  assert.match(reasons("example.com"), /完整的 URL/);
+  assert.match(reasons("ftp://example.com/"), /http/);
+  assert.match(reasons("file:///C:/a.xaml"), /http/);
+  assert.match(reasons("https://user:pass@example.com/Custom.xaml"), /用户名或密码/);
+  assert.match(reasons("https://user@example.com/Custom.xaml"), /用户名或密码/);
+  assert.match(reasons("https://example.com:8080/Custom.xaml"), /80 与 443/);
+  assert.equal(parseRemoteHomeUrl("https://example.com:443/Custom.xaml").ok, true);
+  assert.equal(parseRemoteHomeUrl("http://example.com:80/Custom.xaml").ok, true);
 });
 
 test("limits: source size rejection", () => {

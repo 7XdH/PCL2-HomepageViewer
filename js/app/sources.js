@@ -1,6 +1,7 @@
 import { substitutePlaceholders } from "../xaml.js";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../ua.js";
 import { MAX_SOURCE_BYTES, assertSourceWithinLimit, sourceLimitError } from "../limits.js";
+import { parseRemoteHomeUrl } from "../url.js";
 import { assertRemoteResponse, fetchDirect, fetchViaProxy, readResponseTextLimited } from "./remote.js";
 
 export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML, getCode, getRuntimeContext }) {
@@ -148,7 +149,16 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
       if (!state.url) throw new Error("尚未填写联网主页地址。");
       if (!state.urlContent || forceRemote) {
         if (forceRemote) state.urlContent = "";
-        const content = await fetchRemoteXaml(resolveRemoteUrl(state.url), { signal });
+        // The address can also arrive from localStorage, so re-check it here
+        // rather than trusting the UI path alone.
+        const resolved = resolveRemoteUrl(state.url);
+        const target = parseRemoteHomeUrl(resolved);
+        if (!target.ok) {
+          const error = new Error(target.reason);
+          error.code = "REMOTE_URL_INVALID";
+          throw error;
+        }
+        const content = await fetchRemoteXaml(target.url, { signal });
         state.urlContent = content;
       }
       if (!state.urlContent.trim()) throw new Error("联网主页返回了空内容。");
