@@ -6,7 +6,13 @@ import { resolveHelpUrls, resolveHelpXamlUrl, helpJsonTitle, helpTitleFromXaml }
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl } from "../js/url.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
 import { SHELL_PREF_KEY, readShellPreferences, saveShellPreferences } from "../js/shell/helpers.js";
-import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
+import {
+  MAX_SOURCE_BYTES,
+  MAX_XAML_DEPTH,
+  MAX_XAML_NODES,
+  assertSourceWithinLimit,
+  formatByteSize
+} from "../js/limits.js";
 import { PCL_PRESETS, PCL_TEST_UA } from "./pcl-presets.mjs";
 
 const LOCAL_PRESETS = [
@@ -637,6 +643,42 @@ export async function runRegression() {
       throw new Error("合法 XAML 没有解析出节点");
     }
     return { blocked: blocked.length };
+  });
+
+  await makeCheck(results, "XAML 的节点数与嵌套层级有上限", async () => {
+    // Deep nesting: building nodes recursively would otherwise overflow the
+    // stack long before any size limit notices.
+    const deep = `${"<StackPanel>".repeat(MAX_XAML_DEPTH + 5)}<TextBlock Text="深" />${"</StackPanel>".repeat(
+      MAX_XAML_DEPTH + 5
+    )}`;
+    try {
+      parseXaml(deep);
+      throw new Error("过深的 XAML 未被拒绝");
+    } catch (error) {
+      if (error.message.startsWith("过深的 XAML")) throw error;
+      if (!(error instanceof PclXamlError)) throw error;
+      if (!error.message.includes(`${MAX_XAML_DEPTH} 层`)) {
+        throw new Error(`层级错误提示不清晰：${error.message}`);
+      }
+    }
+
+    // Too many nodes at a shallow depth.
+    const wide = `<StackPanel>${'<TextBlock Text="行" />'.repeat(MAX_XAML_NODES + 50)}</StackPanel>`;
+    try {
+      parseXaml(wide);
+      throw new Error("过大的 XAML 未被拒绝");
+    } catch (error) {
+      if (error.message.startsWith("过大的 XAML")) throw error;
+      if (!(error instanceof PclXamlError)) throw error;
+      if (!error.message.includes(`${MAX_XAML_NODES} 个`)) {
+        throw new Error(`节点数错误提示不清晰：${error.message}`);
+      }
+    }
+
+    // A realistic page at the limits must still parse.
+    const ok = `<StackPanel>${'<TextBlock Text="行" />'.repeat(500)}</StackPanel>`;
+    parseXaml(ok);
+    return { maxNodes: MAX_XAML_NODES, maxDepth: MAX_XAML_DEPTH };
   });
 
   await makeCheck(results, "MyCard 按 Grid 叠放内容与渐变画刷", async () => {
