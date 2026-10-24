@@ -1787,6 +1787,41 @@ export async function runRegression() {
     if (Math.abs(bb.x - 26) > 0.01) throw new Error(`字标几何盒左边界：期望 26，实际 ${bb.x}`);
     return { overflow, ratio: Number(ratio.toFixed(3)) };
   });
+  await makeCheck(results, "MyIconButton 把图标适配进 5px 内边距的内容区", async () => {
+    // PCL's template is a Border whose Path has Stretch="Uniform" Margin="5", so
+    // a 180x35 button shows a 25px tall icon. An auto-sized grid track let the
+    // square SVG drive a max-content row and the face grew to 168x168.
+    await renderSource(
+      harness,
+      `<StackPanel>
+        <local:MyIconButton Width="180" Height="35" Logo="F1 M2,2 L22,2 L22,22 L2,22 Z" />
+        <local:MyIconButton Width="100" Height="100" Logo="F1 M2,2 L22,2 L22,22 L2,22 Z" />
+      </StackPanel>`
+    );
+    const buttons = [...harness.root.querySelectorAll(".pcl-iconbutton")];
+    if (buttons.length !== 2) throw new Error(`图标按钮数量：期望 2，实际 ${buttons.length}`);
+    const rows = buttons.map((button) => {
+      const face = button.querySelector(".pcl-iconbutton__face");
+      const svg = button.querySelector("svg");
+      if (!face || !svg) throw new Error("图标按钮缺少 face 或 svg");
+      const b = button.getBoundingClientRect();
+      const f = face.getBoundingClientRect();
+      const s = svg.getBoundingClientRect();
+      // 5px padding on both sides: the content rect is height - 10.
+      const expected = (b.height - 10) / b.height;
+      if (Math.abs(f.height / b.height - expected) > 0.01) {
+        throw new Error(`face 高度没有跟随内容区：${f.height.toFixed(1)} / ${b.height.toFixed(1)}`);
+      }
+      if (s.height > f.height + 0.5 || s.width > f.width + 0.5) {
+        throw new Error(`图标溢出内容区：svg ${s.width.toFixed(1)}x${s.height.toFixed(1)} / face ${f.width.toFixed(1)}x${f.height.toFixed(1)}`);
+      }
+      if (Math.abs(s.height - f.height) > 0.5) {
+        throw new Error(`图标没有按 Uniform 铺满内容区高度：${s.height.toFixed(1)} vs ${f.height.toFixed(1)}`);
+      }
+      return { button: [+b.width.toFixed(1), +b.height.toFixed(1)], face: [+f.width.toFixed(1), +f.height.toFixed(1)] };
+    });
+    return { rows };
+  });
   await makeCheck(results, "四档外观切换与画布压暗", async () => {
     // The shell offers light / dark / amoled plus an auto option that follows
     // the system (covered by runAppearanceAutoCheck). The two dark ones differ

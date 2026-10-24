@@ -632,8 +632,13 @@
    MyIconButton
    -------------------------------------------------------------------------- */
 
+/* PCL's template is a Border whose child Path has Stretch="Uniform" Margin="5":
+   the logo is fitted into the content rect, so a 35px tall button shows a 25px
+   icon. The grid tracks must be explicit, otherwise the square SVG drives a
+   max-content track and a 180x35 button got a 168px tall face. */
 .pcl-iconbutton {
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   flex: none;
   padding: 5px;
@@ -647,14 +652,23 @@
 }
 
 .pcl-iconbutton__face {
+  position: relative;
   display: grid;
   place-items: center;
+  min-width: 0;
+  min-height: 0;
   width: 100%;
   height: 100%;
 }
 
+/* A percentage height does not resolve for a replaced child of an auto-sized
+   grid area, so the square SVG sized itself off its width and overflowed the
+   25px tall content rect. Filling the face box and letting the viewBox's
+   xMidYMid-meet pair keep the aspect ratio reproduces Path Stretch="Uniform". */
 .pcl-iconbutton__svg {
+  position: absolute;
   display: block;
+  inset: 0;
   width: 100%;
   height: 100%;
   overflow: visible;
