@@ -10,6 +10,7 @@ import { createAppearance } from "./app/appearance.js";
 import { SOURCE_STATE_PERSIST_LIMIT, assertSourceWithinLimit } from "./limits.js";
 import { parseRemoteHomeUrl } from "./url.js";
 import { classifyRenderError, renderErrorCaption } from "./app/render-error.js";
+import { resolveExportSource } from "./app/export-source.js";
 import { PRESETS, FALLBACK_XAML } from "./app/preset-catalog.js";
 import {
   applySourceState,
@@ -508,8 +509,14 @@ async function applyCodeAndRender() {
 }
 
 function exportCurrent() {
-  const content = lastRenderedContent || $.codeEditor.value || FALLBACK_XAML;
-  const fileName = state.mode === "file" && state.fileName ? state.fileName : "Custom.xaml";
+  // Export what the current source holds, not what the preview last rendered:
+  // editing the code pane without pressing「渲染」used to export the old file.
+  const { content, fileName, dirty } = resolveExportSource(state, {
+    editorText: $.codeEditor.value,
+    lastRendered: lastRenderedContent,
+    presetTitle: PRESETS[state.preset]?.title || "",
+    fallback: FALLBACK_XAML
+  });
   const blob = new Blob([content], { type: "application/xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -519,7 +526,7 @@ function exportCurrent() {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-  shell.showHint(`已导出：${fileName}`, "Green");
+  shell.showHint(dirty ? `已导出未渲染的编辑内容：${fileName}` : `已导出：${fileName}`, "Green");
 }
 
 async function showHelp() {

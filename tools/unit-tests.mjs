@@ -21,6 +21,7 @@ import { BBOX_CACHE_LIMIT, bboxCache, rememberBBox } from "../js/renderer/helper
 import { helpJsonTitle, resolveHelpUrls, resolveHelpXamlUrl } from "../js/help.js";
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl, parseRemoteHomeUrl } from "../js/url.js";
 import { classifyRenderError, renderErrorCaption } from "../js/app/render-error.js";
+import { exportFileName, resolveExportSource, safeFileName } from "../js/app/export-source.js";
 import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
 import {
   PROXY_STATUS_HEADER,
@@ -323,6 +324,61 @@ test("render errors: a timed-out preset is not reported as broken xaml", () => {
   assert.equal(xaml.detail, "xaml");
   assert.equal(xaml.retryable, true);
   assert.match(renderErrorCaption(brokenXaml, xaml), /主页内容编写有误/);
+});
+
+test("export: writes the current source, not the last render", () => {
+  // Editing the code pane without pressing「渲染」must still export the edit.
+  const edited = resolveExportSource(
+    { mode: "code", code: "第二次编辑" },
+    { editorText: "第二次编辑", lastRendered: "第一次渲染", fallback: "<fallback />" }
+  );
+  assert.equal(edited.content, "第二次编辑");
+  assert.equal(edited.dirty, true);
+  assert.equal(edited.fileName, "Custom.xaml");
+
+  // After a render the two agree and the hint stays quiet.
+  const rendered = resolveExportSource(
+    { mode: "code", code: "同一份" },
+    { editorText: "同一份", lastRendered: "同一份" }
+  );
+  assert.equal(rendered.content, "同一份");
+  assert.equal(rendered.dirty, false);
+
+  const fromFile = resolveExportSource(
+    { mode: "file", fileName: "我的主页.xaml", fileContent: "<A />" },
+    { lastRendered: "旧的" }
+  );
+  assert.deepEqual(fromFile, { content: "<A />", fileName: "我的主页.xaml", dirty: false });
+
+  const fromUrl = resolveExportSource(
+    { mode: "url", url: "https://example.com/home/Custom.xaml", urlContent: "<B />" },
+    { lastRendered: "旧的" }
+  );
+  assert.equal(fromUrl.content, "<B />");
+  assert.equal(fromUrl.fileName, "Custom.xaml");
+
+  const fromPreset = resolveExportSource(
+    { mode: "preset", preset: "pcl2-4" },
+    { lastRendered: "<C />", presetTitle: "每日整合包推荐" }
+  );
+  assert.equal(fromPreset.content, "<C />");
+  assert.equal(fromPreset.fileName, "每日整合包推荐.xaml");
+});
+
+test("export: file names stay valid on every platform", () => {
+  assert.equal(safeFileName('a/b\\c:d*e?f"g<h>i|j'), "a_b_c_d_e_f_g_h_i_j");
+  assert.equal(safeFileName("   "), "Custom.xaml");
+  assert.equal(safeFileName("", "备用.xaml"), "备用.xaml");
+  assert.equal(safeFileName("标题\n换行"), "标题_换行");
+  assert.equal(safeFileName("normal.xaml"), "normal.xaml");
+
+  assert.equal(exportFileName({ mode: "file", fileName: "a:b.xaml" }), "a_b.xaml", "本地文件名也要清洗");
+  assert.equal(exportFileName({ mode: "preset" }, ""), "Custom.xaml");
+  assert.equal(exportFileName({ mode: "url", url: "https://example.com/a/我的主页.xaml" }), "我的主页.xaml");
+  // 目录 URL 与裸主机都要回落到默认文件名。
+  assert.equal(exportFileName({ mode: "url", url: "https://example.com/dir/" }), "Custom.xaml");
+  assert.equal(exportFileName({ mode: "url", url: "https://example.com" }), "Custom.xaml");
+  assert.equal(exportFileName({ mode: "url", url: "不是 URL" }), "Custom.xaml");
 });
 
 test("limits: source size rejection", () => {

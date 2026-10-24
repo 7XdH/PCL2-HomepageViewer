@@ -1973,6 +1973,67 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "导出按钮写入编辑器里的最新内容", async () => {
+    const api = window.__PCL_RENDERER__;
+    const editor = document.getElementById("codeEditor");
+    const exportBtn = document.getElementById("exportBtn");
+    if (!api?.state || !editor || !exportBtn) throw new Error("找不到源码编辑器或导出按钮");
+
+    const savedMode = api.state.mode;
+    const savedPreset = api.state.preset;
+    const savedCode = api.state.code;
+    const savedEditor = editor.value;
+
+    // 让「源码」页成为当前来源，并先在预览里渲染一份旧内容。
+    document.querySelector('[data-tab="code"]')?.click();
+    editor.value = '<TextBlock Text="已渲染的旧内容" />';
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+    api.state.mode = "code";
+    api.state.code = editor.value;
+    await api.renderCurrent({ reason: "export-test-old" });
+    if (api.state.mode !== "code") throw new Error("没有切换到源码来源");
+
+    // 然后只改编辑器、不再渲染，导出应当拿到新值。
+    editor.value = '<TextBlock Text="尚未渲染的新内容" />';
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const blobs = [];
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    const originalClick = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = (blob) => {
+      blobs.push(blob);
+      return "blob:test";
+    };
+    URL.revokeObjectURL = () => {};
+    HTMLAnchorElement.prototype.click = function noop() {};
+    let exportedName = "";
+    const originalAppend = document.body.append;
+    try {
+      // 记录 download 属性：append 之后读取不到已移除的节点，所以在 click 处抓。
+      HTMLAnchorElement.prototype.click = function captureName() {
+        exportedName = this.download;
+      };
+      exportBtn.click();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      if (!blobs.length) throw new Error("导出没有生成 Blob");
+      const text = await blobs[0].text();
+      if (!text.includes("尚未渲染的新内容")) {
+        throw new Error(`导出的仍是旧内容：${text.slice(0, 80)}`);
+      }
+      if (!exportedName.endsWith(".xaml")) throw new Error(`导出文件名不正确：${exportedName}`);
+      return { length: text.length, fileName: exportedName };
+    } finally {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+      HTMLAnchorElement.prototype.click = originalClick;
+      document.body.append = originalAppend;
+      editor.value = savedEditor;
+      Object.assign(api.state, { mode: savedMode, preset: savedPreset, code: savedCode });
+      await api.renderCurrent({ reason: "restore" });
+    }
+  });
+
   await makeCheck(results, "半透明兄弟元素不会盖住文本", async () => {
     // WPF composites Opacity after painting, so a Border with Opacity="0.5"
     // placed before a TextBlock in a Grid never covers it. CSS would turn the
