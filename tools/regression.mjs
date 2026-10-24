@@ -433,6 +433,95 @@ const printAudit = (result) => {
   console.log(`结果：${result.ok ? "通过" : "失败"}（${result.results.length} 个预设）`);
 };
 
+// Static delivery checks (validators, negotiation, HEAD) exercise headers that
+// the browser hides from script, so they run against fetch() instead of CDP.
+const runNetworkChecks = async (baseUrl) => {
+  const results = [];
+  const check = async (name, run) => {
+    try {
+      const detail = await run();
+      results.push({ name, ok: true, detail });
+    } catch (error) {
+      results.push({ name, ok: false, error: String(error?.message || error) });
+    }
+  };
+
+  await check("静态资源带 ETag 与条件请求", async () => {
+    const url = `${baseUrl}js/app.js`;
+    const first = await fetch(url, { cache: "no-store" });
+    if (!first.ok) throw new Error(`GET 返回 HTTP ${first.status}`);
+    const etag = first.headers.get("etag");
+    const lastModified = first.headers.get("last-modified");
+    if (!etag) throw new Error("静态响应缺少 ETag");
+    if (!lastModified) throw new Error("静态响应缺少 Last-Modified");
+    if (!/^W\/"[0-9a-f]+-[0-9a-f]+"$/.test(etag)) throw new Error(`ETag 格式不符合弱校验器约定：${etag}`);
+
+    const revalidate = await fetch(url, { headers: { "If-None-Match": etag }, cache: "no-store" });
+    if (revalidate.status !== 304) throw new Error(`If-None-Match 命中应为 304，实际 ${revalidate.status}`);
+    if (await revalidate.text()) throw new Error("304 不应包含响应体");
+
+    const mismatched = await fetch(url, { headers: { "If-None-Match": 'W/"0-0"' }, cache: "no-store" });
+    if (mismatched.status !== 200) throw new Error(`ETag 不匹配应返回 200，实际 ${mismatched.status}`);
+
+    const since = await fetch(url, { headers: { "If-Modified-Since": lastModified }, cache: "no-store" });
+    if (since.status !== 304) throw new Error(`If-Modified-Since 命中应为 304，实际 ${since.status}`);
+
+    // If-None-Match wins over If-Modified-Since (RFC 9110 §13.1.3).
+    const precedence = await fetch(url, {
+      headers: { "If-None-Match": 'W/"0-0"', "If-Modified-Since": lastModified },
+      cache: "no-store"
+    });
+    if (precedence.status !== 200) throw new Error(`两种校验器同时出错时应以 If-None-Match 为准，实际 ${precedence.status}`);
+
+    const head = await fetch(url, { method: "HEAD", headers: { "Accept-Encoding": "identity" }, cache: "no-store" });
+    if (head.headers.get("etag") !== etag) throw new Error("HEAD 与 GET 的 ETag 不一致");
+    if (await head.text()) throw new Error("HEAD 不应返回响应体");
+    // HEAD must report the same length as the identity GET without reading the
+    // file again, so the two paths cannot drift apart.
+    const identity = await fetch(url, { headers: { "Accept-Encoding": "identity" }, cache: "no-store" });
+    const identityLength = identity.headers.get("content-length");
+    if (head.headers.get("content-length") !== identityLength) {
+      throw new Error(`HEAD 的 Content-Length 与 GET 不一致：${head.headers.get("content-length")} / ${identityLength}`);
+    }
+    return { etag };
+  });
+
+  await check("文本资源按协商结果 gzip 压缩", async () => {
+    const url = `${baseUrl}js/app.js`;
+    const gzipped = await fetch(url, { headers: { "Accept-Encoding": "gzip" }, cache: "no-store" });
+    if (gzipped.headers.get("content-encoding") !== "gzip") throw new Error("Accept-Encoding: gzip 时没有压缩");
+    if (!/\baccept-encoding\b/i.test(gzipped.headers.get("vary") || "")) {
+      throw new Error("压缩响应缺少 Vary: Accept-Encoding");
+    }
+    const compressedLength = Number(gzipped.headers.get("content-length"));
+    const plain = await fetch(url, { headers: { "Accept-Encoding": "identity" }, cache: "no-store" });
+    if (plain.headers.get("content-encoding")) throw new Error("identity 请求不应压缩");
+    const plainLength = Number(plain.headers.get("content-length"));
+    if (!(compressedLength > 0 && plainLength > 0)) throw new Error("响应缺少 Content-Length");
+    if (compressedLength >= plainLength) throw new Error(`gzip 没有变小：${compressedLength} >= ${plainLength}`);
+
+    const decoded = await gzipped.text();
+    const original = await plain.text();
+    if (decoded !== original) throw new Error("压缩与未压缩的响应体内容不一致");
+
+    const head = await fetch(url, { method: "HEAD", headers: { "Accept-Encoding": "gzip" }, cache: "no-store" });
+    if (head.headers.get("content-length") !== String(compressedLength)) {
+      throw new Error(`HEAD 的 Content-Length 与压缩 GET 不一致：${head.headers.get("content-length")} / ${compressedLength}`);
+    }
+
+    // Already-compressed bytes must not be re-encoded.
+    const png = await fetch(`${baseUrl}assets/pcl/images/Blocks/Grass.png`, {
+      headers: { "Accept-Encoding": "gzip" },
+      cache: "no-store"
+    });
+    if (png.headers.get("content-encoding") === "gzip") throw new Error("PNG 不应被 gzip 二次压缩");
+
+    return { compressedLength, plainLength };
+  });
+
+  return { ok: results.every((item) => item.ok), results };
+};
+
 const main = async () => {
   if (args.has("--help")) {
     console.log("用法：node tools/regression.mjs [--presets|--all]");
@@ -449,8 +538,15 @@ const main = async () => {
 
   try {
     serverProcess = await startServer(serverPort);
-    browser = await startBrowser(baseUrl);
     let failed = false;
+
+    if (WANT_REGRESSION) {
+      const networkResult = await runNetworkChecks(baseUrl);
+      printRegression(networkResult);
+      if (!networkResult.ok) failed = true;
+    }
+
+    browser = await startBrowser(baseUrl);
 
     if (WANT_REGRESSION) {
       const result = await loadSuite(browser.cdp, browser.sessionId, baseUrl, "runRegression");

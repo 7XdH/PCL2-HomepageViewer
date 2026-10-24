@@ -632,6 +632,26 @@ test("proxy: the local server shares one deadline and checks the type early", ()
   assert.doesNotMatch(requestOnce, /timeout: TIMEOUT_MS,/, "不应再按每跳重新计时");
 });
 
+test("static: HEAD answers from stat() without reading the file", () => {
+  // Reading the file just to throw the body away is the old behaviour. Keep the
+  // short-circuit ahead of fs.readFile so a large asset is never buffered.
+  const source = fs.readFileSync(new URL("../server.js", import.meta.url), "utf8");
+  const serveStatic = source.slice(source.indexOf("function serveStatic"));
+  const shortCircuitAt = serveStatic.indexOf("if (head && !willCompress)");
+  const readAt = serveStatic.indexOf("fs.readFile(real");
+  assert.ok(shortCircuitAt > 0, "HEAD 应在读文件前直接返回");
+  assert.ok(readAt > 0 && shortCircuitAt < readAt, "HEAD 短路必须早于 fs.readFile");
+  assert.match(serveStatic, /"Content-Length": String\(info\.size\)/, "HEAD 的长度应取自 stat()");
+
+  // Validators are derived from stat, so a revalidation hit must not read either.
+  assert.match(serveStatic, /function makeEtag|makeEtag\(info\)/);
+  const freshAt = serveStatic.indexOf("if (fresh)");
+  assert.ok(freshAt > 0 && freshAt < readAt, "条件请求命中时不应读文件");
+  assert.match(serveStatic, /ifNoneMatch \? etagMatches\(ifNoneMatch, etag\) : false/, "If-None-Match 优先");
+  assert.match(serveStatic, /Vary: "Accept-Encoding"/, "压缩响应必须带 Vary");
+  assert.match(serveStatic, /"Content-Encoding": "gzip"/);
+});
+
 test("proxy core: public address and content-type guards", async () => {
   await assert.rejects(assertPublicTarget(parseTarget("http://127.0.0.1/")), proxyError(403));
   await assert.rejects(assertPublicTarget(parseTarget("http://[::1]/")), proxyError(403));

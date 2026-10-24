@@ -102,6 +102,40 @@ function isStaticEntry(relative) {
   return STATIC_DIRECTORIES.some((prefix) => normalized.startsWith(prefix));
 }
 
+// Text files revalidate with an ETag and are gzipped when the client accepts it.
+// Binary assets (images, fonts) are already compressed and rarely worth gzipping.
+const COMPRESSIBLE = new Set([".html", ".css", ".js", ".mjs", ".json", ".xaml", ".xml", ".txt", ".md", ".svg"]);
+const GZIP_MIN_BYTES = 1024;
+
+// Weak validator: content length plus mtime. Cheap, and unlike a content hash it
+// does not require hashing large files on every request.
+function makeEtag(stat) {
+  return `W/"${stat.size.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}"`;
+}
+
+function etagMatches(header, etag) {
+  if (!header) return false;
+  if (header.trim() === "*") return true;
+  // Compare the opaque part only, so W/"x" and "x" both match.
+  const bare = (value) => value.trim().replace(/^W\//, "");
+  const target = bare(etag);
+  return header.split(",").some((candidate) => bare(candidate) === target);
+}
+
+function modifiedSinceMatches(header, stat) {
+  if (!header) return false;
+  const since = Date.parse(header);
+  if (Number.isNaN(since)) return false;
+  // HTTP dates have second granularity; mtimes rarely do, so round down before
+  // comparing rather than reporting "changed" forever.
+  return Math.trunc(stat.mtimeMs / 1000) * 1000 <= since;
+}
+
+const gzip = (buffer) =>
+  new Promise((resolve) => {
+    zlib.gzip(buffer, { level: 6 }, (error, result) => resolve(error ? buffer : result));
+  });
+
 function serveStatic(req, res, pathname) {
   const head = req.method === "HEAD";
   const sendStatic = (status, body, headers = {}) => send(res, status, body, headers, { head });
@@ -130,8 +164,8 @@ function serveStatic(req, res, pathname) {
         sendStatic(404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
         return;
       }
-      fs.readFile(real, (readError, data) => {
-        if (readError) {
+      fs.stat(real, (statError, info) => {
+        if (statError) {
           sendStatic(404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
           return;
         }
@@ -141,7 +175,60 @@ function serveStatic(req, res, pathname) {
           ? "no-cache"
           : "public, max-age=3600";
         const documentHeaders = ext === ".html" ? documentSecurityHeaders() : {};
-        sendStatic(200, data, { "Content-Type": type, "Cache-Control": cache, ...documentHeaders });
+        const etag = makeEtag(info);
+        const validators = {
+          ETag: etag,
+          "Last-Modified": new Date(Math.trunc(info.mtimeMs / 1000) * 1000).toUTCString(),
+          "Cache-Control": cache
+        };
+
+        const ifNoneMatch = req.headers["if-none-match"];
+        const ifModifiedSince = req.headers["if-modified-since"];
+        // If-None-Match wins over If-Modified-Since per RFC 9110 §13.1.3.
+        const fresh =
+          (ifNoneMatch ? etagMatches(ifNoneMatch, etag) : false) ||
+          (!ifNoneMatch && modifiedSinceMatches(ifModifiedSince, info));
+        if (fresh) {
+          sendStatic(304, "", { ...validators, ...documentHeaders });
+          return;
+        }
+
+        const acceptsGzip = /\bgzip\b/i.test(req.headers["accept-encoding"] || "");
+        const willCompress = acceptsGzip && COMPRESSIBLE.has(ext) && info.size >= GZIP_MIN_BYTES;
+        // HEAD only needs the headers. Unless the response will be gzipped we
+        // know the length from stat(), so skip reading the file at all.
+        if (head && !willCompress) {
+          sendStatic(200, "", {
+            "Content-Type": type,
+            "Content-Length": String(info.size),
+            ...validators,
+            ...documentHeaders
+          });
+          return;
+        }
+
+        fs.readFile(real, async (readError, data) => {
+          if (readError) {
+            sendStatic(404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
+            return;
+          }
+          let payload = data;
+          let encoding = {};
+          if (willCompress) {
+            payload = await gzip(data);
+            // Vary is mandatory here: a shared cache must not serve the gzipped
+            // body to a client that never asked for it.
+            encoding = { "Content-Encoding": "gzip", Vary: "Accept-Encoding" };
+          }
+          sendStatic(200, payload, {
+            "Content-Type": type,
+            // Stated explicitly so HEAD and a chunked GET agree on the size.
+            "Content-Length": String(payload.length),
+            ...validators,
+            ...encoding,
+            ...documentHeaders
+          });
+        });
       });
     });
   });
