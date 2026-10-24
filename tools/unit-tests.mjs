@@ -1028,3 +1028,25 @@ test("security headers: one source for meta, server, vercel and netlify", async 
   assert.equal(baseSecurityHeaders()["Strict-Transport-Security"], undefined);
   assert.match(EDGE_SECURITY_HEADERS["Strict-Transport-Security"], /max-age=/);
 });
+
+test("runtime: the restored account is what placeholders report", async () => {
+  // The viewer restores Steve/Alex from localStorage before the first render, and
+  // the runtime used to start from Steve regardless, so a returning Alex saw an
+  // Alex sidebar next to {user}=Steve until the account was toggled.
+  const { PclRuntime } = await import("../js/runtime.js");
+  const alex = { name: "Alex", uuid: "ec561538-f3fd-461d-aff5-086b22154bce", login: "离线" };
+  const runtime = new PclRuntime({
+    shell: { account: alex, getVersionInfo: () => ({ name: "1.20.1-Fabric", meta: "Fabric 0.15.11" }) }
+  });
+  assert.equal(runtime.getPlaceholder("user"), "Alex");
+  assert.equal(runtime.getPlaceholder("uuid"), alex.uuid);
+
+  // A shell without an account (the standalone home.html shell) keeps the
+  // documented Steve defaults rather than throwing.
+  const fallback = new PclRuntime({ shell: { getVersionInfo: () => ({ name: "1.20.1-Fabric", meta: "" }) } });
+  assert.equal(fallback.getPlaceholder("user"), "Steve");
+
+  // Switching still goes through setUser and now re-renders via the shell hook.
+  runtime.setUser({ name: "Steve", uuid: "8667ba71-b85a-4004-af54-457a9734eed7" });
+  assert.equal(runtime.getPlaceholder("user"), "Steve");
+});

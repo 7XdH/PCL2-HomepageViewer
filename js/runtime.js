@@ -134,10 +134,14 @@ export class PclRuntime {
     this.variables = loadJSON(VARIABLES_KEY, {});
     this.settings = loadJSON(SETTINGS_KEY, DEFAULT_SETTINGS);
     this.queue = Promise.resolve();
+    // The viewer restores the account picker from localStorage before the first
+    // render, so the runtime has to start from that account instead of Steve.
+    // Otherwise a returning Alex sees an Alex sidebar next to a Steve {user}.
+    const restored = shell?.account;
     this.user = {
-      name: "Steve",
-      uuid: "8667ba71-b85a-4004-af54-457a9734eed7",
-      login: "离线"
+      name: restored?.name || "Steve",
+      uuid: restored?.uuid || "8667ba71-b85a-4004-af54-457a9734eed7",
+      login: restored?.login || "离线"
     };
     this.context = {
       getVariable: (name, fallback = "") => {
