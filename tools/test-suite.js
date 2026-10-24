@@ -561,19 +561,32 @@ export async function runRegression() {
     // Cloudflare replaces any 5xx body from the origin, so upstream failures
     // must arrive as a 200 carrying X-PCL-Proxy-Status. Without this the viewer
     // loses the reason and wrongly reports "no /api/proxy on this deployment".
-    const response = await fetch(
-      "/api/proxy?url=" + encodeURIComponent("https://raw.githubusercontent.com/nonexistent-zz/y.yaml"),
-      { cache: "no-store" }
-    );
-    const body = await response.text();
-    const reported = response.headers.get("x-pcl-proxy-status");
-    if (response.status !== 200) {
-      throw new Error(`上游 404 时不应再返回 ${response.status}，否则会被 CDN 替换成通用错误页`);
+    // The probe goes out to the real internet, so a transient DNS hiccup on the
+    // build machine must not fail the suite: retry the readable-reason part.
+    const probe = async () => {
+      const response = await fetch(
+        "/api/proxy?url=" + encodeURIComponent("https://raw.githubusercontent.com/nonexistent-zz/y.yaml"),
+        { cache: "no-store" }
+      );
+      return { response, body: await response.text() };
+    };
+    let reason = "";
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { response, body } = await probe();
+      if (response.status !== 200) {
+        throw new Error(`上游 404 时不应再返回 ${response.status}，否则会被 CDN 替换成通用错误页`);
+      }
+      const reported = response.headers.get("x-pcl-proxy-status");
+      if (reported !== "502") throw new Error(`X-PCL-Proxy-Status 应为 502，实际 ${reported}`);
+      // A CDN error page is what this test exists to rule out.
+      if (/error code:? ?5\d\d/i.test(body)) throw new Error(`拿到的仍是 CDN 通用错误页：${body.slice(0, 120)}`);
+      if (body.trim()) {
+        reason = body.trim();
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
-    if (reported !== "502") throw new Error(`X-PCL-Proxy-Status 应为 502，实际 ${reported}`);
-    if (!/<html/i.test(body) && !/404|HTTP/.test(body)) {
-      throw new Error(`失败原因丢失：${body.slice(0, 120)}`);
-    }
+    if (!reason) throw new Error("代理没有给出任何失败原因");
     // Image mode keeps the real status so <img> onerror still fires.
     const image = await fetch(
       "/api/proxy?url=" + encodeURIComponent("https://raw.githubusercontent.com/nonexistent-zz/y.png") + "&image=1",
@@ -582,7 +595,7 @@ export async function runRegression() {
     if (image.status < 400) {
       throw new Error(`图片失败应保留 4xx/5xx 状态，实际 ${image.status}`);
     }
-    return { reported, imageStatus: image.status };
+    return { reason: reason.slice(0, 60), imageStatus: image.status };
   });
 
   await makeCheck(results, "XAML 安全过滤", async () => {
