@@ -39,6 +39,7 @@ npm test              # Node 单元测试 + 浏览器回归
 npm run test:unit     # 仅运行 Node 单元测试（xaml / theme / help / URL / 代理策略）
 npm run test:presets  # PCL 25 个预设批量验收（需要联网，4 路并发）
 npm run test:all      # 单元测试 + 浏览器回归 + 预设验收
+npm run test:dist     # 构建 dist/ 并做构建产物烟雾测试（文件、模块图、?v= 戳、真实渲染）
 npm run lint          # ESLint 静态检查
 npm run format:check  # Prettier 格式检查
 ```
@@ -62,11 +63,11 @@ npm run build
 # 构建会基于源文件内容生成统一 build id，并自动写入 dist 中的 HTML/JS/CSS 引用
 ```
 
-| 平台             | 配置                                                                                                                                                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **GitHub Pages** | 仓库 **Settings → Pages → Source → GitHub Actions**。推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动构建 `dist/` 并部署。项目使用相对路径，支持 `https://<user>.github.io/<repo>/` 子路径。                       |
-| **Netlify**      | 导入仓库即可；`netlify.toml` 已配置 `npm run build`、发布目录 `dist/`、函数目录 `netlify/functions` 与 `/api/proxy` 重写。                                                                                                     |
-| **Vercel**       | 导入仓库即可；`vercel.json` 已配置 `framework: null`（避免把本地 `server.js` 误识别为 Node/Express 应用）、构建命令、`dist/` 输出目录和 `api/proxy.js` 的 30 秒执行时间。Vercel 会自动把 `api/proxy.js` 部署为 Node Function。 |
+| 平台             | 配置                                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub Pages** | 仓库 **Settings → Pages → Source → GitHub Actions**。推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动构建 `dist/` 并部署。项目使用相对路径，支持 `https://<user>.github.io/<repo>/` 子路径。工作流会用 `browser-actions/setup-chrome` 安装 Chrome 并导出 `PCL_TEST_BROWSER`，再执行 `npm test` 与 `tools/smoke-dist.mjs`。 |
+| **Netlify**      | 导入仓库即可；`netlify.toml` 已配置 `npm run build`、发布目录 `dist/`、函数目录 `netlify/functions` 与 `/api/proxy` 重写。                                                                                                                                                                                                             |
+| **Vercel**       | 导入仓库即可；`vercel.json` 已配置 `framework: null`（避免把本地 `server.js` 误识别为 Node/Express 应用）、构建命令、`dist/` 输出目录和 `api/proxy.js` 的 30 秒执行时间。Vercel 会自动把 `api/proxy.js` 部署为 Node Function。                                                                                                         |
 
 静态部署的限制：
 
@@ -434,6 +435,8 @@ api/proxy-policy.js        代理图片/SVG 响应策略与安全头
 api/security-headers.js    页面与静态服务器共用的 CSP / 安全响应头
 tools/generate-assets.mjs  重新生成 js/assets.js
 tools/build-static.mjs     构建 dist/ 静态站点
+tools/smoke-dist.mjs       构建产物烟雾测试（模块图、缓存戳、真实渲染）
+tools/browser-path.mjs     查找 Edge / Chrome，测试与烟雾测试共用
 tools/regression.mjs       启动临时服务器和浏览器的测试运行器
 tools/test-suite.js        浏览器内回归与批量验收逻辑
 tools/home-suite.js        浏览器内独立主页页回归逻辑

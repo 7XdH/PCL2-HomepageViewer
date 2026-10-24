@@ -35,11 +35,25 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # npm test drives a real Chromium through CDP; runner images no longer ship
+      # one, so install it and point the harness at the binary explicitly.
+      - name: Install Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+
       - name: Run regression tests
         run: npm test
+        env:
+          PCL_TEST_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
 
       - name: Build static site
         run: npm run build
+
+      # Copying files proves nothing; render the built site once before upload.
+      - name: Smoke test the build
+        run: node tools/smoke-dist.mjs
+        env:
+          PCL_TEST_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

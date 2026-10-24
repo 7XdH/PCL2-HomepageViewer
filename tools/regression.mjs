@@ -4,6 +4,7 @@ import path from "node:path";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { findBrowser } from "./browser-path.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2));
@@ -36,43 +37,6 @@ const freePort = () =>
       server.close(() => resolve(port));
     });
   });
-
-const findOnPath = (name) => {
-  const extensions = process.platform === "win32" ? [".exe", ""] : [""];
-  for (const folder of String(process.env.PATH || "").split(path.delimiter)) {
-    for (const extension of extensions) {
-      const candidate = path.join(folder, `${name}${extension}`);
-      if (fs.existsSync(candidate)) return candidate;
-    }
-  }
-  return null;
-};
-
-const findBrowser = () => {
-  const candidates = [
-    process.env.PCL_TEST_BROWSER,
-    process.platform === "win32" &&
-      path.join(process.env["PROGRAMFILES"] || "", "Microsoft", "Edge", "Application", "msedge.exe"),
-    process.platform === "win32" &&
-      path.join(process.env["PROGRAMFILES(X86)"] || "", "Microsoft", "Edge", "Application", "msedge.exe"),
-    process.platform === "win32" &&
-      path.join(process.env["PROGRAMFILES"] || "", "Google", "Chrome", "Application", "chrome.exe"),
-    process.platform === "win32" &&
-      path.join(process.env["PROGRAMFILES(X86)"] || "", "Google", "Chrome", "Application", "chrome.exe"),
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/microsoft-edge",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-    findOnPath("google-chrome"),
-    findOnPath("chromium"),
-    findOnPath("chromium-browser"),
-    findOnPath("msedge")
-  ];
-  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
-};
 
 class PipeCdp {
   constructor(readable, writable) {
@@ -471,7 +435,9 @@ const runNetworkChecks = async (baseUrl) => {
       headers: { "If-None-Match": 'W/"0-0"', "If-Modified-Since": lastModified },
       cache: "no-store"
     });
-    if (precedence.status !== 200) throw new Error(`两种校验器同时出错时应以 If-None-Match 为准，实际 ${precedence.status}`);
+    if (precedence.status !== 200) {
+      throw new Error(`两种校验器同时出错时应以 If-None-Match 为准，实际 ${precedence.status}`);
+    }
 
     const head = await fetch(url, { method: "HEAD", headers: { "Accept-Encoding": "identity" }, cache: "no-store" });
     if (head.headers.get("etag") !== etag) throw new Error("HEAD 与 GET 的 ETag 不一致");
@@ -481,7 +447,9 @@ const runNetworkChecks = async (baseUrl) => {
     const identity = await fetch(url, { headers: { "Accept-Encoding": "identity" }, cache: "no-store" });
     const identityLength = identity.headers.get("content-length");
     if (head.headers.get("content-length") !== identityLength) {
-      throw new Error(`HEAD 的 Content-Length 与 GET 不一致：${head.headers.get("content-length")} / ${identityLength}`);
+      throw new Error(
+        `HEAD 的 Content-Length 与 GET 不一致：${head.headers.get("content-length")} / ${identityLength}`
+      );
     }
     return { etag };
   });
@@ -506,7 +474,9 @@ const runNetworkChecks = async (baseUrl) => {
 
     const head = await fetch(url, { method: "HEAD", headers: { "Accept-Encoding": "gzip" }, cache: "no-store" });
     if (head.headers.get("content-length") !== String(compressedLength)) {
-      throw new Error(`HEAD 的 Content-Length 与压缩 GET 不一致：${head.headers.get("content-length")} / ${compressedLength}`);
+      throw new Error(
+        `HEAD 的 Content-Length 与压缩 GET 不一致：${head.headers.get("content-length")} / ${compressedLength}`
+      );
     }
 
     // Already-compressed bytes must not be re-encoded.

@@ -916,6 +916,36 @@ test("Netlify config: routes /api/proxy to the function bundle", () => {
   );
 });
 
+test("CI: installs a browser and smoke tests the build", () => {
+  // npm test drives Chromium through CDP. GitHub's ubuntu-latest image used to
+  // ship one; it does not any more, so the workflow must install it and hand the
+  // path over, otherwise the job fails before it ever builds anything.
+  const workflow = fs.readFileSync(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8");
+  assert.match(workflow, /uses: browser-actions\/setup-chrome@v\d/, "CI 应显式安装 Chrome");
+  assert.match(
+    workflow,
+    /PCL_TEST_BROWSER: \$\{\{ steps\.setup-chrome\.outputs\.chrome-path \}\}/,
+    "CI 应把浏览器路径传给测试"
+  );
+  const testStep = workflow.slice(workflow.indexOf("Run regression tests"), workflow.indexOf("Build static site"));
+  assert.match(testStep, /PCL_TEST_BROWSER/, "npm test 需要在带 PCL_TEST_BROWSER 的环境里跑");
+  const smokeStep = workflow.slice(workflow.indexOf("Smoke test the build"));
+  assert.match(smokeStep, /node tools\/smoke-dist\.mjs/, "构建后要跑 dist 烟雾测试");
+
+  // The browser lookup lives in one module so both callers share the same
+  // candidates; a second copy drifts as soon as one is edited.
+  const shared = fs.readFileSync(new URL("./browser-path.mjs", import.meta.url), "utf8");
+  assert.match(shared, /export const findBrowser/, "浏览器查找应只有一份实现");
+  assert.match(shared, /process\.env\.PCL_TEST_BROWSER/, "共享实现必须支持 PCL_TEST_BROWSER");
+  assert.match(shared, /hostedtoolcache/, "应覆盖 CI 上 Chrome 的安装位置");
+  const regression = fs.readFileSync(new URL("./regression.mjs", import.meta.url), "utf8");
+  assert.match(regression, /import \{ findBrowser \} from "\.\/browser-path\.mjs"/, "regression 应复用共享实现");
+  assert.doesNotMatch(regression, /const findBrowser = \(\) =>/, "regression 不应再自带一份");
+
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(pkg.scripts["test:dist"] || "", /build-static\.mjs.*smoke-dist\.mjs/, "test:dist 应先构建再烟雾测试");
+});
+
 test("Static build: ships home.html and stamps its bundle urls", () => {
   const build = fs.readFileSync(new URL("./build-static.mjs", import.meta.url), "utf8");
   const entries = build.match(/const ENTRIES = \[([^\]]*)\]/);
