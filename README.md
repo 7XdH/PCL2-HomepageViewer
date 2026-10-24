@@ -189,7 +189,8 @@ GET /api/proxy?url=https%3A%2F%2Fnews.bugjump.net%2F&ua=PCL2-Homepage-Viewer
 - 跟随最多 5 次重定向；
 - 限制 25 秒超时、4 MB 响应体；
 - 只接受文本 / XML / XAML，拒绝 HTML；
-- 拒绝本机、内网、保留地址和非 80 / 443 端口，降低 SSRF 风险。
+- 拒绝本机、内网、保留地址和非 80 / 443 端口，降低 SSRF 风险；
+- 校验域名时把解析结果固定下来，连接阶段只用这批已校验的地址（本地 `server.js` 通过 `lookup` 固定，并复核 socket 的实际 `remoteAddress`），避免两次解析之间的 DNS 重绑定；Vercel / Netlify 运行时无法固定连接地址，因此那边依赖同一套解析校验并对每一跳重定向重新校验。
 
 公开部署时建议设置环境变量限制目标域名：
 

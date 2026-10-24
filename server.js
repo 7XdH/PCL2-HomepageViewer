@@ -12,13 +12,15 @@ import {
   MAX_REDIRECTS,
   TIMEOUT_MS,
   ProxyError,
-  assertPublicTarget,
+  createPinnedLookup,
+  isBlockedAddress,
   isImageContentType,
   isTextContentType,
   normalizeUserAgent,
   parseTarget,
   proxyFailure,
   proxyRequestHeaders,
+  resolvePublicAddresses,
   resolveRedirect
 } from "./api/proxy-core.js";
 
@@ -147,7 +149,10 @@ function serveStatic(req, res, pathname) {
 
 async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, allowLocal = false) {
   const parsed = parseTarget(url, { allowLocal });
-  await assertPublicTarget(parsed, { allowLocal });
+  // Pin the connection to the addresses that were just validated. Without this
+  // the socket would resolve the name again and a rebinding answer could point
+  // it at 127.0.0.1 after the check had passed.
+  const addresses = await resolvePublicAddresses(parsed, { allowLocal });
 
   return new Promise((resolve, reject) => {
     const transport = parsed.protocol === "https:" ? https : http;
@@ -156,9 +161,18 @@ async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, all
       {
         method: "GET",
         headers: proxyRequestHeaders(userAgent, imageMode, { acceptEncoding: true }),
-        timeout: TIMEOUT_MS
+        timeout: TIMEOUT_MS,
+        lookup: createPinnedLookup(addresses)
       },
       (response) => {
+        // Belt and braces: whatever the resolver did, refuse a socket that ended
+        // up on a blocked address.
+        const remote = response.socket?.remoteAddress;
+        if (remote && isBlockedAddress(remote, { allowLocal })) {
+          response.destroy();
+          reject(new ProxyError("连接落到内网或保留地址", 403));
+          return;
+        }
         const status = response.statusCode || 0;
         const location = response.headers.location;
         if (status >= 300 && status < 400) {

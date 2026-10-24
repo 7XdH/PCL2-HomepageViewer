@@ -184,13 +184,17 @@ export function resolveRedirect(target, location, status, { allowLocal = false }
   return parseTarget(new URL(location, target).toString(), { allowLocal });
 }
 
-export async function assertPublicTarget(target, { allowLocal = false } = {}) {
+// Validate the host and hand back the exact addresses that passed. Callers that
+// can pin the connection (node:http / node:https accept a `lookup`) must reuse
+// this list; otherwise the socket is free to resolve the name a second time and
+// a DNS-rebinding attacker can swap in 127.0.0.1 between check and connect.
+export async function resolvePublicAddresses(target, { allowLocal = false } = {}) {
   const hostname = targetHostname(target);
   if (net.isIP(hostname)) {
     if (isBlockedAddress(hostname, { allowLocal })) {
       throw new ProxyError("不允许访问内网或保留地址", 403);
     }
-    return;
+    return [hostname];
   }
 
   let records;
@@ -202,9 +206,46 @@ export async function assertPublicTarget(target, { allowLocal = false } = {}) {
   if (!records.length) {
     throw new ProxyError("目标域名没有可用地址", 502);
   }
+  // Every answer must be public: a host that returns one public and one private
+  // address would otherwise pass and then connect to whichever the resolver
+  // happens to order first.
   if (records.some((record) => isBlockedAddress(record.address, { allowLocal }))) {
     throw new ProxyError("目标域名解析到内网或保留地址", 403);
   }
+  return records.map((record) => record.address);
+}
+
+export async function assertPublicTarget(target, options = {}) {
+  await resolvePublicAddresses(target, options);
+}
+
+// A `lookup` for node:http(s) that only ever answers with the addresses that
+// were already validated, ignoring whatever DNS says at connect time.
+export function createPinnedLookup(addresses) {
+  const pinned = addresses
+    .map((address) => ({ address: normalizeAddress(address), family: net.isIP(normalizeAddress(address)) }))
+    .filter((entry) => entry.family === 4 || entry.family === 6);
+
+  return (hostname, options, callback) => {
+    let opts = options;
+    let done = callback;
+    if (typeof opts === "function") {
+      done = opts;
+      opts = {};
+    }
+    if (!pinned.length) {
+      done(new Error("没有可用的固定地址"));
+      return;
+    }
+    const family = Number(opts?.family) || 0;
+    const usable = family ? pinned.filter((entry) => entry.family === family) : pinned;
+    const results = usable.length ? usable : pinned;
+    if (opts?.all) {
+      done(null, results);
+      return;
+    }
+    done(null, results[0].address, results[0].family);
+  };
 }
 
 export function proxyRequestHeaders(userAgent, imageMode, { acceptEncoding = false } = {}) {

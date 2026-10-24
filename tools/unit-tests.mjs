@@ -22,11 +22,14 @@ import {
   PROXY_STATUS_HEADER,
   ProxyError,
   assertPublicTarget,
+  createPinnedLookup,
+  isBlockedAddress,
   isImageContentType,
   isTextContentType,
   normalizeUserAgent,
   parseTarget,
   proxyFailure,
+  resolvePublicAddresses,
   resolveRedirect
 } from "../api/proxy-core.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
@@ -299,6 +302,36 @@ test("proxy core: public address and content-type guards", async () => {
   assert.equal(isTextContentType("application/octet-stream", "https://example.com/a.txt"), true);
   assert.equal(isImageContentType("image/png"), true);
   assert.equal(isImageContentType("text/plain"), false);
+});
+
+test("proxy core: the validated address list is what the socket connects to", async () => {
+  // resolvePublicAddresses hands back the addresses it cleared so the caller can
+  // pin them; a second DNS answer can therefore never reach the socket.
+  assert.deepEqual(await resolvePublicAddresses(parseTarget("http://93.184.216.34/")), ["93.184.216.34"]);
+  await assert.rejects(resolvePublicAddresses(parseTarget("http://10.0.0.5/")), proxyError(403));
+
+  const lookup = createPinnedLookup(["93.184.216.34"]);
+  const single = await new Promise((resolve, reject) =>
+    lookup("rebind.example", {}, (error, address, family) => (error ? reject(error) : resolve({ address, family })))
+  );
+  assert.deepEqual(single, { address: "93.184.216.34", family: 4 });
+
+  // dns.lookup({ all: true }) shape, which node:http asks for on some paths.
+  const all = await new Promise((resolve, reject) =>
+    lookup("rebind.example", { all: true }, (error, records) => (error ? reject(error) : resolve(records)))
+  );
+  assert.deepEqual(all, [{ address: "93.184.216.34", family: 4 }]);
+
+  // A family filter that no pinned address satisfies still falls back to one we
+  // validated rather than letting the resolver pick something new.
+  const ipv6Only = await new Promise((resolve, reject) =>
+    lookup("rebind.example", { family: 6 }, (error, address) => (error ? reject(error) : resolve(address)))
+  );
+  assert.equal(ipv6Only, "93.184.216.34");
+
+  // Normalised IPv4-mapped IPv6 still counts as the same public address.
+  assert.equal(isBlockedAddress("::ffff:127.0.0.1"), true);
+  assert.equal(isBlockedAddress("::ffff:93.184.216.34"), false);
 });
 
 test("proxy policy: SVG sandbox headers", () => {
