@@ -151,12 +151,108 @@ export const fetchLatestCommit = async (signal) => {
   return null;
 };
 
+// PCL's Modules/ModMain.vb declares `Enum HintType { Blue, Green, Red }`; the
+// three gradients below are the exact 215/255-alpha colours built there. Yellow
+// is a viewer-only extension for "worth noticing, not an error" states (the
+// preset panel's oversize warning) and has no PCL counterpart, so a Custom.xaml
+// that raises it would fail to parse `HintType` in the real launcher.
 export const hintColors = {
   Blue: ["rgba(37, 155, 252, 0.843)", "rgba(10, 142, 252, 0.843)"],
   Green: ["rgba(33, 177, 33, 0.843)", "rgba(29, 160, 29, 0.843)"],
   Red: ["rgba(255, 53, 11, 0.843)", "rgba(255, 43, 0, 0.843)"],
   Yellow: ["rgba(245, 122, 0, 0.843)", "rgba(216, 108, 0, 0.843)"]
 };
+
+export const PCL_HINT_TYPES = ["Blue", "Green", "Red"];
+
+/** Case-insensitive hint type lookup; unknown names fall back to Blue like PCL's default. */
+export const resolveHintColors = (type) => {
+  const normalized = String(type ?? "")
+    .trim()
+    .toLowerCase();
+  const key = Object.keys(hintColors).find((name) => name.toLowerCase() === normalized) || "Blue";
+  return { key, colors: hintColors[key] };
+};
+
+/**
+ * How long a hint stays on screen, in ms.
+ *
+ * PCL uses `(800 + Text.Length.Clamp(5, 23) * 180) * AniSpeed` with the default
+ * `SystemDebugAnim = 9` giving AniSpeed 1.0 (ModAnimation.vb:13-18), so the
+ * factor is 1 unless a user turned the debug slider up.
+ */
+export const hintLifespan = (text, aniSpeed = 1) =>
+  (800 + Math.min(23, Math.max(5, String(text ?? "").length)) * 180) * aniSpeed;
+
+/** PCL keeps at most 20 bars on screen and drops the rest (ModMain.vb HintTick). */
+export const HINT_LIMIT = 20;
+
+/** Hide animation length: AaHeight(-26, 100) + the 150ms fade PCL runs with it. */
+const HINT_HIDE_MS = 210;
+
+const HINT_SHAKE = [
+  { transform: "translateX(0)" },
+  { transform: "translateX(8px)" },
+  { transform: "translateX(0)" },
+  { transform: "translateX(8px)" },
+  { transform: "translateX(0)" }
+];
+
+/**
+ * Render one runtime hint bar into `stack`, mirroring PCL's ModMain.vb HintTick:
+ *
+ * - newline-separated text collapses to single spaces;
+ * - at most 20 bars; anything beyond is dropped instead of queued;
+ * - a duplicate text reuses the existing bar, shakes it and **restarts its
+ *   lifetime** (PCL re-arms the "Hint Hide" animation group), which the old
+ *   code missed — the reused bar kept the first bar's timer and vanished early;
+ * - a bar only counts as reusable once its entry animation finished, which here
+ *   means "not already leaving".
+ */
+export function showRuntimeHint(stack, text, type = "Blue", { aniSpeed = 1 } = {}) {
+  if (!stack) return null;
+  const message = String(text ?? "")
+    .replace(/\r?\n/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (!message) return null;
+
+  const { colors } = resolveHintColors(type);
+  const existing = Array.from(stack.children).filter((child) => !child.classList.contains("is-leaving"));
+  const duplicate = existing.find((child) => child.dataset.text === message);
+  if (duplicate) {
+    duplicate.animate(HINT_SHAKE, { duration: 200, easing: "ease-in-out" });
+    armHintRemoval(duplicate, message, aniSpeed);
+    return duplicate;
+  }
+
+  const node = document.createElement("div");
+  node.className = "pcl-runtime-hint";
+  node.dataset.text = message;
+  node.style.setProperty("--hint-a", colors[0]);
+  node.style.setProperty("--hint-b", colors[1]);
+  node.textContent = message;
+  // PCL only animates the height in when another bar is already showing; the
+  // first bar starts at its full 26px.
+  node.dataset.stacked = existing.length ? "true" : "false";
+  stack.append(node);
+
+  while (stack.children.length > HINT_LIMIT) stack.firstElementChild?.remove();
+  armHintRemoval(node, message, aniSpeed);
+  return node;
+}
+
+function armHintRemoval(node, message, aniSpeed) {
+  if (node._hintTimer) window.clearTimeout(node._hintTimer);
+  node._hintTimer = window.setTimeout(
+    () => {
+      node._hintTimer = 0;
+      node.classList.add("is-leaving");
+      window.setTimeout(() => node.remove(), HINT_HIDE_MS);
+    },
+    hintLifespan(message, aniSpeed)
+  );
+}
 
 export const timeString = (date) => {
   const d = date instanceof Date ? date : new Date(date);

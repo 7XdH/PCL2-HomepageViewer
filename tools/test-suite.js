@@ -5,7 +5,13 @@ import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../js/ua.js";
 import { resolveHelpUrls, resolveHelpXamlUrl, helpJsonTitle, helpTitleFromXaml } from "../js/help.js";
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl } from "../js/url.js";
 import { isSvgResponse, svgResponseHeaders } from "../api/proxy-policy.js";
-import { SHELL_PREF_KEY, readShellPreferences, saveShellPreferences } from "../js/shell/helpers.js";
+import {
+  SHELL_PREF_KEY,
+  PCL_HINT_TYPES,
+  readShellPreferences,
+  saveShellPreferences,
+  showRuntimeHint
+} from "../js/shell/helpers.js";
 import {
   MAX_SOURCE_BYTES,
   MAX_XAML_DEPTH,
@@ -2579,6 +2585,70 @@ export async function runRegression() {
       return { button: [+b.width.toFixed(1), +b.height.toFixed(1)], face: [+f.width.toFixed(1), +f.height.toFixed(1)] };
     });
     return { rows };
+  });
+  await makeCheck(results, "运行时提示条按 PCL 的类型、去重与上限工作", async () => {
+    // ModMain.vb HintTick: three official palettes, newline collapse, at most 20
+    // bars (extra ones dropped, not queued), duplicates reuse the existing bar.
+    const stack = document.createElement("div");
+    stack.className = "pcl-hint-stack";
+    document.body.append(stack);
+    try {
+      const blue = showRuntimeHint(stack, "你好");
+      const green = showRuntimeHint(stack, "已写入设置：UiLauncherHue → 210", "Green");
+      const red = showRuntimeHint(stack, "下载失败", "red");
+      const yellow = showRuntimeHint(stack, "超过 500 KB", "Yellow");
+      const unknown = showRuntimeHint(stack, "未知类型", "Purple");
+      if (stack.children.length !== 5) throw new Error(`提示条数量：期望 5，实际 ${stack.children.length}`);
+      const palette = (node) => [
+        node.style.getPropertyValue("--hint-a").trim(),
+        node.style.getPropertyValue("--hint-b").trim()
+      ];
+      const expected = {
+        Blue: ["rgba(37, 155, 252, 0.843)", "rgba(10, 142, 252, 0.843)"],
+        Green: ["rgba(33, 177, 33, 0.843)", "rgba(29, 160, 29, 0.843)"],
+        Red: ["rgba(255, 53, 11, 0.843)", "rgba(255, 43, 0, 0.843)"],
+        Yellow: ["rgba(245, 122, 0, 0.843)", "rgba(216, 108, 0, 0.843)"]
+      };
+      const cases = [
+        [blue, "Blue"],
+        [green, "Green"],
+        [red, "Red"],
+        [yellow, "Yellow"],
+        [unknown, "Blue"]
+      ];
+      for (const [node, name] of cases) {
+        const got = palette(node);
+        if (got[0] !== expected[name][0] || got[1] !== expected[name][1]) {
+          throw new Error(`${name} 渐变不对：${got.join(" / ")}`);
+        }
+      }
+      if (stack.children[0].dataset.stacked !== "false") throw new Error("首条提示不该有 stack 标记");
+      if (stack.children[1].dataset.stacked !== "true") {
+        throw new Error("第二条提示应带 stack 标记（PCL 仅此时做高度动画）");
+      }
+
+      // Duplicate reuse: same text returns the very same node and adds nothing.
+      const again = showRuntimeHint(stack, "你好");
+      if (again !== blue) throw new Error("重复提示没有复用已有提示条");
+      if (stack.children.length !== 5) throw new Error("重复提示不应新增提示条");
+
+      // Newlines and runs of spaces collapse to one space, like PCL's
+      // ReplaceLineEndings(" ", mergeMultiple:=True).
+      const multi = showRuntimeHint(stack, "第一行\r\n第二行   第三段");
+      if (multi.dataset.text !== "第一行 第二行 第三段") throw new Error(`换行没有折叠：${multi.dataset.text}`);
+
+      // Over-limit bars are dropped, keeping the newest 20.
+      for (let i = 0; i < 30; i += 1) showRuntimeHint(stack, `批量 ${i}`);
+      if (stack.children.length !== 20) throw new Error(`上限应为 20，实际 ${stack.children.length}`);
+      if (stack.lastElementChild.dataset.text !== "批量 29") throw new Error("上限淘汰时保留了旧提示");
+
+      // PCL's own enum has three members; Yellow is a documented viewer
+      // extension and PCL_HINT_TYPES is what README/docs point at.
+      if (PCL_HINT_TYPES.join(",") !== "Blue,Green,Red") throw new Error(`PCL HintType：${PCL_HINT_TYPES.join(",")}`);
+      return { first: blue.dataset.text, limit: stack.children.length, pclTypes: PCL_HINT_TYPES.join(",") };
+    } finally {
+      stack.remove();
+    }
   });
   await makeCheck(results, "四档外观切换与画布压暗", async () => {
     // The shell offers light / dark / amoled plus an auto option that follows

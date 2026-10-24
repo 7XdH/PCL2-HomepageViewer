@@ -16,7 +16,7 @@ import { HOME_CONTENT_WIDTH, computeHomeZoom } from "./app/home-fit.js";
 import { createAppearance } from "./app/appearance.js";
 import { getProxyUaCandidates } from "./ua.js";
 import { isMinecraftUrl, normalizeExternalUrl } from "./url.js";
-import { hintColors } from "./shell/helpers.js";
+import { showRuntimeHint } from "./shell/helpers.js";
 import { LruCache } from "./lru-cache.js";
 import { PRESET_CACHE_LIMIT } from "./limits.js";
 
@@ -66,43 +66,9 @@ function safeStorage() {
 
 const shell = {
   showHint(text, type = "Blue") {
-    if (!dom.hintStack) return;
-    const message = String(text ?? "")
-      .replace(/\r?\n/g, " ")
-      .trim();
-    if (!message) return;
-    // Same palette, dedupe and lifespan as PclShell.showHint (js/shell/base.js)
-    // so a hint raised here looks and behaves like one raised in the viewer.
-    const normalized = String(type || "Blue").toLowerCase();
-    const key = Object.keys(hintColors).find((name) => name.toLowerCase() === normalized) || "Blue";
-    const colors = hintColors[key];
-    const duplicate = Array.from(dom.hintStack.children).find((child) => child.dataset.text === message);
-    if (duplicate) {
-      duplicate.animate(
-        [
-          { transform: "translateX(0)" },
-          { transform: "translateX(-8px)" },
-          { transform: "translateX(8px)" },
-          { transform: "translateX(-6px)" },
-          { transform: "translateX(0)" }
-        ],
-        { duration: 260, easing: "ease-out" }
-      );
-      return;
-    }
-    const node = document.createElement("div");
-    node.className = "pcl-runtime-hint";
-    node.dataset.text = message;
-    node.style.setProperty("--hint-a", colors[0]);
-    node.style.setProperty("--hint-b", colors[1]);
-    node.textContent = message;
-    dom.hintStack.append(node);
-    while (dom.hintStack.children.length > 20) dom.hintStack.firstElementChild?.remove();
-    const lifespan = 800 + Math.min(23, Math.max(5, message.length)) * 180;
-    window.setTimeout(() => {
-      node.classList.add("is-leaving");
-      window.setTimeout(() => node.remove(), 230);
-    }, lifespan);
+    // Same code path as the viewer's PclShell.showHint, so a hint raised here
+    // looks and behaves exactly like one raised in the full preview.
+    return showRuntimeHint(dom.hintStack, text, type);
   },
   showModal({ title = "提示", caption = "", buttons = ["确定"], warn = false, activeIndex = 0 } = {}) {
     // A modal is how PCL reports anything the user must acknowledge, so this

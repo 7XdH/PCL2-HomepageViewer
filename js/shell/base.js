@@ -8,7 +8,7 @@ import {
   COMMIT_ERROR_TITLE,
   formatRelativeTime,
   fetchLatestCommit,
-  hintColors,
+  showRuntimeHint,
   readShellPreferences,
   saveShellPreferences
 } from "./helpers.js";
@@ -73,44 +73,9 @@ export class PclShellBase {
   }
 
   showHint(text, type = "Blue") {
-    const message = String(text ?? "")
-      .replace(/\r?\n/g, " ")
-      .trim();
-    if (!message) return;
-    const normalized = String(type || "Blue").toLowerCase();
-    const key = Object.keys(hintColors).find((name) => name.toLowerCase() === normalized) || "Blue";
-    const colors = hintColors[key];
-
-    const duplicate = Array.from(this.hintStack.children).find((child) => child.dataset.text === message);
-    if (duplicate) {
-      duplicate.animate(
-        [
-          { transform: "translateX(0)" },
-          { transform: "translateX(-8px)" },
-          { transform: "translateX(8px)" },
-          { transform: "translateX(-6px)" },
-          { transform: "translateX(0)" }
-        ],
-        { duration: 260, easing: "ease-out" }
-      );
-      return;
-    }
-
-    const node = document.createElement("div");
-    node.className = "pcl-runtime-hint";
-    node.dataset.text = message;
-    node.style.setProperty("--hint-a", colors[0]);
-    node.style.setProperty("--hint-b", colors[1]);
-    node.textContent = message;
-    this.hintStack.append(node);
-
-    while (this.hintStack.children.length > 20) this.hintStack.firstElementChild?.remove();
-
-    const lifespan = 800 + Math.min(23, Math.max(5, message.length)) * 180;
-    window.setTimeout(() => {
-      node.classList.add("is-leaving");
-      window.setTimeout(() => node.remove(), 230);
-    }, lifespan);
+    // Everything about the bar itself lives in helpers.js so the standalone
+    // homepage page (js/home.js) raises byte-identical hints.
+    return showRuntimeHint(this.hintStack, text, type);
   }
 
   setBackgroundInert(active) {
