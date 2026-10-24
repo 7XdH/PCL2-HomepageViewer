@@ -56,8 +56,7 @@ export async function fetchViaProxy(url, signal, ua = "", label = "远程内容"
     const error = new Error(text.trim() || `代理返回 HTTP ${proxyStatus || response.status}`);
     // The upstream status drives the fallback policy in app/sources.js.
     error.status = proxyStatus || response.status;
-    error.code =
-      !proxyStatus && contentType.includes("text/html") ? "PROXY_HTML" : "PROXY_HTTP";
+    error.code = !proxyStatus && contentType.includes("text/html") ? "PROXY_HTML" : "PROXY_HTTP";
     throw error;
   }
   return readResponseTextLimited(response, label);
