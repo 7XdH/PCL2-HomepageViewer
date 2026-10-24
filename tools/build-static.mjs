@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "dist");
-const ENTRIES = ["index.html", "css", "js", "assets", ".nojekyll", "LICENSE", "LICENCE-PCL.md"];
+const ENTRIES = ["index.html", "home.html", "css", "js", "assets", ".nojekyll", "LICENSE", "LICENCE-PCL.md"];
 
 function walkEntry(absolute, relative, visit) {
   const stat = fs.statSync(absolute);
@@ -72,7 +72,9 @@ for (const entry of ENTRIES) {
   fs.cpSync(source, path.join(OUT, entry), { recursive: true });
 }
 
+// Both documents load the same bundles, so both get the build stamp.
 addCacheVersion("index.html");
+addCacheVersion("home.html");
 walkEntry(path.join(OUT, "js"), "js", (file, relative) => {
   if (file.endsWith(".js")) addModuleCacheVersions(relative);
 });
