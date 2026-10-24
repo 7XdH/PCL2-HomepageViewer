@@ -14,9 +14,10 @@ import {
 } from "./helpers.js";
 
 export class PclShellBase {
-  constructor({ onLaunch, onAccountChange } = {}) {
+  constructor({ onLaunch, onAccountChange, onVersionChange } = {}) {
     this.onLaunch = onLaunch;
     this.onAccountChange = onAccountChange;
+    this.onVersionChange = onVersionChange;
     const preferences = readShellPreferences();
     this.version = preferences.version;
     this.account = ACCOUNTS[preferences.account] || ACCOUNTS.Steve;
@@ -297,12 +298,19 @@ export class PclShellBase {
   setVersion(name) {
     const version =
       VERSIONS.find((item) => item.name === name) || VERSIONS.find((item) => item.name === this.version) || VERSIONS[0];
+    const changed = version.name !== this.version;
     this.version = version.name;
     if (this.versionName) this.versionName.textContent = version.name;
     if (this.launchVersion) this.launchVersion.textContent = version.name;
     const meta = this.versionName?.parentElement?.querySelector(".pcl-version-card__meta");
     if (meta) meta.textContent = version.meta;
     saveShellPreferences({ version: this.version, account: this.account.name });
+    // PCL's version picker is its own page, and coming back re-parents
+    // PageLaunchRight, which fires Loaded again and re-runs RefreshReal with the
+    // cached content. Placeholders such as {version} are expanded at load time,
+    // so that round trip is what makes them reflect the new instance. Report the
+    // change here and let the caller replay the cached source.
+    if (changed) this.onVersionChange?.({ name: this.version, meta: version.meta });
   }
 
   openUrl(url) {

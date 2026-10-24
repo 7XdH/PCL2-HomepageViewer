@@ -2116,6 +2116,62 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "切换版本后占位符跟着当前实例刷新", async () => {
+    // PCL expands placeholders when it loads the page, and picking an instance
+    // leaves the launch page and comes back, which reloads PageLaunchRight from
+    // the cached content. Here the same round trip has to happen in memory.
+    const api = window.__PCL_RENDERER__;
+    const shell = api?.shell;
+    if (!shell?.setVersion || !api?.renderCurrent) throw new Error("找不到版本切换或渲染接口");
+
+    const savedVersion = shell.version;
+    const savedState = { ...api.state };
+    try {
+      Object.assign(api.state, { mode: "code", code: "", fileContent: "", urlContent: "" });
+      api.state.mode = "code";
+      const editor = document.getElementById("codeEditor");
+      editor.value = '<TextBlock Text="{version}|{name}|{forge}|{fabric}" />';
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      await api.renderCurrent({ reason: "version-test" });
+      const before = textOf(document.getElementById("pclHomeRoot"));
+      if (!before.includes("1.20.1")) throw new Error(`初始占位符没有展开：${before}`);
+
+      const target = "1.19.2-Forge";
+      shell.setVersion(target);
+      const started = Date.now();
+      let after = "";
+      while (Date.now() - started < 3000) {
+        after = textOf(document.getElementById("pclHomeRoot"));
+        if (after.includes("1.19.2")) break;
+        await sleep(60);
+      }
+      if (!after.includes("1.19.2")) throw new Error(`切换版本后占位符没有刷新：${after}`);
+      if (!after.includes("43.3.0")) throw new Error(`{forge} 没有跟随版本：${after}`);
+      if (!after.endsWith("|")) throw new Error(`Forge 实例不应有 {fabric}：${after}`);
+
+      // Switching back must undo it, and an unchanged version must not re-render
+      // (that would throw away scroll position and image state for nothing).
+      let renders = 0;
+      const originalRender = api.renderer.render.bind(api.renderer);
+      api.renderer.render = (...args) => {
+        renders += 1;
+        return originalRender(...args);
+      };
+      try {
+        shell.setVersion(target);
+        await sleep(120);
+        if (renders !== 0) throw new Error(`版本没变却重新渲染了 ${renders} 次`);
+      } finally {
+        api.renderer.render = originalRender;
+      }
+      return { before, after };
+    } finally {
+      Object.assign(api.state, savedState);
+      shell.setVersion(savedVersion);
+      await api.renderCurrent({ reason: "version-restore" });
+    }
+  });
+
   await makeCheck(results, "导出按钮写入编辑器里的最新内容", async () => {
     const api = window.__PCL_RENDERER__;
     const editor = document.getElementById("codeEditor");

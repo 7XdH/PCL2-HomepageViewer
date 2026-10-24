@@ -98,6 +98,11 @@ const runtime = new PclRuntime({
   onOpenHelp: (address) => helpNavigation?.openRemoteHelp(address)
 });
 shell.onAccountChange = (user) => runtime.setUser(user);
+// Placeholders are expanded while parsing, so switching the instance has to
+// re-run the cached source for {version}/{name}/{fabric} to follow it. PCL gets
+// the same effect by leaving the launch page and coming back; here the content
+// is already in memory, so it stays a local re-render with no network traffic.
+shell.onVersionChange = () => renderCurrent({ reason: "version" });
 theme.setHue(Number(runtime.settings.UiLauncherHue));
 
 const renderer = new PclRenderer({
