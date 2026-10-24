@@ -1,7 +1,7 @@
 import { parseXaml, tagName, isPropertyElement, propertyElementName, attributeValue } from "./xaml.js";
 import { PclDocumentBuilders } from "./renderer/builders/document.js";
 import { RESOURCE_REF_RE, getProp, findPropertyElement } from "./renderer/helpers.js";
-import { classifyAttribute, locateAttribute } from "./renderer/known-attributes.js";
+import { classifyAttribute, isSupportedSetterProperty, locateAttribute } from "./renderer/known-attributes.js";
 
 export class PclRenderer extends PclDocumentBuilders {
   constructor({ root, runtime, getProxyUa, getProxyUas, lazyImages = true } = {}) {
@@ -351,6 +351,8 @@ export class PclRenderer extends PclDocumentBuilders {
     for (const setter of setters) {
       const property = attributeValue(setter, "Property");
       if (!property || property.toLowerCase() === "template") continue;
+      // A Style is remote input too: only hand it attributes the renderer reads.
+      if (!isSupportedSetterProperty(property)) continue;
       if (this.hasAttribute(element, property)) continue;
       const value = attributeValue(setter, "Value");
       if (value == null) continue;

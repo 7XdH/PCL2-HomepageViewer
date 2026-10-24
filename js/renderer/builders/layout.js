@@ -3,6 +3,8 @@ import {
   isPropertyElement,
   readEvents,
   resolveColor,
+  resolveCursor,
+  sanitizeFontFamily,
   parseDouble,
   parseBool,
   parseThickness,
@@ -141,10 +143,8 @@ export class PclLayoutBuilders {
     const tooltip = getProp(props, "ToolTip");
     if (tooltip && !String(tooltip).trim().startsWith("{")) node.dataset.tooltip = tooltip;
 
-    const cursor = getProp(props, "Cursor");
-    if (cursor && !String(cursor).startsWith("{")) {
-      node.style.cursor = String(cursor).toLowerCase() === "hand" ? "pointer" : cursor;
-    }
+    const cursor = resolveCursor(getProp(props, "Cursor"));
+    if (cursor) node.style.cursor = cursor;
 
     const zIndex = parseDouble(getProp(props, "Panel.ZIndex", "ZIndex"));
     if (zIndex != null) node.style.zIndex = String(zIndex);
@@ -267,15 +267,12 @@ export class PclLayoutBuilders {
     if (foreground) node.style.color = foreground;
     const background = resolveColor(getProp(props, "Background"));
     if (background) node.style.background = background;
-    const fontFamily = getProp(props, "FontFamily");
-    if (fontFamily != null && !String(fontFamily).trim().startsWith("{")) {
+    const fontFamily = sanitizeFontFamily(getProp(props, "FontFamily"));
+    if (fontFamily) {
       // WPF font names (including Chinese ones like 微软雅黑) match installed
       // families 1:1; keep the PCL default stack as fallback so CJK glyphs
       // still resolve like WPF's per-glyph fallback.
-      const value = String(fontFamily).trim();
-      if (value) {
-        node.style.fontFamily = value.includes(",") ? value : `"${value}", var(--pcl-font)`;
-      }
+      node.style.fontFamily = fontFamily.includes(",") ? fontFamily : `"${fontFamily}", var(--pcl-font)`;
     }
     const fontSize = parseDouble(getProp(props, "FontSize"));
     if (fontSize != null) node.style.fontSize = `${fontSize}px`;

@@ -1566,6 +1566,66 @@ export async function runRegression() {
     return metrics;
   });
 
+  await makeCheck(results, "远程 XAML 的颜色与样式值不能夹带 CSS", async () => {
+    const xaml = `<StackPanel>
+  <Border x:Name="hostile" Background="url(https://tracker.invalid/bg.png)" Width="100" Height="20" />
+  <TextBlock x:Name="filled" Text="填充" Foreground="red; background-image: url(https://tracker.invalid/t.png)" />
+  <TextBlock x:Name="cursored" Text="光标" Cursor="url(https://tracker.invalid/c.cur), auto" />
+  <TextBlock x:Name="fonted" Text="字体" FontFamily="Arial; background: url(https://tracker.invalid/f.png)" />
+  <TextBlock x:Name="badhex" Text="坏色" Foreground="#12" />
+  <TextBlock x:Name="good" Text="正常" Foreground="{DynamicResource ColorBrush3}" FontFamily="微软雅黑" Cursor="Hand" />
+  <StackPanel.Resources>
+    <Style TargetType="TextBlock" x:Key="injected">
+      <Setter Property="background-image" Value="url(https://tracker.invalid/s.png)" />
+      <Setter Property="Background" Value="url(https://tracker.invalid/s2.png)" />
+    </Style>
+  </StackPanel.Resources>
+  <TextBlock x:Name="styled" Text="样式" Style="{StaticResource injected}" />
+</StackPanel>`;
+    // Any image the renderer *did* accept would be fetched by the browser; the
+    // one below is the only allowed load, so counting requests proves the
+    // hostile values never reached a style attribute.
+    const requested = [];
+    const originalOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function patched(method, url, ...rest) {
+      requested.push(String(url));
+      return originalOpen.call(this, method, url, ...rest);
+    };
+    let metrics;
+    try {
+      metrics = await renderSource(harness, xaml);
+    } finally {
+      XMLHttpRequest.prototype.open = originalOpen;
+    }
+    const root = harness.root;
+    const hostile = root.querySelector(".pcl-border");
+    if (hostile && /url\(/i.test(hostile.getAttribute("style") || "")) {
+      throw new Error(`Background 的 url() 被写进了样式：${hostile.getAttribute("style")}`);
+    }
+    const allStyles = [hostile, ...root.querySelectorAll(".pcl-text")]
+      .filter(Boolean)
+      .map((node) => node.getAttribute("style") || "")
+      .join(" | ");
+    if (/tracker\.invalid/i.test(allStyles)) {
+      throw new Error(`有 url() 逃过了过滤：${allStyles}`);
+    }
+    const cursors = Array.from(root.querySelectorAll(".pcl-text")).map((node) => node.style.cursor);
+    if (cursors.some((value) => /url/i.test(value))) {
+      throw new Error(`Cursor 的 url() 被应用了：${cursors.join(", ")}`);
+    }
+    if (requested.some((url) => /tracker\.invalid/i.test(url))) {
+      throw new Error(`过滤后的值仍然发起了请求：${requested.join(", ")}`);
+    }
+    // Legitimate values still work.
+    const colored = Array.from(root.querySelectorAll(".pcl-text")).find(
+      (node) => node.style.color && node.style.color.includes("--pcl-c3")
+    );
+    if (!colored) throw new Error("合法的 ColorBrush3 没有生效");
+    const pointered = Array.from(root.querySelectorAll(".pcl-text")).find((node) => node.style.cursor === "pointer");
+    if (!pointered) throw new Error("合法的 Cursor=Hand 没有映射成 pointer");
+    return metrics;
+  });
+
   await makeCheck(results, "PCL 替换标记", async () => {
     const expected = {
       pcl_version: "2.99.0.0",

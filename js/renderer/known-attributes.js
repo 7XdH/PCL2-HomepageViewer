@@ -42,6 +42,14 @@ export const COMMON_ATTRIBUTES = lowerSet(`
     ViewportSize Visibility Width WindowStyle X X1 X2 Y Y1 Y2
 `);
 
+// Properties the renderer actually reads that are not in the WPF/PCL lists
+// above. They are allowed as Style Setters; anything outside every table is
+// refused, so a remote XAML cannot inject an arbitrary CSS declaration.
+export const RENDERER_ATTRIBUTES = lowerSet(`
+    Columns FirstColumn HeaderTemplate Index IsSelectionEnabled LineStackingStrategy MarkerStyle
+    NavigateUri Points Rows TextIndent TileMode
+`);
+
 // Members each PCL control declares (Controls/*.xaml.vb Public Property) plus
 // the WPF properties their templates bind.
 export const CONTROL_ATTRIBUTES = new Map(
@@ -89,6 +97,26 @@ export const EVENT_ATTRIBUTES = new Set(
 /** True when PCL itself ships a control with this tag. */
 export function isKnownControl(tag) {
   return CONTROL_ATTRIBUTES.has(String(tag || "").toLowerCase());
+}
+
+/**
+ * True when a `<Setter Property="…">` may write this attribute. Remote XAML
+ * could otherwise use a Style to push an arbitrary declaration at the renderer;
+ * only members we know how to read are honoured, the rest are skipped.
+ *
+ * @param {string} name attribute name as authored
+ * @returns {boolean}
+ */
+export function isSupportedSetterProperty(name) {
+  const authored = String(name ?? "").trim();
+  if (!authored) return false;
+  const lower = authored.toLowerCase();
+  if (COMMON_ATTRIBUTES.has(lower) || RENDERER_ATTRIBUTES.has(lower)) return true;
+  if (EVENT_ATTRIBUTES.has(authored) || EVENT_ATTRIBUTES.has(lower)) return true;
+  for (const allowed of CONTROL_ATTRIBUTES.values()) {
+    if (allowed.has(lower)) return true;
+  }
+  return false;
 }
 
 const NAMESPACE_PREFIXES = ["x:", "d:", "mc:", "local:", "sys:", "core:", "corewpf:"];

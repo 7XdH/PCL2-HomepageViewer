@@ -380,6 +380,7 @@ Root Directory: 留空
 - `修改设置` 目前只应用 `UiLauncherHue`；透明度、背景模糊等设置会保存并参与 `{setup:...}`，但不会改变渲染外观。
 - 文本换行、字体度量与 WPF 不是逐像素完全相同；已对齐主要尺寸、边距、颜色与字号。
 - 远程主页中的相对图片路径不会自动按远程 URL 解析。
+- 颜色、`Cursor`、`FontFamily` 与 `Style` 的 `Setter` 都按白名单过滤：颜色只接受十六进制、`rgb()/rgba()/hsl()`、`ColorBrush*` 等主题变量与 WPF 命名色；`url(...)`、`expression(...)`、`@import` 与反斜杠一律丢弃，`Setter` 只允许渲染器实际支持的成员。带引号的 `FontFamily` 与位图 `Cursor` 因此不会生效。
 
 ## 与 PCL 的加载语义差异
 

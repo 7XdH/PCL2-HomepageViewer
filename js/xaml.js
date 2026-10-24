@@ -116,6 +116,90 @@ export function escapeXml(value) {
     .replaceAll("\n", "&#xA;");
 }
 
+// Colour values that arrive from a remote XAML must not be able to smuggle CSS
+// in. A WPF colour is a named colour or a hex literal, so anything else is
+// rejected instead of being pasted into a style rule verbatim.
+const WPF_NAMED_COLORS = new Set([
+  "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque", "black",
+  "blanchedalmond", "blue", "blueviolet", "brown", "burlywood", "cadetblue", "chartreuse",
+  "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan",
+  "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta",
+  "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen",
+  "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "deeppink",
+  "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen",
+  "fuchsia", "gainsboro", "ghostwhite", "gold", "goldenrod", "gray", "green", "greenyellow",
+  "grey", "honeydew", "hotpink", "indianred", "indigo", "ivory", "khaki", "lavender",
+  "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan",
+  "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon",
+  "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue",
+  "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon", "mediumaquamarine",
+  "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue",
+  "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream",
+  "mistyrose", "moccasin", "navajowhite", "navy", "oldlace", "olive", "olivedrab", "orange",
+  "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred",
+  "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple", "rebeccapurple",
+  "red", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell",
+  "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow", "springgreen",
+  "steelblue", "tan", "teal", "thistle", "tomato", "transparent", "turquoise", "violet", "wheat",
+  "white", "whitesmoke", "yellow", "yellowgreen"
+]);
+
+// A colour we are willing to hand to CSS: hex, a functional rgb()/rgba()/hsl()
+// built from numbers only, one of PCL's theme variables, or a WPF named colour.
+const CSS_FUNCTION_COLOR_RE = /^(?:rgba?|hsla?)\(\s*[-\d.%\s,/]+\)$/i;
+const CSS_VAR_COLOR_RE = /^var\(--pcl-[a-z0-9-]+\)$/i;
+const HEX_COLOR_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+/**
+ * True when `text` is a self-contained CSS colour with no escaping room.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isSafeCssColor(text) {
+  const value = String(text ?? "").trim();
+  if (!value) return false;
+  if (HEX_COLOR_RE.test(value)) return true;
+  if (CSS_VAR_COLOR_RE.test(value)) return true;
+  if (CSS_FUNCTION_COLOR_RE.test(value)) return true;
+  return WPF_NAMED_COLORS.has(value.toLowerCase());
+}
+
+// Cursor keywords WPF/CSS share. `Hand` is mapped to `pointer` at the call
+// site; anything not in here (notably `url(...)`) is refused.
+const ALLOWED_CURSORS = new Set([
+  "arrow", "appstarting", "auto", "busy", "cross", "crosshair", "default", "hand", "help", "ibeam",
+  "move", "no", "none", "not-allowed", "pointer", "progress", "sizeall", "sizens", "sizenwse",
+  "sizewe", "text", "uparrow", "wait", "col-resize", "row-resize", "grab", "grabbing"
+]);
+
+/**
+ * Map a WPF Cursor value onto a CSS cursor, refusing anything that could load a
+ * resource (`url(...)`) or escape the declaration.
+ * @param {string} value
+ * @returns {string | null}
+ */
+export function resolveCursor(value) {
+  if (value == null) return null;
+  const text = String(value).trim().toLowerCase().replace(/\s+/g, "");
+  if (!text || text.startsWith("{")) return null;
+  const keyword = text === "hand" ? "pointer" : text;
+  return ALLOWED_CURSORS.has(keyword) ? keyword : null;
+}
+
+/**
+ * Keep a WPF font family usable in CSS: strip quotes/backslashes and refuse
+ * constructs that start a new declaration or load a resource.
+ * @param {string} value
+ * @returns {string | null}
+ */
+export function sanitizeFontFamily(value) {
+  if (value == null) return null;
+  const text = String(value).replace(/[\r\n]/g, " ").trim();
+  if (!text || text.startsWith("{")) return null;
+  if (/url\(|expression|@import|[;{}\\"']/i.test(text)) return null;
+  return text;
+}
+
 export function resolveColor(value) {
   if (value == null) return null;
   const text = String(value).trim();
@@ -126,7 +210,7 @@ export function resolveColor(value) {
     return null;
   }
   if (text.startsWith("#")) return wpfColorToCss(text);
-  return text;
+  return isSafeCssColor(text) ? text : null;
 }
 
 export function wpfColorToCss(value) {
@@ -143,7 +227,9 @@ export function wpfColorToCss(value) {
     if (a >= 0.999) return `#${hex.slice(2)}`;
     return `rgba(${r}, ${g}, ${b}, ${Number(a.toFixed(3))})`;
   }
-  return value;
+  // A malformed literal must not be handed to CSS as-is: that is the door a
+  // crafted value would use to append further declarations.
+  return null;
 }
 
 export function parseDouble(value, fallback = null) {

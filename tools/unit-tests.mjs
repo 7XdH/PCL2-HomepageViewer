@@ -6,6 +6,9 @@ import {
   PclXamlError,
   escapeXml,
   resolveColor,
+  resolveCursor,
+  sanitizeFontFamily,
+  isSafeCssColor,
   parseDouble,
   parseBool,
   parseThickness,
@@ -87,6 +90,52 @@ test("xaml: numeric and color parsing", () => {
   assert.equal(resolveColor(""), null);
   assert.equal(resolveColor("{StaticResource ColorBrush1}"), "var(--pcl-c1)");
   assert.equal(resolveColor("#80FF0000"), "rgba(255, 0, 0, 0.502)");
+});
+
+test("xaml: colour, cursor and font values cannot smuggle CSS", () => {
+  // Legitimate WPF colours keep resolving.
+  assert.equal(resolveColor("Black"), "Black");
+  assert.equal(resolveColor("transparent"), "transparent");
+  assert.equal(resolveColor("#D9FFFFFF"), "rgba(255, 255, 255, 0.851)");
+  assert.equal(resolveColor("rgba(255, 0, 0, 0.5)"), "rgba(255, 0, 0, 0.5)");
+  assert.equal(resolveColor("hsl(210, 85%, 48%)"), "hsl(210, 85%, 48%)");
+  assert.equal(resolveColor("{DynamicResource ColorBrush3}"), "var(--pcl-c3)");
+
+  // Everything that would let a remote XAML pull in a resource or end the
+  // declaration is refused rather than pasted into the style attribute.
+  for (const hostile of [
+    "url(https://tracker.invalid/x)",
+    "url(#a)",
+    "red; background-image: url(https://tracker.invalid/y)",
+    "expression(alert(1))",
+    "@import url(https://tracker.invalid/z)",
+    "red\\",
+    "#12",
+    "#12345",
+    "not-a-colour",
+    "var(--anything)"
+  ]) {
+    assert.equal(resolveColor(hostile), null, `expected ${hostile} to be refused`);
+  }
+  assert.equal(isSafeCssColor("rgb(1,2,3)"), true);
+  assert.equal(isSafeCssColor("url(1)"), false);
+
+  // Cursors: keywords map onto CSS, url() payloads do not.
+  assert.equal(resolveCursor("Hand"), "pointer");
+  assert.equal(resolveCursor("IBeam"), "ibeam");
+  assert.equal(resolveCursor("SizeAll"), "sizeall");
+  assert.equal(resolveCursor("url(https://tracker.invalid/c.cur), auto"), null);
+  assert.equal(resolveCursor("url(https://tracker.invalid/c.cur), auto; color: red"), null);
+  assert.equal(resolveCursor("{DynamicResource X}"), null);
+  assert.equal(resolveCursor(""), null);
+
+  // Font families: quotes and escapes are stripped of their power.
+  assert.equal(sanitizeFontFamily("微软雅黑"), "微软雅黑");
+  assert.equal(sanitizeFontFamily("Ink Free"), "Ink Free");
+  assert.equal(sanitizeFontFamily('"Segoe UI", sans-serif'), null);
+  assert.equal(sanitizeFontFamily("Arial; background: url(https://tracker.invalid/f)"), null);
+  assert.equal(sanitizeFontFamily("Arial\\"), null);
+  assert.equal(sanitizeFontFamily("{DynamicResource Font}"), null);
 });
 
 test("xaml: null input fails as a PclXamlError", () => {
