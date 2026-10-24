@@ -32,7 +32,7 @@ $env:HOST = "0.0.0.0"; node server.js
 
 ## 自动化测试
 
-测试使用本地 `server.js` 和已安装的 Edge / Chrome，通过 CDP pipe 运行，不需要额外 npm 依赖。
+测试使用本地 `server.js` 和已安装的 Edge / Chrome，通过 CDP pipe 运行，不需要额外 npm 依赖。浏览器回归除了工具外壳，还会导航到 `home.html` 单独检查独立主页页（1:1 几何、适应宽度不改布局、事件与弹窗、来源复用、失败提示）。
 
 ```powershell
 npm test              # Node 单元测试 + 浏览器回归
@@ -272,6 +272,7 @@ Root Directory: 留空
 - **调试面板**：显示控件数量、渲染耗时、警告、事件日志、自定义变量；底部事件条会完整显示 EventData 并自动换行，不再截断长日志；支持 Ctrl+Enter 渲染、全屏预览、导出当前 XAML。
 - **弹窗无障碍**：弹窗打开时会锁定背景区域的 `inert`，Tab / Shift+Tab 在弹窗按钮间循环，关闭动画结束后恢复背景并回到原焦点；弹窗通过 `aria-describedby` 关联正文。
 - **版本与账户记忆**：窗口内切换的演示版本和 Steve / Alex 账户会保存到 `localStorage`（`pcl.lab.shell.v1`），下次打开自动恢复；存储不可用或数据损坏时回退默认值。
+- **独立主页页**：`home.html` 只画 PCL 右侧那块面板——550px 面板、25px 页边距、500px 内容列、8px 滚动条，没有工具外壳，适合把主页投出去或单独查看。默认 1:1（与预览器逐像素一致，只有窗口窄于 550px 时才等比缩小），工具栏的「适应宽度」用 CSS `zoom` 把整块面板放大到窗口宽度：`zoom` 只缩放像素尺寸、不改布局，所以折行位置、卡片高度与图片裁切都和 1:1 一致（上限 3 倍）。它读取与预览器同一个 `localStorage`（`pcl.lab.source.v1`），在另一个标签页切换来源时会跟着刷新；外观沿用 `pcl.lab.appearance.v1`，页面内不提供切换按钮。PCL 的弹窗、提示、复制、下载、打开网页等事件在这里都有对应实现，只有「切换页面 / 打开帮助」因为没有其他页面而退化成提示。
 
 ## 支持的 XAML
 
@@ -387,11 +388,17 @@ PCL 用 `XamlReader` 加载 `Custom.xaml`，遇到类型上不存在的成员会
 
 ```text
 index.html                 工具外壳 + 850 × 500 PCL 预览
+home.html                  独立主页页：只显示 PCL 右侧面板（1:1 / 适应宽度）
 css/pcl-theme.css          PCL 窗口、标题栏、侧栏、滚动条、提示、弹窗
 css/xaml.css               XAML 控件样式
 css/app.css                工具外壳与响应式布局
+css/home.css               独立主页页的工具栏、面板与提示块
 css/appearance.css         跟随系统 / 浅色 / 深色 / AMOLED 四档外壳与画布压暗
 js/app.js                  应用入口、状态、渲染流程、快捷键与 UI 绑定
+js/home.js                 独立主页页入口：复用渲染器与运行时，无工具外壳
+js/app/home-fit.js         独立主页页的 550/500 几何与 1:1 / 适应宽度缩放
+js/app/preset-catalog.js   内置四个预设 + PCL2 25 个预设的统一清单
+js/app/source-state.js     来源状态序列化、UA 清洗与 localStorage 读写
 js/app/remote.js           远程读取、大小上限、XAML/JSON 响应校验
 js/app/sources.js          预设/文件/联网来源加载与来源标签
 js/app/help-navigation.js  帮助页历史、请求取消与返回焦点
@@ -426,6 +433,7 @@ tools/generate-assets.mjs  重新生成 js/assets.js
 tools/build-static.mjs     构建 dist/ 静态站点
 tools/regression.mjs       启动临时服务器和浏览器的测试运行器
 tools/test-suite.js        浏览器内回归与批量验收逻辑
+tools/home-suite.js        浏览器内独立主页页回归逻辑
 tools/pcl-presets.mjs      测试侧的 PCL2 预设清单转发
 netlify.toml               Netlify 构建与发布配置
 vercel.json                Vercel 构建与发布配置
