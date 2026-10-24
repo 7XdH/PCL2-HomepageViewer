@@ -4,6 +4,26 @@ import { MAX_SOURCE_BYTES, assertSourceWithinLimit, sourceLimitError } from "../
 import { parseRemoteHomeUrl } from "../url.js";
 import { assertRemoteResponse, fetchDirect, fetchViaProxy, readResponseTextLimited } from "./remote.js";
 
+/**
+ * Tag a preset failure so the UI can tell "the request never arrived" from
+ * "the XAML is wrong" without sniffing the message text. The old check looked
+ * for 「无法拉取联网主页」 inside the message, which only worked by accident:
+ * `fetchRemoteText()` replaces the message with a bare `请求超时（22 秒）。`
+ * when the request times out, so a timed-out remote preset was reported as
+ * 「加载主页失败 / 主页内容编写有误」 with a retry that replayed the same
+ * failure.
+ *
+ * @param {string} message
+ * @param {unknown} cause
+ * @param {string} [code]
+ */
+export function presetFetchError(message, cause, code = "PRESET_FETCH_FAILED") {
+  const error = new Error(message, { cause });
+  error.code = code;
+  if (cause && typeof cause === "object" && "status" in cause) error.status = cause.status;
+  return error;
+}
+
 export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML, getCode, getRuntimeContext }) {
   async function loadPreset(id, { force = false, signal } = {}) {
     const preset = PRESETS[id] || PRESETS.tutorial;
@@ -21,7 +41,7 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
         return text;
       } catch (error) {
         if (error.name === "AbortError" || error.code === "SOURCE_TOO_LARGE") throw error;
-        throw new Error(`无法加载 PCL2 预设「${preset.title}」：${error.message}`);
+        throw presetFetchError(`无法加载 PCL2 预设「${preset.title}」：${error.message}`, error);
       }
     }
 
@@ -42,7 +62,7 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
         presetCache.set(cacheKey, FALLBACK_XAML);
         return FALLBACK_XAML;
       }
-      throw new Error(`无法加载预设「${preset.title}」：${error.message}`);
+      throw presetFetchError(`无法加载预设「${preset.title}」：${error.message}`, error, "PRESET_ASSET_FAILED");
     }
   }
 

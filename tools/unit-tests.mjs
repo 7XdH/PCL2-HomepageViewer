@@ -20,6 +20,7 @@ import { buildPalette, normalizeHue } from "../js/theme.js";
 import { BBOX_CACHE_LIMIT, bboxCache, rememberBBox } from "../js/renderer/helpers.js";
 import { helpJsonTitle, resolveHelpUrls, resolveHelpXamlUrl } from "../js/help.js";
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl, parseRemoteHomeUrl } from "../js/url.js";
+import { classifyRenderError, renderErrorCaption } from "../js/app/render-error.js";
 import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
 import {
   PROXY_STATUS_HEADER,
@@ -274,6 +275,54 @@ test("url: remote homepage addresses are validated before fetching", () => {
   assert.match(reasons("https://example.com:8080/Custom.xaml"), /80 与 443/);
   assert.equal(parseRemoteHomeUrl("https://example.com:443/Custom.xaml").ok, true);
   assert.equal(parseRemoteHomeUrl("http://example.com:80/Custom.xaml").ok, true);
+});
+
+test("render errors: a timed-out preset is not reported as broken xaml", () => {
+  // fetchRemoteText() replaces the message with a bare timeout notice, so the
+  // old `message.includes("无法拉取联网主页")` test could not fire here.
+  const timeout = new Error("请求超时（22 秒）。");
+  timeout.code = "PRESET_FETCH_FAILED";
+  const timedOut = classifyRenderError(timeout, { mode: "preset" });
+  assert.equal(timedOut.title, "PCL2 预设加载失败");
+  assert.equal(timedOut.detail, "own");
+  assert.equal(timedOut.retryable, true);
+  assert.equal(renderErrorCaption(timeout, timedOut), "请求超时（22 秒）。");
+
+  const tooLarge = Object.assign(new Error("太大了"), { code: "SOURCE_TOO_LARGE" });
+  assert.deepEqual(classifyRenderError(tooLarge, { mode: "preset" }), {
+    title: "主页内容过大",
+    detail: "own",
+    retryable: false
+  });
+
+  const badUrl = Object.assign(new Error("主机名缺失"), { code: "REMOTE_URL_INVALID" });
+  assert.deepEqual(classifyRenderError(badUrl, { mode: "url" }), {
+    title: "网址无效",
+    detail: "own",
+    retryable: false
+  });
+
+  // A shipped preset that 404s is a deployment problem, not broken XAML either.
+  const missingAsset = Object.assign(new Error("无法加载预设「控件画廊」：HTTP 404"), {
+    code: "PRESET_ASSET_FAILED"
+  });
+  const asset = classifyRenderError(missingAsset, { mode: "preset" });
+  assert.equal(asset.title, "预设文件加载失败");
+  assert.equal(asset.detail, "own");
+  assert.equal(asset.retryable, true);
+
+  // A homepage URL that never arrived keeps its own heading without a code.
+  const urlFailure = classifyRenderError(new Error("无法拉取联网主页：代理请求失败"), { mode: "url" });
+  assert.equal(urlFailure.title, "联网主页加载失败");
+  assert.equal(urlFailure.detail, "own");
+
+  // Anything else is still a content problem and keeps the PCL preamble.
+  const brokenXaml = new Error("XAML 格式有误：第 3 行");
+  const xaml = classifyRenderError(brokenXaml, { mode: "code" });
+  assert.equal(xaml.title, "加载主页失败");
+  assert.equal(xaml.detail, "xaml");
+  assert.equal(xaml.retryable, true);
+  assert.match(renderErrorCaption(brokenXaml, xaml), /主页内容编写有误/);
 });
 
 test("limits: source size rejection", () => {

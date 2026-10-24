@@ -1911,6 +1911,68 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "远程预设取不到时按预设失败分类并强制重试", async () => {
+    const api = window.__PCL_RENDERER__;
+    if (!api?.renderCurrent || !api.state) throw new Error("找不到渲染器接口");
+    const savedState = {
+      mode: api.state.mode,
+      preset: api.state.preset,
+      url: api.state.url,
+      urlContent: api.state.urlContent
+    };
+    const originalFetch = window.fetch;
+    const originalModal = api.shell.showModal;
+    const modals = [];
+    let attempts = 0;
+    window.fetch = (input) => {
+      const target = String(input?.url || input);
+      if (!target.includes("/api/proxy") && target.startsWith("http")) {
+        return Promise.reject(new TypeError("fetch failed"));
+      }
+      attempts += 1;
+      return Promise.reject(new TypeError("fetch failed"));
+    };
+    api.shell.showModal = async (options) => {
+      modals.push(options);
+      // 点「重试」的分支会再次强制拉取，这里只让第一次失败弹窗被点击。
+      return modals.length === 1 ? 0 : 1;
+    };
+    try {
+      api.state.mode = "preset";
+      api.state.preset = "pcl2-4";
+      api.state.url = "";
+      api.state.urlContent = "";
+      const ok = await api.renderCurrent({ reason: "preset-failure", forceRemote: true });
+      if (ok) throw new Error("预设明明取不到却渲染成功");
+      const first = modals[0] || {};
+      if (first.title !== "PCL2 预设加载失败") {
+        throw new Error(`标题没有按远程预设分类：${first.title}`);
+      }
+      if (!/无法加载 PCL2 预设/.test(String(first.caption))) {
+        throw new Error(`正文没有保留原始原因：${first.caption}`);
+      }
+      if (!Array.isArray(first.buttons) || first.buttons[0] !== "重试") {
+        throw new Error(`重试按钮缺失：${JSON.stringify(first.buttons)}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      // 「重试」走 forceRemote，所以必须再拉一次；同一份失败若被缓存命中就
+      // 不会出现第二个弹窗。用弹窗次数而不是 attempts 判断，因为重试是在
+      // renderCurrent 的微任务里立刻发出的，await 返回时可能已经发完。
+      if (modals.length < 2) {
+        throw new Error(`点「重试」后没有重新渲染（弹窗只有 ${modals.length} 次）`);
+      }
+      if (attempts < 2) {
+        throw new Error(`点「重试」后没有重新发起请求（attempts=${attempts}）`);
+      }
+      return { title: first.title, attempts, modals: modals.length };
+    } finally {
+      window.fetch = originalFetch;
+      api.shell.showModal = originalModal;
+      Object.assign(api.state, { ...savedState, mode: "preset", preset: "tutorial" });
+      await api.renderCurrent({ reason: "restore" });
+    }
+  });
+
   await makeCheck(results, "半透明兄弟元素不会盖住文本", async () => {
     // WPF composites Opacity after painting, so a Border with Opacity="0.5"
     // placed before a TextBlock in a Grid never covers it. CSS would turn the
