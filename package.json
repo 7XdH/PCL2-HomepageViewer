@@ -8,6 +8,8 @@
     "start": "node server.js",
     "build": "node tools/build-static.mjs",
     "test:dist": "node tools/build-static.mjs && node tools/smoke-dist.mjs",
+    "headers": "node tools/security-headers.mjs",
+    "headers:write": "node tools/security-headers.mjs --write",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"js/**/*.js\" \"tools/**/*.{js,mjs}\" \"api/**/*.js\" \"netlify/functions/**/*.mjs\" \"server.js\" \"*.json\" \"eslint.config.js\" \"README.md\"",

@@ -35,6 +35,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # A CSP copy that drifts from api/security-headers.js silently weakens a
+      # deploy, so fail before building anything.
+      - name: Check security header copies
+        run: npm run headers
+
       # npm test drives a real Chromium through CDP; runner images no longer ship
       # one, so install it and point the harness at the binary explicitly.
       - name: Install Chrome

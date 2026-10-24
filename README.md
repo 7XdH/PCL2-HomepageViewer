@@ -40,6 +40,8 @@ npm run test:unit     # 仅运行 Node 单元测试（xaml / theme / help / URL 
 npm run test:presets  # PCL 25 个预设批量验收（需要联网，4 路并发）
 npm run test:all      # 单元测试 + 浏览器回归 + 预设验收
 npm run test:dist     # 构建 dist/ 并做构建产物烟雾测试（文件、模块图、?v= 戳、真实渲染）
+npm run headers       # 校验四处安全头副本与 api/security-headers.js 一致
+npm run headers:write # 以 api/security-headers.js 为准重新生成上面四处副本
 npm run lint          # ESLint 静态检查
 npm run format:check  # Prettier 格式检查
 ```
@@ -437,6 +439,7 @@ tools/generate-assets.mjs  重新生成 js/assets.js
 tools/build-static.mjs     构建 dist/ 静态站点
 tools/smoke-dist.mjs       构建产物烟雾测试（模块图、缓存戳、真实渲染）
 tools/browser-path.mjs     查找 Edge / Chrome，测试与烟雾测试共用
+tools/security-headers.mjs 以 api/security-headers.js 为准校验/生成四处副本
 tools/regression.mjs       启动临时服务器和浏览器的测试运行器
 tools/test-suite.js        浏览器内回归与批量验收逻辑
 tools/home-suite.js        浏览器内独立主页页回归逻辑

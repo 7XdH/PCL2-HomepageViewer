@@ -989,3 +989,42 @@ test("Static build: ships home.html and stamps its bundle urls", () => {
   const toml = fs.readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
   assert.match(toml, /\[\[headers\]\]\s*\n\s*for = "\/home\.html"/, "netlify.toml must cover /home.html");
 });
+
+test("security headers: one source for meta, server, vercel and netlify", async () => {
+  const { DOCUMENT_CSP, META_CSP, collectDrift, buildVercelHeaders, EDGE_SECURITY_HEADERS } =
+    await import("./security-headers.mjs");
+
+  // A meta CSP cannot express frame-ancestors, so the two strings must differ in
+  // exactly that one directive rather than being independent copies.
+  assert.ok(DOCUMENT_CSP.includes("frame-ancestors 'none'"));
+  assert.ok(!META_CSP.includes("frame-ancestors"), "meta CSP 不能声明 frame-ancestors");
+  assert.equal(
+    META_CSP,
+    DOCUMENT_CSP.split("; ")
+      .filter((part) => !part.startsWith("frame-ancestors"))
+      .join("; ")
+  );
+
+  assert.deepEqual(collectDrift(), [], "四处安全头必须与共享常量一致");
+
+  // The generated blocks are what the drift check compares against, so assert
+  // their shape too: a silent change of shape would make every copy "in sync".
+  const vercel = buildVercelHeaders();
+  assert.equal(vercel[0].source, "/(.*)");
+  assert.equal(vercel[0].headers.length, Object.keys(EDGE_SECURITY_HEADERS).length);
+  for (const source of ["/", "/index.html", "/home.html"]) {
+    const rule = vercel.find((entry) => entry.source === source);
+    assert.ok(rule, `vercel.json 缺少 ${source} 的 CSP`);
+    assert.equal(rule.headers[0].value, DOCUMENT_CSP);
+  }
+
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const meta = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/);
+  assert.equal(meta[1], META_CSP, "index.html 的 meta 必须来自共享常量");
+
+  // The local server is plain HTTP; advertising HSTS there would be wrong, so
+  // the edge headers are a superset, not the same object.
+  const { baseSecurityHeaders } = await import("../api/security-headers.js");
+  assert.equal(baseSecurityHeaders()["Strict-Transport-Security"], undefined);
+  assert.match(EDGE_SECURITY_HEADERS["Strict-Transport-Security"], /max-age=/);
+});
