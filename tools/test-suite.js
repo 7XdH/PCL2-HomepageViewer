@@ -386,6 +386,54 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "账户徽标与头像都能用键盘激活", async () => {
+    const shell = window.__PCL_RENDERER__?.shell;
+    const badge = document.getElementById("pclAccountBtn");
+    const avatar = document.getElementById("pclAvatarBtn");
+    if (!badge || !avatar) throw new Error("找不到账户控件");
+    for (const [name, node] of [
+      ["账户徽标", badge],
+      ["头像", avatar]
+    ]) {
+      if (node.getAttribute("role") !== "button") throw new Error(`${name} 缺少 role=button`);
+      if (node.tabIndex !== 0) throw new Error(`${name} 不在 tab 顺序里`);
+      if (!node.getAttribute("aria-label")) throw new Error(`${name} 缺少 aria-label`);
+      // Nested interactive content would make the two controls ambiguous.
+      if (node.querySelector('[role="button"], button, a[href]')) {
+        throw new Error(`${name} 内部嵌套了可交互控件`);
+      }
+    }
+
+    const press = (node, key) =>
+      node.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+
+    // Enter on the badge opens the account dialog.
+    const modal = document.getElementById("pclModalLayer");
+    if (!modal) throw new Error("找不到弹窗层");
+    if (!modal.hidden) throw new Error("测试前弹窗层应处于隐藏状态");
+    press(badge, "Enter");
+    await sleep(120);
+    if (modal.hidden) throw new Error("Enter 没有打开账户弹窗");
+    document.querySelector("#pclModalButtons button")?.click();
+    await sleep(320);
+    if (!modal.hidden) throw new Error("账户弹窗没有关闭");
+
+    // Space on the avatar flips the skin, and must not also scroll the page.
+    const before = shell.account.name;
+    const scrollBefore = window.scrollY;
+    const event = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    avatar.dispatchEvent(event);
+    await sleep(160);
+    const after = shell.account.name;
+    if (after === before) throw new Error("Space 没有切换账户");
+    if (!event.defaultPrevented) throw new Error("Space 没有被 preventDefault（会连带滚动页面）");
+    if (window.scrollY !== scrollBefore) throw new Error("Space 激活时页面被滚动了");
+    // Restore the account we started from.
+    shell.toggleAccount();
+    await sleep(80);
+    return { before, after };
+  });
+
   await makeCheck(results, "使用说明弹窗滚动布局", async () => {
     const helpButton = document.getElementById("helpBtn");
     if (!helpButton) throw new Error("找不到使用说明按钮");

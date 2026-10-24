@@ -162,3 +162,17 @@ export const timeString = (date) => {
   const d = date instanceof Date ? date : new Date(date);
   return d.toLocaleTimeString("zh-CN", { hour12: false });
 };
+
+// A div with role="button" or role="tab" is announced as a button but does not
+// activate on Enter/Space the way a native <button> does. This shim restores
+// that behaviour, and stops Space from scrolling the page underneath.
+export const bindPressable = (node, action) => {
+  if (!node || typeof action !== "function") return;
+  node.addEventListener("click", () => action());
+  node.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") return;
+    if (event.target !== node) return;
+    event.preventDefault();
+    action();
+  });
+};

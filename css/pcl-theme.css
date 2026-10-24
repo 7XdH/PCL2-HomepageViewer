@@ -412,6 +412,12 @@ img {
   background: var(--pcl-c8);
 }
 
+/* The badge is a div with role="button", so the UA never draws a ring. */
+.pcl-login-badge:focus-visible {
+  outline: 2px solid var(--pcl-c3);
+  outline-offset: 2px;
+}
+
 .pcl-login-badge__avatar {
   width: 19px;
   height: 19px;

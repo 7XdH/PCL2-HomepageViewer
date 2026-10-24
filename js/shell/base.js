@@ -36,6 +36,7 @@ export class PclShellBase {
     this.nav = document.getElementById("pclNav");
     this.sidebar = document.getElementById("pclSidebar");
     this.avatarButton = document.getElementById("pclAvatarBtn");
+    this.accountButton = document.getElementById("pclAccountBtn");
     this.profileName = document.getElementById("pclProfileName");
     this.homePage = document.getElementById("pclHomePage");
     this.stubPage = document.getElementById("pclStubPage");

@@ -1,5 +1,13 @@
 import { PclShellBase } from "./base.js";
-import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, timeString, saveShellPreferences } from "./helpers.js";
+import {
+  PAGE_LABELS,
+  NAV_FOR_PAGE,
+  VERSIONS,
+  ACCOUNTS,
+  timeString,
+  saveShellPreferences,
+  bindPressable
+} from "./helpers.js";
 import { EVENT_LOG_LIMIT, EVENT_DATA_LIMIT } from "../limits.js";
 
 export class PclShellNavigation extends PclShellBase {
@@ -45,11 +53,7 @@ export class PclShellNavigation extends PclShellBase {
     });
 
     document.getElementById("pclAccountBtn")?.addEventListener("click", () => {
-      this.showModal({
-        title: "账户",
-        caption: `当前演示账户：${this.account.name}（离线登录）\n\n点击左侧头像可在 Steve / Alex 之间切换。\n\n网页渲染器不会连接 Mojang 或微软登录服务。`,
-        buttons: ["好"]
-      });
+      this.openAccountModal();
     });
 
     document.getElementById("pclVersionCard")?.addEventListener("click", async () => {
@@ -67,14 +71,21 @@ export class PclShellNavigation extends PclShellBase {
     });
   }
 
+  // role="button" on a div gives no keyboard behaviour on its own, so both
+  // switchers need the Enter/Space shim. The account badge used to be click
+  // only, which made it unreachable for keyboard users.
   bindAccountSwitcher() {
-    this.avatarButton?.addEventListener("click", () => this.toggleAccount());
-    this.avatarButton?.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      this.toggleAccount();
-    });
+    bindPressable(this.accountButton, () => this.openAccountModal());
+    bindPressable(this.avatarButton, () => this.toggleAccount());
     this.updateAccountUi();
+  }
+
+  openAccountModal() {
+    this.showModal({
+      title: "账户",
+      caption: `当前演示账户：${this.account.name}（离线登录）\n\n点击左侧头像可在 Steve / Alex 之间切换。\n\n网页渲染器不会连接 Mojang 或微软登录服务。`,
+      buttons: ["好"]
+    });
   }
 
   toggleAccount() {
@@ -99,6 +110,9 @@ export class PclShellNavigation extends PclShellBase {
     if (this.avatarButton) {
       this.avatarButton.title = `切换为 ${nextName} 头像`;
       this.avatarButton.setAttribute("aria-label", `切换头像，当前 ${this.account.name}`);
+    }
+    if (this.accountButton) {
+      this.accountButton.setAttribute("aria-label", `账户信息，当前离线登录（${this.account.name}）`);
     }
   }
 
