@@ -671,6 +671,21 @@ export async function runRegression() {
     return { reason: reason.slice(0, 60), imageStatus: image.status };
   });
 
+  await makeCheck(results, "代理的 405 与总超时预算符合约定", async () => {
+    // PCL/local parity: the Vercel handler answers a non-GET proxy call with
+    // Allow: GET, and requestOnce now shares one deadline across the redirect
+    // chain instead of restarting TIMEOUT_MS per hop.
+    for (const endpoint of ["/api/proxy", "/api/latest-commit"]) {
+      const response = await fetch(endpoint, { method: "POST", cache: "no-store" });
+      if (response.status !== 405) {
+        throw new Error(`${endpoint} 的 POST 应返回 405，实际 ${response.status}`);
+      }
+      const allow = response.headers.get("allow");
+      if (allow !== "GET") throw new Error(`${endpoint} 的 Allow 头：期望 GET，实际 ${allow}`);
+    }
+    return { endpoints: 2 };
+  });
+
   await makeCheck(results, "XAML 安全过滤", async () => {
     const blocked = [
       "<local:WebBrowser />",

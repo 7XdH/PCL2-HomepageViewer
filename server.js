@@ -147,8 +147,14 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, allowLocal = false) {
+async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, allowLocal = false, deadline = 0) {
   const parsed = parseTarget(url, { allowLocal });
+  // One deadline for the whole redirect chain. Timing each hop separately let a
+  // five-hop chain run for 5 x TIMEOUT_MS; api/proxy.js already budgets the
+  // whole request through a single AbortController.
+  const expiresAt = deadline || Date.now() + TIMEOUT_MS;
+  const remaining = expiresAt - Date.now();
+  if (remaining <= 0) throw new ProxyError(`请求超时（${TIMEOUT_MS / 1000} 秒）`, 504);
   // Pin the connection to the addresses that were just validated. Without this
   // the socket would resolve the name again and a rebinding answer could point
   // it at 127.0.0.1 after the check had passed.
@@ -161,7 +167,7 @@ async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, all
       {
         method: "GET",
         headers: proxyRequestHeaders(userAgent, imageMode, { acceptEncoding: true }),
-        timeout: TIMEOUT_MS,
+        timeout: Math.max(1, expiresAt - Date.now()),
         lookup: createPinnedLookup(addresses)
       },
       (response) => {
@@ -188,12 +194,28 @@ async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, all
             reject(error);
             return;
           }
-          resolve(requestOnce(next, redirectsLeft - 1, userAgent, imageMode, allowLocal));
+          resolve(requestOnce(next, redirectsLeft - 1, userAgent, imageMode, allowLocal, expiresAt));
           return;
         }
         if (status < 200 || status >= 300) {
           response.resume();
           reject(new ProxyError(`远程服务器返回 HTTP ${status}`, 502));
+          return;
+        }
+
+        // Check the type before reading anything. Waiting until the whole body
+        // was buffered meant a 4 MB HTML error page or a video was downloaded
+        // just to be rejected with 415.
+        const contentType = response.headers["content-type"] || "";
+        if (
+          imageMode
+            ? !isImageContentType(contentType, parsed.toString())
+            : !isTextContentType(contentType, parsed.toString())
+        ) {
+          response.resume();
+          reject(
+            new ProxyError(imageMode ? "目标不是图片内容，无法加载。" : "目标不是文本或 XAML 内容，无法加载。", 415)
+          );
           return;
         }
 
@@ -224,7 +246,7 @@ async function requestOnce(url, redirectsLeft, userAgent, imageMode = false, all
       }
     );
 
-    request.on("timeout", () => request.destroy(new ProxyError("请求超时", 504)));
+    request.on("timeout", () => request.destroy(new ProxyError(`请求超时（${TIMEOUT_MS / 1000} 秒）`, 504)));
     request.on("error", reject);
     request.end();
   });
@@ -311,7 +333,7 @@ async function proxy(req, res, requestUrl) {
       return;
     }
     if (!isTextContentType(result.contentType, result.finalUrl)) {
-      sendProxy(res, 415, "目标不是文本内容，无法作为 XAML 加载。", {
+      sendProxy(res, 415, "目标不是文本或 XAML 内容，无法加载。", {
         "Content-Type": "text/plain; charset=utf-8"
       });
       return;
@@ -345,7 +367,7 @@ const server = http.createServer((req, res) => {
 
   if (requestUrl.pathname === "/api/latest-commit") {
     if (req.method !== "GET") {
-      send(res, 405, "Method Not Allowed");
+      send(res, 405, "Method Not Allowed", { Allow: "GET" });
       return;
     }
     readLatestCommit()
@@ -366,7 +388,7 @@ const server = http.createServer((req, res) => {
 
   if (requestUrl.pathname === "/api/proxy") {
     if (req.method !== "GET") {
-      send(res, 405, "Method Not Allowed");
+      send(res, 405, "Method Not Allowed", { Allow: "GET" });
       return;
     }
     proxy(req, res, requestUrl);

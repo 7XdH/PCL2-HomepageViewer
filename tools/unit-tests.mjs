@@ -584,6 +584,30 @@ test("proxy core: URL, UA and redirect policy", () => {
   assert.throws(() => resolveRedirect(parseTarget("https://example.com/"), "http://localhost/", 302), proxyError(403));
 });
 
+test("proxy: the local server shares one deadline and checks the type early", () => {
+  // These two are ordering/plumbing facts inside the request handler, so assert
+  // them on the source rather than duplicating the handler in a test.
+  const source = fs.readFileSync(new URL("../server.js", import.meta.url), "utf8");
+  const requestOnce = source.slice(source.indexOf("async function requestOnce"));
+
+  // A redirect must carry the first hop's deadline forward, not restart it.
+  assert.match(requestOnce, /deadline = 0/, "requestOnce 应接受绝对 deadline");
+  assert.match(requestOnce, /const expiresAt = deadline \|\| Date\.now\(\) \+ TIMEOUT_MS/);
+  assert.match(requestOnce, /timeout: Math\.max\(1, expiresAt - Date\.now\(\)\)/, "连接超时应取剩余预算");
+  assert.match(
+    requestOnce,
+    /requestOnce\(next, redirectsLeft - 1, userAgent, imageMode, allowLocal, expiresAt\)/,
+    "重定向应传递同一个 expiresAt"
+  );
+
+  // The content-type guard has to run before the body is buffered.
+  const guardAt = requestOnce.indexOf("!isTextContentType(contentType");
+  const bufferAt = requestOnce.indexOf('stream.on("data"');
+  assert.ok(guardAt > 0 && bufferAt > 0 && guardAt < bufferAt, "类型校验必须在读取 body 之前");
+  assert.match(requestOnce, /response\.resume\(\);\s*reject\(/, "拒绝类型时应丢弃响应体");
+  assert.doesNotMatch(requestOnce, /timeout: TIMEOUT_MS,/, "不应再按每跳重新计时");
+});
+
 test("proxy core: public address and content-type guards", async () => {
   await assert.rejects(assertPublicTarget(parseTarget("http://127.0.0.1/")), proxyError(403));
   await assert.rejects(assertPublicTarget(parseTarget("http://[::1]/")), proxyError(403));
