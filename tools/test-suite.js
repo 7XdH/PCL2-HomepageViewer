@@ -516,6 +516,24 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "静态服务器只发布白名单内的文件", async () => {
+    const denied = ["/.git/HEAD", "/node_modules/.package-lock.json", "/README.md", "/server.js", "/package.json"];
+    for (const path of denied) {
+      const response = await fetch(path, { cache: "no-store" });
+      if (response.status !== 403) {
+        throw new Error(`${path} 应返回 403，实际 ${response.status}`);
+      }
+    }
+    const allowed = ["/css/app.css", "/js/app.js", "/assets/presets/tutorial.xaml", "/home.html"];
+    for (const path of allowed) {
+      const response = await fetch(path, { cache: "no-store" });
+      if (response.status !== 200) {
+        throw new Error(`${path} 应返回 200，实际 ${response.status}`);
+      }
+    }
+    return { denied: denied.length, allowed: allowed.length };
+  });
+
   await makeCheck(results, "远程 SVG 沙箱响应", async () => {
     if (!isSvgResponse("image/svg+xml; charset=utf-8", "https://example.com/icon.png")) {
       throw new Error("SVG Content-Type 没有被识别");
@@ -1813,7 +1831,9 @@ export async function runRegression() {
         throw new Error(`face 高度没有跟随内容区：${f.height.toFixed(1)} / ${b.height.toFixed(1)}`);
       }
       if (s.height > f.height + 0.5 || s.width > f.width + 0.5) {
-        throw new Error(`图标溢出内容区：svg ${s.width.toFixed(1)}x${s.height.toFixed(1)} / face ${f.width.toFixed(1)}x${f.height.toFixed(1)}`);
+        throw new Error(
+          `图标溢出内容区：svg ${s.width.toFixed(1)}x${s.height.toFixed(1)} / face ${f.width.toFixed(1)}x${f.height.toFixed(1)}`
+        );
       }
       if (Math.abs(s.height - f.height) > 0.5) {
         throw new Error(`图标没有按 Uniform 铺满内容区高度：${s.height.toFixed(1)} vs ${f.height.toFixed(1)}`);

@@ -84,11 +84,31 @@ function sendProxyFailure(res, status, body, imageMode = false) {
   sendProxy(res, failure.status, failure.body, failure.headers);
 }
 
+// Only the files the viewer itself publishes are readable. Serving everything
+// under ROOT leaked the repository: /.git/HEAD, /node_modules/... and
+// /README.md all answered 200, and a symlink inside a served directory could
+// point anywhere. Anything not on this list is indistinguishable from missing.
+const STATIC_FILES = new Set(["index.html", "home.html", "commit.json", "LICENSE", "LICENCE-PCL.md", ".nojekyll"]);
+// api/ and tools/ are public source that the page or the test harness imports
+// from the served origin; neither holds secrets.
+const STATIC_DIRECTORIES = ["css/", "js/", "assets/", "api/", "tools/"];
+
+function isStaticEntry(relative) {
+  const normalized = relative.replaceAll("\\", "/");
+  if (normalized.split("/").some((segment) => segment.startsWith("."))) return false;
+  if (STATIC_FILES.has(normalized)) return true;
+  return STATIC_DIRECTORIES.some((prefix) => normalized.startsWith(prefix));
+}
+
 function serveStatic(req, res, pathname) {
   const head = req.method === "HEAD";
   const sendStatic = (status, body, headers = {}) => send(res, status, body, headers, { head });
   const decoded = safeDecode(pathname);
   const relative = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
+  if (!isStaticEntry(relative)) {
+    sendStatic(403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
+    return;
+  }
   const target = path.resolve(ROOT, relative);
   if (!target.startsWith(ROOT + path.sep) && target !== ROOT) {
     sendStatic(403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
@@ -101,18 +121,26 @@ function serveStatic(req, res, pathname) {
       return;
     }
     const file = stat.isDirectory() ? path.join(target, "index.html") : target;
-    fs.readFile(file, (readError, data) => {
-      if (readError) {
+    // A path check alone cannot see symlinks, so confirm where the file really
+    // lives before reading it.
+    fs.realpath(file, (realError, real) => {
+      if (realError || !(real === ROOT || real.startsWith(ROOT + path.sep))) {
         sendStatic(404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
         return;
       }
-      const ext = path.extname(file).toLowerCase();
-      const type = MIME[ext] || "application/octet-stream";
-      const cache = [".html", ".css", ".js", ".mjs", ".xaml", ".xml", ".json"].includes(ext)
-        ? "no-cache"
-        : "public, max-age=3600";
-      const documentHeaders = ext === ".html" ? documentSecurityHeaders() : {};
-      sendStatic(200, data, { "Content-Type": type, "Cache-Control": cache, ...documentHeaders });
+      fs.readFile(real, (readError, data) => {
+        if (readError) {
+          sendStatic(404, "Not Found", { "Content-Type": "text/plain; charset=utf-8" });
+          return;
+        }
+        const ext = path.extname(real).toLowerCase();
+        const type = MIME[ext] || "application/octet-stream";
+        const cache = [".html", ".css", ".js", ".mjs", ".xaml", ".xml", ".json"].includes(ext)
+          ? "no-cache"
+          : "public, max-age=3600";
+        const documentHeaders = ext === ".html" ? documentSecurityHeaders() : {};
+        sendStatic(200, data, { "Content-Type": type, "Cache-Control": cache, ...documentHeaders });
+      });
     });
   });
 }
