@@ -179,12 +179,18 @@ img {
   min-width: 0;
 }
 
+/* The viewBox is the bare geometry box, so the 2.2px pen straddles it by 1.1px
+   on every side. Without overflow the P's left stroke lost its outer half (it
+   measured 1.0px wide against PCL's 2.0px); `visible` plus the slot below that
+   leaves room for the pen reproduces PCL's ink box, measured off PCL 2.14 at
+   850x500: x 19.33..56.67, y 16.67..31.33, P stem 2.0px. */
 .pcl-titlebar__logo {
   flex: none;
-  width: 38px;
-  height: 15.5px;
-  margin: 15.5px 0 0 19px;
+  width: 36.3px;
+  height: 14.2px;
+  margin: 16.3px 0 0 20.4px;
   color: #fff;
+  overflow: visible;
   pointer-events: none;
 }
 

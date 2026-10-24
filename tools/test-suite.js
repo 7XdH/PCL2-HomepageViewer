@@ -1763,6 +1763,30 @@ export async function runRegression() {
     }
     return { layers };
   });
+  await makeCheck(results, "标题栏字标的描边不会被裁掉左半边", async () => {
+    // The svg viewBox is PCL's bare geometry box, so the 2.2px pen straddles it
+    // by 1.1px on every side. With the default `overflow: hidden` the outer half
+    // of the P's left stroke disappeared (1.0px instead of 2.0px measured
+    // against PCL). Keep `visible` and the slot sized to PCL's ink box.
+    const logo = document.querySelector(".pcl-titlebar__logo");
+    if (!logo) throw new Error("缺少标题栏字标");
+    const path = logo.querySelector("path");
+    if (!path) throw new Error("字标没有路径");
+    const overflow = getComputedStyle(logo).overflow;
+    if (overflow !== "visible") throw new Error(`字标溢出被裁剪：overflow=${overflow}`);
+    const box = logo.getBoundingClientRect();
+    if (!box.height) throw new Error("字标高度为 0");
+    const ratio = box.width / box.height;
+    const expected = 36.3 / 14.2;
+    if (Math.abs(ratio - expected) > 0.01) {
+      throw new Error(`字标比例不是 PCL 的 36.3:14.2：${ratio.toFixed(3)}`);
+    }
+    // The rule above only matters because the geometry box sits exactly on the
+    // viewBox edge, leaving the pen outside it.
+    const bb = path.getBBox();
+    if (Math.abs(bb.x - 26) > 0.01) throw new Error(`字标几何盒左边界：期望 26，实际 ${bb.x}`);
+    return { overflow, ratio: Number(ratio.toFixed(3)) };
+  });
   await makeCheck(results, "四档外观切换与画布压暗", async () => {
     // The shell offers light / dark / amoled plus an auto option that follows
     // the system (covered by runAppearanceAutoCheck). The two dark ones differ
