@@ -768,6 +768,10 @@ async function init() {
 
 init().catch((error) => {
   console.error(error);
+  // js/boot.js watches this before hiding the startup fallback. Without it the
+  // fallback disappears as soon as __PCL_RENDERER__ exists (assigned at the top
+  // of init()), even though the first render never happened.
+  window.__PCL_BOOT_ERROR__ = String(error?.message || error);
   setRuntime("初始化失败", "error");
   shell.showModal({
     title: "初始化失败",

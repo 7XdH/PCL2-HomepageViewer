@@ -416,6 +416,47 @@ test("styles: Firefox scrollbar fallbacks", () => {
   assert.match(css, /\.pcl-modal__caption\s*\{[^}]*scrollbar-width:\s*thin;[^}]*scrollbar-color:[^;]+;/s);
 });
 
+test("boot: the fallback waits for ready, not just for the module", async () => {
+  // js/boot.js must stay a classic script (it runs over file:// where ES modules
+  // are blocked), so pull the decision table off the global it installs.
+  const vm = await import("node:vm");
+  const source = fs.readFileSync(new URL("../js/boot.js", import.meta.url), "utf8");
+  const sandbox = {
+    window: { setInterval: () => 0, clearInterval: () => {} },
+    document: { getElementById: () => null }
+  };
+  sandbox.window.document = sandbox.document;
+  vm.runInNewContext(source, { ...sandbox, ...sandbox.window, window: sandbox.window });
+  const bootStatus = sandbox.window.__PCL_BOOT_STATUS__;
+  assert.equal(typeof bootStatus, "function", "js/boot.js 应当暴露 __PCL_BOOT_STATUS__");
+
+  const at = (overrides) => bootStatus({ hasApi: false, ready: false, attempts: 1, ...overrides });
+
+  // A parsed-but-not-ready renderer must NOT hide the fallback: __PCL_RENDERER__
+  // is assigned at the top of init(), before anything renders.
+  assert.equal(at({ hasApi: true, ready: false, attempts: 1 }).state, "waiting");
+  assert.equal(at({ hasApi: true, ready: false, attempts: 19 }).state, "waiting");
+  assert.equal(at({ hasApi: true, ready: false, attempts: 20 }).state, "timeout");
+  assert.equal(at({ hasApi: true, ready: true, attempts: 1 }).state, "ok");
+  assert.equal(at({ hasApi: true, ready: true, attempts: 99 }).state, "ok");
+
+  // An init() rejection wins immediately, whatever the poll count.
+  const failed = at({ hasApi: true, ready: false, bootError: "数据库不可用", attempts: 1 });
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.title, "界面初始化失败");
+
+  // Nothing ever registered: the original file:// explanation stays.
+  assert.equal(at({ hasApi: false, attempts: 20 }).state, "module");
+});
+
+test("boot: index.html still loads boot.js as a classic script", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /<script src="js\/boot\.js"><\/script>/, "boot.js 必须保持非 module");
+  assert.doesNotMatch(html, /<script[^>]+type="module"[^>]+src="js\/boot\.js"/);
+  const app = fs.readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+  assert.match(app, /window\.__PCL_BOOT_ERROR__\s*=/, "init() 失败时要记录原因给 boot.js");
+});
+
 test("appearance: the stored theme is restored before the first frame", () => {
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const head = html.slice(0, html.indexOf("</head>"));
