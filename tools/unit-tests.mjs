@@ -1050,3 +1050,40 @@ test("runtime: the restored account is what placeholders report", async () => {
   runtime.setUser({ name: "Steve", uuid: "8667ba71-b85a-4004-af54-457a9734eed7" });
   assert.equal(runtime.getPlaceholder("user"), "Steve");
 });
+
+test("runtime: {setup:*} defaults follow PCL except the deliberate hue", async () => {
+  // Pages/PageSetup/Settings.vb registers these defaults; the viewer mirrors all
+  // of them so a preset that compares two settings behaves like PCL, except
+  // UiLauncherHue where PCL ships 180 (green) and the viewer picks 210 (blue) so
+  // the first paint looks like the stock PCL theme. README documents the gap.
+  const { DEFAULT_SETTINGS, PclRuntime } = await import("../js/runtime.js");
+  const pclDefaults = {
+    UiLauncherTheme: "0",
+    UiLauncherTransparent: "600",
+    UiBackgroundOpacity: "1000",
+    UiBackgroundBlur: "0",
+    UiBackgroundSuit: "0",
+    UiBackgroundColorful: "True",
+    UiCustomType: "0",
+    UiCustomPreset: "0",
+    UiCustomNet: ""
+  };
+  for (const [key, value] of Object.entries(pclDefaults)) {
+    assert.equal(DEFAULT_SETTINGS[key], value, `${key} 的默认值应与 PCL 相同`);
+  }
+  assert.equal(DEFAULT_SETTINGS.UiLauncherHue, "210", "预览器的 UiLauncherHue 应保持 210");
+
+  const runtime = new PclRuntime({ shell: {} });
+  assert.equal(runtime.context.getSetting("UiLauncherHue"), "210");
+  assert.equal(runtime.context.getSetting("UiLauncherTheme"), "0");
+  assert.equal(runtime.context.getSetting("不存在的设置项"), "");
+
+  // `修改设置` must be able to restore PCL's own hue.
+  runtime.settings.UiLauncherHue = "180";
+  assert.equal(substitutePlaceholders("{setup:UiLauncherHue}", runtime.context), "180");
+
+  // README has to spell the difference out, otherwise users assume parity.
+  const readme = fs.readFileSync("README.md", "utf8");
+  assert.match(readme, /UiLauncherHue[^\n]*180/, "README 应说明 PCL 的默认 hue 是 180");
+  assert.match(readme, /210/, "README 应说明预览器用的是 210");
+});

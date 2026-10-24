@@ -335,6 +335,8 @@ Root Directory: 留空
 
 替换在 XML 解析之前完成，插入的值会做 XML 转义，因此也可以安全地放进属性（例如 `Visibility="{variable:Flag:Visible}"`）。联网 URL 使用不转义的替换值，便于把变量放入地址。
 
+`{setup:Key}` 的默认值与 PCL `Pages/PageSetup/Settings.vb` 逐项一致（`UiLauncherTheme` 0、`UiLauncherTransparent` 600、`UiBackgroundOpacity` 1000、`UiBackgroundBlur` 0、`UiBackgroundSuit` 0、`UiBackgroundColorful` True、`UiCustomType` 0、`UiCustomPreset` 0、`UiCustomNet` 空），**唯一的例外是 `UiLauncherHue`**：PCL 的默认值是 `180`，预览器用 `210`，好让第一次打开时画布呈现 PCL 官方的蓝色主题（hue 180 是绿色）。若要看真实默认值，`修改设置` 里写入 `UiLauncherHue|180` 即可；两个值都会被持久化并参与后续替换。
+
 路径、Java 和识别码使用网页演示值，不会访问或暴露本机文件系统；`{pcl_md5}` / `{pcl_sha1}` 也不会有真实哈希。
 
 ## 自定义事件
