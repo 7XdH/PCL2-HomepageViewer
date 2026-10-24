@@ -38,6 +38,7 @@ const state = {
   fileName: "Custom.xaml",
   url: "",
   ua: "",
+  baseUrl: "",
   fileContent: "",
   urlContent: "",
   code: ""
@@ -327,7 +328,7 @@ async function renderNow() {
   try {
     const content = await sources.resolveCurrentContent({ signal: controller.signal });
     if (token !== renderToken) return;
-    renderer.render(content);
+    renderer.render(content, { baseUrl: state.baseUrl });
     if (token !== renderToken) return;
     if (renderer.issues.length) {
       // The viewer lists these under the render stats; here one hint is enough

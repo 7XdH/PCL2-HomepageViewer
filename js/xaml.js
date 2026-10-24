@@ -488,7 +488,24 @@ export function propertyElementName(element) {
   return dot >= 0 ? name.slice(dot + 1) : name;
 }
 
-export function resolveImageSource(source) {
+/**
+ * Turn an authored image source into something the browser can load.
+ *
+ * The old version could only map a source onto PCL's bundled images, so every
+ * `Source="images/a.png"` in a remote homepage fell through to `null` and the
+ * picture disappeared (README listed this as a known limitation). A remote
+ * document now carries its own URL, and relative references are resolved
+ * against it the way any other relative URL would be. Note this is a viewer
+ * convenience: PCL itself feeds `XamlReader.Load(Stream)` a MemoryStream that
+ * has no base URI (ModBase.vb:1130-1145), so a relative source fails there.
+ *
+ * The bundled map still wins over the base URL: `pack://` bitmaps and PCL's own
+ * `Heads/x.png` / `Blocks/Grass.png` names must never turn into network hits.
+ *
+ * @param {unknown} source
+ * @param {string} [baseUrl] URL of the document that contains the source
+ */
+export function resolveImageSource(source, baseUrl = "") {
   const value = String(source ?? "").trim();
   if (!value) return null;
   if (/^(https?:|data:|blob:)/i.test(value)) return value;
@@ -496,8 +513,20 @@ export function resolveImageSource(source) {
     return resolvePclImage(value.replace(/^pack:\/\/application:,,,\/images\//i, ""));
   }
   if (/^pack:\/\//i.test(value)) return null;
-  if (/^\.?\//.test(value) || /^assets\//i.test(value)) return value;
-  return resolvePclImage(value);
+  // `assets/…` and `./…` address the viewer itself, never the remote document.
+  if (/^\.\//.test(value) || /^assets\//i.test(value)) return value;
+  const local = resolvePclImage(value);
+  if (local) return local;
+  if (baseUrl) {
+    try {
+      const resolved = new URL(value, baseUrl);
+      if (/^https?:$/i.test(resolved.protocol)) return resolved.toString();
+    } catch {
+      /* An unusable base URL simply means "no resolution", like before. */
+    }
+  }
+  if (/^\//.test(value)) return value;
+  return null;
 }
 
 const IMAGE_SOURCE_EXTENSION = /\.(png|jpe?g|webp|gif|bmp|ico|svg)(?:[?#]|$)/i;

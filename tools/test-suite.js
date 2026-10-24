@@ -919,6 +919,53 @@ export async function runRegression() {
     return { brushes };
   });
 
+  await makeCheck(results, "远程主页的相对图片按文档 URL 解析", async () => {
+    // PCL resolves relative sources against the downloaded XAML's base URI
+    // (XamlReader.Load(Stream)), so the viewer needs the document URL too.
+    const baseUrl = "https://example.com/home/v2/Custom.xaml";
+    harness.renderer.render(
+      `
+      <StackPanel>
+        <Border Width="120" Height="60">
+          <Border.Background><ImageBrush ImageSource="images/a.png" Stretch="UniformToFill" /></Border.Background>
+        </Border>
+        <Border Width="120" Height="60">
+          <Border.Background><ImageBrush ImageSource="../shared/b.png" Stretch="Fill" /></Border.Background>
+        </Border>
+        <Border Width="120" Height="60">
+          <Border.Background><ImageBrush ImageSource="Blocks/Grass.png" Stretch="Fill" /></Border.Background>
+        </Border>
+      </StackPanel>
+    `,
+      { baseUrl }
+    );
+    const styles = [...harness.root.querySelectorAll(".pcl-border")].map(
+      (node) => getComputedStyle(node).backgroundImage
+    );
+    if (!styles[0].includes("https://example.com/home/v2/images/a.png")) {
+      throw new Error(`同级相对路径没有按文档目录解析：${styles[0]}`);
+    }
+    if (!styles[1].includes("https://example.com/home/shared/b.png")) {
+      throw new Error(`../ 相对路径解析错误：${styles[1]}`);
+    }
+    // A bundled PCL bitmap must still map to the local asset even when the
+    // document is remote, otherwise every Grass.png would become a network hit.
+    if (!styles[2].includes("assets/pcl/images/Blocks/Grass.png")) {
+      throw new Error(`内置图片没有优先使用本地资源：${styles[2]}`);
+    }
+    // Without a base URL the old behaviour stays: nothing to resolve against.
+    harness.renderer.render(`
+      <StackPanel>
+        <Border Width="120" Height="60">
+          <Border.Background><ImageBrush ImageSource="images/a.png" /></Border.Background>
+        </Border>
+      </StackPanel>
+    `);
+    const plain = getComputedStyle(harness.root.querySelector(".pcl-border")).backgroundImage;
+    if (plain !== "none") throw new Error(`没有 baseUrl 时不应解析相对路径：${plain}`);
+    return { styles };
+  });
+
   await makeCheck(results, "MyCheckBox 读取 PCL 的 Checked 属性并保留 IsChecked 兼容", async () => {
     harness.renderer.render(`
       <StackPanel>

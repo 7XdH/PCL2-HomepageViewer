@@ -299,7 +299,8 @@ Root Directory: 留空
 - `StackPanel.Resources` / `*.Resources` 中带 `x:Key` 的 `sys:String`、`sys:Double`、`sys:Int32` 等值可被 `{StaticResource Key}` / `{DynamicResource Key}` 引用；`Logo="{StaticResource LaunchIcon}"` 这类路径数据也会正常解析。
 - 支持 `Style` 的隐式样式（无 `x:Key`，按 `TargetType` 匹配）、显式 `Style="{StaticResource Key}"`、`BasedOn` 与普通 `Setter`。页面级样式会参与布局、字体、颜色、边距和按钮 `EventType` 等属性。
 - `pack://application:,,,/images/...` 会映射到 `assets/pcl/images/`，且大小写不敏感（例如 `Cobblestone.png` 可匹配 `CobbleStone.png`）。
-- 支持 `http(s)`、`data:`、`blob:` 与本地相对路径图片；远程图片使用 `no-referrer` 请求，减少防盗链导致的 403。
+- 支持 `http(s)`、`data:`、`blob:` 与相对路径图片；远程图片使用 `no-referrer` 请求，减少防盗链导致的 403。
+- 联网主页与远程帮助页里的相对图片路径（`images/a.png`、`../shared/b.png`、`/root.png`）按该文档的最终 URL 解析，`../` 与站点根路径都会正确归一化；`pack://` 与 PCL 内置图名（`Blocks/Grass.png`、`Heads/x.png`）始终优先命中本地资源。这是预览器的补充行为——PCL 用没有基地址的 `MemoryStream` 交给 `XamlReader.Load`，同样的相对路径在 PCL 里取不到图。
 
 ## 替换标记
 
@@ -379,7 +380,7 @@ Root Directory: 留空
 - 不支持 PCL 内部的完整页面（下载、联机、设置等），只提供占位页；`打开帮助` 仅实现远程帮助页，未打包 PCL 的本地帮助文档。
 - `修改设置` 目前只应用 `UiLauncherHue`；透明度、背景模糊等设置会保存并参与 `{setup:...}`，但不会改变渲染外观。
 - 文本换行、字体度量与 WPF 不是逐像素完全相同；已对齐主要尺寸、边距、颜色与字号。
-- 远程主页中的相对图片路径不会自动按远程 URL 解析。
+- 远程主页中的相对图片路径会按文档自身的 URL 解析（见上文「资源、样式与图片」）；这一项预览器比 PCL 更宽松，PCL 的 `XamlReader.Load` 没有基地址，取不到相对路径的图片。
 - 颜色、`Cursor`、`FontFamily` 与 `Style` 的 `Setter` 都按白名单过滤：颜色只接受十六进制、`rgb()/rgba()/hsl()`、`ColorBrush*` 等主题变量与 WPF 命名色；`url(...)`、`expression(...)`、`@import` 与反斜杠一律丢弃，`Setter` 只允许渲染器实际支持的成员。带引号的 `FontFamily` 与位图 `Cursor` 因此不会生效。
 
 ## 与 PCL 的加载语义差异

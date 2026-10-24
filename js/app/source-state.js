@@ -66,6 +66,11 @@ export function applySourceState(state, saved) {
   state.fileContent = saved.mode === "file" ? saved.content : "";
   state.urlContent = saved.mode === "url" ? saved.content : "";
   state.code = saved.mode === "code" ? saved.content : "";
+  // A restored remote document still needs something to resolve its relative
+  // image sources against before it is fetched again; the saved address is the
+  // closest thing available, and the next successful fetch replaces it with the
+  // final URL from the proxy.
+  state.baseUrl = saved.mode === "url" ? saved.url : "";
   return true;
 }
 

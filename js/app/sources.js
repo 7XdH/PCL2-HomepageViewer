@@ -25,17 +25,34 @@ export function presetFetchError(message, cause, code = "PRESET_FETCH_FAILED") {
 }
 
 export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML, getCode, getRuntimeContext }) {
+  // Base URL each cached remote preset was fetched from. The cache itself only
+  // holds the text, and a redirect can move the document, so the landing URL has
+  // to be remembered separately for relative image sources.
+  const presetBaseUrls = new Map();
+
   async function loadPreset(id, { force = false, signal } = {}) {
     const preset = PRESETS[id] || PRESETS.tutorial;
     const cacheKey = PRESETS[id] ? id : "tutorial";
-    if (preset.kind === "inline") return preset.xaml;
+    if (preset.kind === "inline") {
+      state.baseUrl = "";
+      return preset.xaml;
+    }
 
     if (preset.url) {
-      if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
+      if (!force && presetCache.has(cacheKey)) {
+        state.baseUrl = presetBaseUrls.get(cacheKey) || resolveRemoteUrl(preset.url);
+        return presetCache.get(cacheKey);
+      }
       try {
         const text = await fetchRemoteXaml(resolveRemoteUrl(preset.url), {
           uaCandidates: getProxyUaCandidates(PCL_FALLBACK_UA),
-          signal
+          signal,
+          // A preset's relative images resolve against the preset document, the
+          // same way PCL resolves them against the downloaded XAML's base URI.
+          onFinalUrl: (value) => {
+            state.baseUrl = value || resolveRemoteUrl(preset.url);
+            presetBaseUrls.set(cacheKey, state.baseUrl);
+          }
         });
         presetCache.set(cacheKey, text);
         return text;
@@ -45,6 +62,9 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
       }
     }
 
+    // Bundled presets live next to the viewer, so their relative image sources
+    // must keep resolving against the viewer itself, not a previous remote page.
+    state.baseUrl = "";
     if (!force && presetCache.has(cacheKey)) return presetCache.get(cacheKey);
     try {
       const response = await fetch(preset.path, {
@@ -75,7 +95,7 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
 
   async function fetchRemoteText(
     url,
-    { uaCandidates = getProxyUaCandidates(state.ua), expect = "xaml", label = "联网主页", signal } = {}
+    { uaCandidates = getProxyUaCandidates(state.ua), expect = "xaml", label = "联网主页", signal, onFinalUrl } = {}
   ) {
     const controller = new AbortController();
     let timedOut = false;
@@ -87,11 +107,21 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
       controller.abort();
     }, 22000);
     let proxyError = null;
+    let finalUrl = "";
+    const captureFinalUrl = (value) => {
+      // Only the first hop's final URL matters: the retry loop re-requests the
+      // same document with another UA, and the direct fallback below reports its
+      // own URL through the response object.
+      if (!finalUrl && value) finalUrl = value;
+      onFinalUrl?.(finalUrl);
+    };
     try {
       if (location.protocol === "http:" || location.protocol === "https:") {
         for (const ua of uaCandidates) {
           try {
-            const content = await fetchViaProxy(url, controller.signal, ua, label);
+            const info = {};
+            const content = await fetchViaProxy(url, controller.signal, ua, label, info);
+            captureFinalUrl(info.finalUrl);
             try {
               return assertRemoteResponse(content, url, { expect, label });
             } catch (error) {
@@ -118,7 +148,9 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
 
       let directContent;
       try {
-        directContent = await fetchDirect(url, controller.signal, label);
+        const info = {};
+        directContent = await fetchDirect(url, controller.signal, label, info);
+        captureFinalUrl(info.finalUrl);
       } catch (error) {
         if (error.name === "AbortError") throw error;
         const proxyMissing =
@@ -158,11 +190,15 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
   async function resolveCurrentContent({ forceRemote = false, signal } = {}) {
     if (state.mode === "file") {
       if (!state.fileContent.trim()) throw new Error("尚未选择本地 XAML 文件。");
+      // A local file has no URL, so its relative images cannot be resolved
+      // remotely — dropping a stale base keeps it from using the previous one.
+      state.baseUrl = "";
       return state.fileContent;
     }
     if (state.mode === "code") {
       const code = getCode();
       if (!code.trim()) throw new Error("源码编辑器为空。");
+      state.baseUrl = "";
       return code;
     }
     if (state.mode === "url") {
@@ -178,8 +214,14 @@ export function createSourceLoader({ state, PRESETS, presetCache, FALLBACK_XAML,
           error.code = "REMOTE_URL_INVALID";
           throw error;
         }
-        const content = await fetchRemoteXaml(target.url, { signal });
+        const content = await fetchRemoteXaml(target.url, {
+          signal,
+          onFinalUrl: (value) => {
+            state.baseUrl = value || target.url;
+          }
+        });
         state.urlContent = content;
+        if (!state.baseUrl) state.baseUrl = target.url;
       }
       if (!state.urlContent.trim()) throw new Error("联网主页返回了空内容。");
       return state.urlContent;

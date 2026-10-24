@@ -14,7 +14,8 @@ import {
   parseThickness,
   parseCornerRadius,
   parseFontWeight,
-  substitutePlaceholders
+  substitutePlaceholders,
+  resolveImageSource
 } from "../js/xaml.js";
 import { buildPalette, normalizeHue } from "../js/theme.js";
 import { BBOX_CACHE_LIMIT, bboxCache, rememberBBox } from "../js/renderer/helpers.js";
@@ -168,6 +169,29 @@ test("xaml: colour, cursor and font values cannot smuggle CSS", () => {
 
 test("xaml: null input fails as a PclXamlError", () => {
   assert.ok(new PclXamlError("x") instanceof Error);
+});
+
+test("xaml: relative image sources resolve against the document base URL", () => {
+  // PCL loads Custom.xaml through XamlReader.Load(Stream), so a relative source
+  // is resolved against the stream's base URI — the folder the XAML came from.
+  const base = "https://example.com/home/v2/Custom.xaml";
+  assert.equal(resolveImageSource("images/a.png", base), "https://example.com/home/v2/images/a.png");
+  assert.equal(resolveImageSource("../b.png", base), "https://example.com/home/b.png");
+  assert.equal(resolveImageSource("c.png?v=2", base), "https://example.com/home/v2/c.png?v=2");
+  assert.equal(resolveImageSource("/root.png", base), "https://example.com/root.png");
+  // Absolute and data sources are already resolvable.
+  assert.equal(resolveImageSource("https://cdn.example/x.png", base), "https://cdn.example/x.png");
+  // PCL's own bundled bitmaps keep winning, whatever the base URL is, so
+  // pack:// and `Heads/x.png` references never become remote requests.
+  assert.equal(resolveImageSource("Blocks/Grass.png", base), "assets/pcl/images/Blocks/Grass.png");
+  assert.equal(
+    resolveImageSource("pack://application:,,,/images/Blocks/Grass.png", base),
+    "assets/pcl/images/Blocks/Grass.png"
+  );
+  // Viewer-relative and non-image values stay as they were.
+  assert.equal(resolveImageSource("assets/pcl/images/Icons/NoIcon.png", base), "assets/pcl/images/Icons/NoIcon.png");
+  assert.equal(resolveImageSource("images/a.png"), null);
+  assert.equal(resolveImageSource(""), null);
 });
 
 test("renderer: path bounding-box cache is bounded", () => {

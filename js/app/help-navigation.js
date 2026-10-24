@@ -18,7 +18,9 @@ export function createHelpNavigation({
 
   function renderHelpEntry(entry) {
     if (!entry) return;
-    helpRenderer.render(entry.xaml);
+    // Help pages are fetched from the networks, so their relative images resolve
+    // against the page they came from — same rule as the homepage.
+    helpRenderer.render(entry.xaml, { baseUrl: entry.baseUrl || "" });
     shell.showHelpPage(entry.title);
     if (helpScroll) helpScroll.scrollTop = 0;
     window.setTimeout(() => document.getElementById("pclSubpageBack")?.focus({ preventScroll: true }), 30);
@@ -47,11 +49,15 @@ export function createHelpNavigation({
       })
         .then((source) => helpJsonTitle(source, ""))
         .catch(() => "");
+      const helpInfo = {};
       const [xaml, metadataTitle] = await Promise.all([
         fetchRemoteXaml(urls.xamlUrl, {
           uaCandidates,
           label: "帮助页面",
-          signal: controller.signal
+          signal: controller.signal,
+          onFinalUrl: (value) => {
+            helpInfo.baseUrl = value || urls.xamlUrl;
+          }
         }),
         metadata
       ]);
@@ -59,6 +65,7 @@ export function createHelpNavigation({
 
       const entry = {
         url: urls.xamlUrl,
+        baseUrl: helpInfo.baseUrl || urls.xamlUrl,
         title: metadataTitle || helpTitleFromXaml(xaml),
         xaml
       };

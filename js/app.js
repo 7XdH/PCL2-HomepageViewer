@@ -79,6 +79,7 @@ const state = {
   fileContent: "",
   url: "",
   urlContent: "",
+  baseUrl: "",
   ua: "",
   code: ""
 };
@@ -351,7 +352,7 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     const content = await sources.resolveCurrentContent({ forceRemote, signal: controller.signal });
     if (token !== renderToken) return false;
     assertSourceWithinLimit(content, sources.sourceLabel());
-    const result = renderer.render(content);
+    const result = renderer.render(content, { baseUrl: state.baseUrl });
     if (token !== renderToken) return false;
 
     lastRenderedContent = content;
@@ -492,6 +493,7 @@ async function loadUrlAndRender() {
   state.url = url;
   state.ua = ua;
   state.urlContent = "";
+  state.baseUrl = "";
   codeDirty = false;
   setPresetActive(null);
   setActiveTab("url");

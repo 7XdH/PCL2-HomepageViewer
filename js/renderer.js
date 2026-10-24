@@ -11,6 +11,11 @@ export class PclRenderer extends PclDocumentBuilders {
     this.getProxyUa = getProxyUa;
     this.getProxyUas = getProxyUas;
     this.lazyImages = lazyImages;
+    // Base URI of the document being rendered. PCL loads Custom.xaml through
+    // XamlReader.Load(Stream), so a relative `Source="images/a.png"` resolves
+    // against the downloaded file's folder. The viewer keeps the final URL of
+    // the fetched document here; custom code and local files leave it empty.
+    this.baseUrl = "";
     this.warnings = [];
     this.issues = [];
     this.controlCount = 0;
@@ -84,8 +89,14 @@ export class PclRenderer extends PclDocumentBuilders {
     attempt();
   }
 
-  render(source) {
+  /**
+   * @param {string} source
+   * @param {{ baseUrl?: string }} [options] URL the document was fetched from,
+   * used to resolve its relative image sources the way WPF's base URI does.
+   */
+  render(source, { baseUrl = "" } = {}) {
     const started = performance.now();
+    this.baseUrl = String(baseUrl || "");
     // Drop callbacks of the document that is being replaced before building the
     // new one, so a slow image cannot patch the new DOM when it finally lands.
     this.imageGeneration += 1;

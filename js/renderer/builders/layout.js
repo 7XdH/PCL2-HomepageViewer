@@ -256,7 +256,7 @@ export class PclLayoutBuilders {
   // fall back to the plain attribute.
   applyBackground(node, element, props) {
     const property = findPropertyElement(element, "Background");
-    const brush = property ? resolveBrush(directContentChildren(property)[0]) : null;
+    const brush = property ? resolveBrush(directContentChildren(property)[0], this.baseUrl) : null;
     if (applyBrush(node, brush)) return;
     const background = resolveColor(getProp(props, "Background"));
     if (background) node.style.background = background;
