@@ -417,6 +417,13 @@ body {
   box-shadow: 0 1px 4px rgba(52, 61, 74, 0.12);
 }
 
+/* Only the active tab holds the roving tabindex, so the ring has to read as
+   "this tab", not "this panel is selected" — match the input focus ring. */
+.source-tab:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(19, 112, 243, 0.28);
+}
+
 .source-tab-panels {
   min-height: 170px;
   margin-top: 13px;

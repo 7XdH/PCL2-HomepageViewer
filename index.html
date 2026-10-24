@@ -73,13 +73,13 @@
         <p class="panel-heading__caption">加载 PCL 的 <code>Custom.xaml</code>，或直接粘贴源码。渲染过程不会执行脚本。</p>
 
         <div class="source-tabs" role="tablist" aria-label="主页源类型">
-          <button class="source-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="tabFile" data-tab="file">文件</button>
-          <button class="source-tab" type="button" role="tab" aria-selected="false" aria-controls="tabUrl" data-tab="url">联网</button>
-          <button class="source-tab" type="button" role="tab" aria-selected="false" aria-controls="tabCode" data-tab="code">源码</button>
+          <button class="source-tab is-active" type="button" role="tab" id="tabBtnFile" aria-selected="true" aria-controls="tabFile" tabindex="0" data-tab="file">文件</button>
+          <button class="source-tab" type="button" role="tab" id="tabBtnUrl" aria-selected="false" aria-controls="tabUrl" tabindex="-1" data-tab="url">联网</button>
+          <button class="source-tab" type="button" role="tab" id="tabBtnCode" aria-selected="false" aria-controls="tabCode" tabindex="-1" data-tab="code">源码</button>
         </div>
 
         <div class="source-tab-panels">
-          <section class="source-pane is-active" id="tabFile" role="tabpanel" data-pane="file">
+          <section class="source-pane is-active" id="tabFile" role="tabpanel" aria-labelledby="tabBtnFile" data-pane="file">
             <button class="dropzone" id="dropzone" type="button">
               <span class="dropzone__icon" aria-hidden="true">
                 <svg viewBox="0 0 32 32"><path d="M6 4.5h12l7 7v16H6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M18 4.5v7h7M11 18h9M11 22h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -91,7 +91,7 @@
             <p class="field-note">本地文件只会在浏览器内存中读取，不会上传到任何服务器。</p>
           </section>
 
-          <section class="source-pane" id="tabUrl" role="tabpanel" data-pane="url" hidden>
+          <section class="source-pane" id="tabUrl" role="tabpanel" aria-labelledby="tabBtnUrl" data-pane="url" hidden>
             <label class="field-label" for="urlInput">联网主页地址</label>
             <div class="input-row">
               <input class="lab-input" id="urlInput" type="url" spellcheck="false" placeholder="https://example.com/Custom.xaml">
@@ -109,7 +109,7 @@
             </div>
           </section>
 
-          <section class="source-pane" id="tabCode" role="tabpanel" data-pane="code" hidden>
+          <section class="source-pane" id="tabCode" role="tabpanel" aria-labelledby="tabBtnCode" data-pane="code" hidden>
             <div class="code-editor">
               <pre class="code-lines" id="codeLines" aria-hidden="true">1</pre>
               <textarea class="code-input" id="codeEditor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="PCL 自定义主页 XAML 源码"></textarea>

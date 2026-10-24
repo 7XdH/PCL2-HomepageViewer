@@ -187,11 +187,16 @@ function updateVariables(variables) {
   }
 }
 
-function setActiveTab(tab) {
+// Roving tabindex: the tablist is one Tab stop and arrows move within it, which
+// is what the WAI-ARIA tabs pattern asks for. Without it every tab is its own
+// stop and screen readers cannot tell the group apart.
+function setActiveTab(tab, { focus = false } = {}) {
   for (const button of document.querySelectorAll(".source-tab")) {
     const active = button.dataset.tab === tab;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+    if (active && focus) button.focus();
   }
   for (const pane of document.querySelectorAll(".source-pane")) {
     const active = pane.dataset.pane === tab;
@@ -199,6 +204,26 @@ function setActiveTab(tab) {
     pane.classList.toggle("is-active", active);
   }
   if (tab === "code" && !codeDirty) syncEditor(lastRenderedContent);
+}
+
+// Arrow keys walk the tablist in DOM order and wrap around, so the last tab can
+// reach the first without a second key sequence. Home/End jump to the ends.
+function bindTabKeyboard() {
+  const tabs = [...document.querySelectorAll(".source-tab")];
+  if (!tabs.length) return;
+  for (const [index, button] of tabs.entries()) {
+    button.addEventListener("keydown", (event) => {
+      const key = event.key;
+      let next = -1;
+      if (key === "ArrowRight" || key === "ArrowDown") next = (index + 1) % tabs.length;
+      else if (key === "ArrowLeft" || key === "ArrowUp") next = (index - 1 + tabs.length) % tabs.length;
+      else if (key === "Home") next = 0;
+      else if (key === "End") next = tabs.length - 1;
+      if (next < 0) return;
+      event.preventDefault();
+      setActiveTab(tabs[next].dataset.tab, { focus: true });
+    });
+  }
 }
 
 function setPresetActive(id) {
@@ -587,6 +612,7 @@ function bindUi() {
   for (const button of document.querySelectorAll(".source-tab")) {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   }
+  bindTabKeyboard();
 
   $.dropzone?.addEventListener("click", () => $.fileInput.click());
   $.fileInput?.addEventListener("change", () => {

@@ -2172,6 +2172,55 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "主页源 Tabs 支持方向键与 roving tabindex", async () => {
+    const tabs = [...document.querySelectorAll(".source-tab")];
+    if (tabs.length !== 3) throw new Error(`标签数量不正确：${tabs.length}`);
+    const panelIds = tabs.map((tab) => tab.getAttribute("aria-controls"));
+    for (const [index, tab] of tabs.entries()) {
+      if (tab.getAttribute("role") !== "tab") throw new Error(`第 ${index} 个标签缺少 role=tab`);
+      const panel = document.getElementById(panelIds[index]);
+      if (!panel) throw new Error(`aria-controls 指向不存在的面板：${panelIds[index]}`);
+      if (panel.getAttribute("aria-labelledby") !== tab.id) {
+        throw new Error(`面板没有反向关联标签：${panelIds[index]}`);
+      }
+    }
+
+    // Exactly one tab may be in the tab order at a time.
+    const stops = () => tabs.filter((tab) => tab.tabIndex === 0);
+    const initial = stops();
+    if (initial.length !== 1) throw new Error(`roving tabindex 失效：${initial.length} 个可聚焦标签`);
+
+    const active = () => tabs.find((tab) => tab.getAttribute("aria-selected") === "true");
+    const press = (tab, key) => tab.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+
+    initial[0].focus();
+    press(initial[0], "ArrowRight");
+    await sleep(60);
+    let current = active();
+    if (current?.dataset.tab !== "url") throw new Error(`→ 没有切到联网：${current?.dataset.tab}`);
+    if (document.activeElement !== current) throw new Error("方向键切换后焦点没有跟随标签");
+    if (stops().length !== 1 || stops()[0] !== current) throw new Error("切换后 roving tabindex 没有移动");
+    if (document.getElementById("tabUrl")?.hidden) throw new Error("联网面板没有显示");
+
+    press(current, "End");
+    await sleep(60);
+    if (active()?.dataset.tab !== "code") throw new Error(`End 没有切到最后一个标签：${active()?.dataset.tab}`);
+    press(active(), "ArrowRight");
+    await sleep(60);
+    if (active()?.dataset.tab !== "file") throw new Error("→ 在最后一个标签上没有折回第一个");
+    press(active(), "ArrowLeft");
+    await sleep(60);
+    if (active()?.dataset.tab !== "code") throw new Error("← 在第一个标签上没有折回最后一个");
+    press(active(), "Home");
+    await sleep(60);
+    if (active()?.dataset.tab !== "file") throw new Error(`Home 没有回到第一个标签：${active()?.dataset.tab}`);
+
+    // Put the panel back so later checks see the original source tab.
+    tabs.find((tab) => tab.dataset.tab === "file")?.click();
+    await sleep(60);
+    return { ids: panelIds };
+  });
+
   await makeCheck(results, "导出按钮写入编辑器里的最新内容", async () => {
     const api = window.__PCL_RENDERER__;
     const editor = document.getElementById("codeEditor");
