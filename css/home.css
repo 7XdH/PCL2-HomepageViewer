@@ -1,0 +1,305 @@
+/* --------------------------------------------------------------------------
+   Standalone homepage view (home.html)
+
+   The page shows only what PCL paints into the right-hand panel: the 550px
+   column with the 25px page margin, the 500px content every card is sized
+   from, and the 8px scrollbar inside the right margin. `1:1` is the default and
+   is pixel-identical to the viewer's preview; fit-to-width grows the whole
+   panel with CSS zoom so line breaks and card heights never change.
+
+   css/app.css is deliberately not loaded here — it styles the lab workspace
+   (header, source panel, event strip) and would paint its own body gradient
+   behind this page.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --home-panel-width: 550px;
+  --home-bar-height: 38px;
+  --home-zoom: 1;
+  /* Same level the workspace uses (css/appearance.css): dark shells dim the
+     canvas to 90%, which keeps white cards legible without glare. */
+  --appearance-dim: 0.9;
+  --home-backdrop: #e3ecf7;
+  --home-bar-bg: rgba(255, 255, 255, 0.74);
+  --home-bar-border: rgba(52, 61, 74, 0.08);
+  --home-bar-text: var(--pcl-c1);
+  --home-bar-muted: var(--pcl-gray2);
+  --home-toggle-bg: rgba(255, 255, 255, 0.66);
+  --home-toggle-active: var(--pcl-c2);
+  --home-panel-shadow:
+    0 24px 64px -30px rgba(11, 55, 120, 0.42),
+    0 6px 18px -12px rgba(52, 61, 74, 0.24),
+    0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+html[data-theme="dark"] {
+  --home-backdrop: #0b1016;
+  --home-bar-bg: rgba(255, 255, 255, 0.035);
+  --home-bar-border: rgba(255, 255, 255, 0.07);
+  --home-bar-text: #dbe6f1;
+  --home-bar-muted: #7d8c9c;
+  --home-toggle-bg: rgba(255, 255, 255, 0.06);
+  --home-toggle-active: #9dc4e6;
+  --home-panel-shadow:
+    0 30px 80px -32px #000,
+    0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+html[data-theme="amoled"] {
+  --home-backdrop: #05070a;
+  --home-bar-bg: rgba(255, 255, 255, 0.02);
+  --home-bar-border: rgba(255, 255, 255, 0.05);
+  --home-bar-text: #c9d6e3;
+  --home-bar-muted: #6b7987;
+  --home-toggle-bg: rgba(255, 255, 255, 0.04);
+  --home-toggle-active: #9dc4e6;
+  --home-panel-shadow: none;
+}
+
+/* Layered backdrop: in the light workspace it reads as paper under glass; in
+   the dark ones it is a faint aura that keeps the panel from floating in a
+   void. */
+body.home-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--home-bar-text);
+  background: var(--home-backdrop);
+}
+
+body.home-body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(255, 255, 255, 0.55), transparent 52%),
+    radial-gradient(ellipse at 50% 120%, hsl(var(--pcl-hue) 70% 86% / 0.5), transparent 58%);
+}
+
+html:is([data-theme="dark"], [data-theme="amoled"]) body.home-body::before {
+  background:
+    radial-gradient(ellipse at 50% -6%, hsl(var(--pcl-hue) 60% 30% / 0.24), transparent 56%),
+    radial-gradient(ellipse at 50% 118%, hsl(var(--pcl-hue) 58% 26% / 0.16), transparent 60%);
+}
+
+html[data-theme="amoled"] body.home-body::before {
+  background: none;
+}
+
+/* --------------------------------------------------------------------------
+   Control bar
+   -------------------------------------------------------------------------- */
+
+.home-shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.home-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  height: var(--home-bar-height);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--home-bar-border);
+  background: var(--home-bar-bg);
+  backdrop-filter: blur(14px);
+  user-select: none;
+}
+
+.home-bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-bar__mark {
+  width: 16px;
+  height: 18px;
+  flex: none;
+  opacity: 0.9;
+}
+
+.home-bar__title {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.home-bar__source {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--home-bar-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-bar__grow {
+  flex: 1;
+  min-width: 8px;
+}
+
+.home-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+/* 1:1 / fit-to-width toggle. aria-pressed carries the state so the label can be
+   the action rather than a status. */
+.home-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--home-bar-muted);
+  background: var(--home-toggle-bg);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.home-toggle:hover {
+  color: var(--home-bar-text);
+}
+
+.home-toggle[aria-pressed="true"] {
+  color: var(--home-toggle-active);
+  border-color: currentColor;
+}
+
+.home-toggle:focus-visible {
+  outline: 2px solid var(--pcl-c4);
+  outline-offset: 1px;
+}
+
+.home-bar__link {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  color: var(--home-toggle-active);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 140ms ease;
+}
+
+.home-bar__link:hover {
+  background: var(--home-toggle-bg);
+}
+
+.home-bar__link:focus-visible {
+  outline: 2px solid var(--pcl-c4);
+  outline-offset: 1px;
+}
+
+@media (max-width: 720px) {
+  .home-bar__title {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Panel
+   -------------------------------------------------------------------------- */
+
+.home-viewport {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The stage carries the zoom; its width stays PCL's real 550px so the content
+   column keeps 500px and only the pixel size changes. Flex centring uses the
+   zoomed size, which is what the eye expects. */
+.home-stage {
+  flex: none;
+  width: var(--home-panel-width);
+}
+
+.home-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--pcl-page-gradient);
+  box-shadow: var(--home-panel-shadow);
+}
+
+/* PCL dims the whole launcher, panel included, in the dark workspaces. The
+   filter sits on the panel rather than the stage so the backdrop keeps its own
+   brightness. */
+html:is([data-theme="dark"], [data-theme="amoled"]) .home-panel {
+  filter: brightness(var(--appearance-dim));
+}
+
+.home-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+/* Load failures have no viewer chrome to fall back on, so the message block
+   takes the panel's own 25px page margin and reads like PCL's own error card. */
+.pcl-home-message {
+  margin: 25px 25px 10px;
+  padding: 15px 17px;
+  /* PCL's MyHint red theme: #ffdddf / #d82929 / #bf0b0b. */
+  border-left: 3px solid #d82929;
+  border-radius: 2px;
+  background: #ffdddf;
+  color: #bf0b0b;
+}
+
+.pcl-home-message__title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pcl-home-message__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.1509;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-toggle,
+  .home-bar__link {
+    transition: none;
+  }
+}

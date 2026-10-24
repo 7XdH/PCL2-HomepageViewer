@@ -107,8 +107,11 @@ export function buildPalette(hue) {
 }
 
 export class PclTheme {
-  constructor({ onChange } = {}) {
+  constructor({ onChange, target } = {}) {
     this.onChange = onChange;
+    // The viewer paints the palette onto #pclWindow; the standalone homepage
+    // page has no window chrome and passes its own panel element instead.
+    this.target = target || null;
     this.hue = DEFAULT_HUE;
     this.apply();
   }
@@ -137,7 +140,7 @@ export class PclTheme {
   apply() {
     const palette = buildPalette(this.hue);
     this.palette = palette;
-    const target = document.getElementById("pclWindow");
+    const target = this.target || document.getElementById("pclWindow");
     if (!target) return;
     target.style.setProperty("--pcl-hue", String(palette.hue));
     target.style.setProperty("--pcl-c1", palette.c1);

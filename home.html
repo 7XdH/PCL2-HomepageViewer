@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1370f3">
+  <meta name="description" content="只显示 Plain Craft Launcher (PCL) 自定义主页内容的独立全屏页面。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https: http:; font-src 'self' data:; connect-src 'self' https: http:; media-src 'self' https: http:; manifest-src 'self'; worker-src 'self' blob:; frame-src 'none'">
+  <title>PCL 自定义主页 · 全屏预览</title>
+  <link rel="icon" href="assets/pcl/images/icon.ico">
+  <link rel="stylesheet" href="css/pcl-theme.css">
+  <link rel="stylesheet" href="css/xaml.css">
+  <link rel="stylesheet" href="css/home.css">
+  <script src="js/boot-theme.js"></script>
+</head>
+<body class="home-body">
+  <div class="home-shell">
+    <header class="home-bar">
+      <span class="home-bar__brand">
+        <svg class="home-bar__mark" viewBox="0 0 32 36" aria-hidden="true">
+          <path d="M16 1.5 30 9.4v17.2L16 34.5 2 26.6V9.4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span class="home-bar__title">PCL 自定义主页</span>
+      </span>
+      <span class="home-bar__source" id="homeSource">正在加载…</span>
+      <span class="home-bar__grow"></span>
+      <div class="home-bar__actions">
+        <button class="home-toggle" id="homeFit" type="button" aria-pressed="false" hidden>适应宽度</button>
+        <a class="home-bar__link" href="index.html">完整预览器</a>
+      </div>
+    </header>
+
+    <div class="home-viewport" id="homeViewport">
+      <div class="home-stage" id="homeStage">
+        <div class="home-panel" id="homePanel">
+          <div class="pcl-scroll pcl-home-scroll home-scroll" id="homeScroll">
+            <div class="pcl-home-root" id="homeRoot"></div>
+          </div>
+          <div class="pcl-hint-stack" id="pclHintStack" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/home.js"></script>
+</body>
+</html>
