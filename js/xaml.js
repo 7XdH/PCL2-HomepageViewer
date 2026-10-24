@@ -500,6 +500,30 @@ export function resolveImageSource(source) {
   return resolvePclImage(value);
 }
 
+const IMAGE_SOURCE_EXTENSION = /\.(png|jpe?g|webp|gif|bmp|ico|svg)(?:[?#]|$)/i;
+
+/**
+ * Whether a logo/source string names a bitmap rather than a Path geometry.
+ *
+ * MyListItem.xaml.vb:220-252 draws `Logo` as either a MyImage (when the value
+ * starts with "http") or a bitmap-backed Canvas (when it ends with .png/.jpg/
+ * .webp) and only falls back to a Path for everything else. The old inline
+ * regex here missed `blob:` URLs and every pack:// bitmap whose resolved asset
+ * path has no extension, so those logos were handed to the geometry parser and
+ * disappeared. Anything that resolves to a bundled asset counts as an image
+ * too, and `.svg` joins the list because the viewer can display it where WPF's
+ * GeometryConverter would simply fail.
+ */
+export function isImageSource(source) {
+  const value = String(source ?? "").trim();
+  if (!value) return false;
+  if (/^(https?:|data:|blob:)/i.test(value)) return true;
+  const resolved = resolveImageSource(value);
+  if (resolved && /^(https?:|data:|blob:)/i.test(resolved)) return true;
+  if (resolved && /^assets\//i.test(resolved)) return true;
+  return IMAGE_SOURCE_EXTENSION.test(resolved || value);
+}
+
 export function extractText(element) {
   if (!element) return "";
   let result = "";

@@ -1571,6 +1571,38 @@ export async function runRegression() {
     return metrics;
   });
 
+  await makeCheck(results, "MyListItem 的 Logo 按图片来源而不是几何路径渲染", async () => {
+    // MyListItem.xaml.vb:220-252 only falls back to a Shapes.Path when the value
+    // is neither an http(s) source nor a .png/.jpg/.webp file. The old regex here
+    // also swallowed pack:// bitmaps (their asset path has no extension) and
+    // every blob:/svg source, so those logos were parsed as geometry and lost.
+    const cases = [
+      { logo: "Blocks/Grass.png", kind: "image", why: "本地位图" },
+      { logo: "pack://application:,,,/Images/Blocks/Grass.png", kind: "image", why: "pack 位图" },
+      { logo: "https://example.com/logo.svg", kind: "image", why: "远程 SVG" },
+      { logo: "blob:https://example.com/2b1f0a3e", kind: "image", why: "blob 来源" },
+      { logo: "assets/pcl/images/Blocks/Grass.png", kind: "image", why: "站点资源路径" },
+      { logo: "F1 M2,0 L0,2 8,10 0,18 2,20 10,12 18,20 20,18 12,10 20,2 18,0 10,8 2,0Z", kind: "path", why: "几何路径" }
+    ];
+    for (const item of cases) {
+      const xaml = `<StackPanel><local:MyListItem Title="标题" Logo="${item.logo}" /></StackPanel>`;
+      const metrics = await renderSource(harness, xaml);
+      const partial = (metrics.warnings || []).some((text) => /Logo/.test(text));
+      const logo = harness.root.querySelector(".pcl-listitem__logo");
+      if (!logo) throw new Error(`${item.why}：Logo 未渲染`);
+      const image = logo.querySelector("img");
+      const svg = logo.querySelector("svg");
+      if (item.kind === "image" && !image) {
+        throw new Error(`${item.why}（${item.logo}）应渲染为图片，实际 ${svg ? "SVG 路径" : "空"}`);
+      }
+      if (item.kind === "path" && !svg) {
+        throw new Error(`${item.why}（${item.logo}）应渲染为 SVG 路径，实际 ${image ? "图片" : "空"}`);
+      }
+      if (partial) throw new Error(`${item.why}：Logo 不应产生警告`);
+    }
+    return null;
+  });
+
   await makeCheck(results, "未知属性按 PCL 的成员名与行号报告", async () => {
     const xaml = `<StackPanel Margin="0">
   <local:MyButton Text="好" />

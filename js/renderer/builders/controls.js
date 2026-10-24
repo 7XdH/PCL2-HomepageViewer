@@ -8,6 +8,7 @@ import {
   parseThickness,
   parseCornerRadius,
   resolveImageSource,
+  isImageSource,
   extractText
 } from "../../xaml.js";
 import {
@@ -766,7 +767,7 @@ export class PclControlBuilders extends PclLayoutBuilders {
       logo.className = "pcl-listitem__logo";
       const logoScale = parseDouble(getProp(props, "LogoScale"), 1);
       logo.style.transform = `scale(${logoScale})`;
-      const isImage = /^(https?:|data:)|\.(png|jpe?g|webp)(\?|$)/i.test(String(logoSource));
+      const isImage = isImageSource(logoSource);
       if (isImage) {
         const img = document.createElement("img");
         img.alt = "";
