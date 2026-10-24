@@ -243,9 +243,15 @@ function bindTabKeyboard() {
   }
 }
 
+// The active preset used to be a class alone, so a screen reader user could not
+// tell which one produced the current canvas. aria-current announces it, and it
+// is reapplied after every filter render because the list is rebuilt wholesale.
 function setPresetActive(id) {
   for (const button of document.querySelectorAll("#presetList [data-preset], #pclPresetList [data-preset]")) {
-    button.classList.toggle("is-active", button.dataset.preset === id);
+    const active = id != null && button.dataset.preset === id;
+    button.classList.toggle("is-active", active);
+    if (active) button.setAttribute("aria-current", "true");
+    else button.removeAttribute("aria-current");
   }
 }
 

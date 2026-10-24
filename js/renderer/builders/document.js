@@ -208,12 +208,23 @@ export class PclDocumentBuilders extends PclControlBuilders {
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
     const events = readEvents(element);
-    node.addEventListener("click", (event) => {
-      event.stopPropagation();
+    const toggle = () => {
       const next = !node.classList.contains("is-checked");
       node.classList.toggle("is-checked", next);
       node.setAttribute("aria-checked", String(next));
       if (events.length) this.runtime.raise(events, node);
+    };
+    node.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggle();
+    });
+    // role=checkbox / role=radio only honour Space by convention; Enter is
+    // accepted too because these are used as buttons all over PCL pages.
+    node.addEventListener("keydown", (event) => {
+      if (event.key !== " " && event.key !== "Spacebar" && event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggle();
     });
     node.setAttribute("role", isRadio ? "radio" : "checkbox");
     node.setAttribute("aria-checked", String(checked));

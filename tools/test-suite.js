@@ -1078,6 +1078,118 @@ export async function runRegression() {
     return { states };
   });
 
+  await makeCheck(results, "XAML 复选框与单选框可用键盘切换", async () => {
+    harness.renderer.render(`
+      <StackPanel>
+        <local:MyCheckBox Text="键盘勾选" Checked="False" EventType="复制文本" EventData="勾选了" />
+        <local:MyRadioBox Text="单选甲" Checked="True" />
+        <local:MyRadioBox Text="单选乙" Checked="False" />
+      </StackPanel>
+    `);
+    const boxes = [...harness.root.querySelectorAll(".pcl-check")];
+    if (boxes.length !== 3) throw new Error(`控件数量错误：${boxes.length}`);
+    const check = boxes[0];
+
+    const key = (node, k) => {
+      const event = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true });
+      node.dispatchEvent(event);
+      return event;
+    };
+
+    if (check.tabIndex !== 0) throw new Error("复选框不在 tab 顺序里");
+    if (check.getAttribute("role") !== "checkbox") throw new Error("复选框 role 不正确");
+    if (boxes[1].getAttribute("role") !== "radio") throw new Error("单选框 role 不正确");
+
+    // Space toggles a checkbox on, and the event fires exactly once.
+    const spaceEvent = key(check, " ");
+    await sleep(60);
+    if (check.getAttribute("aria-checked") !== "true") throw new Error("Space 没有勾选复选框");
+    if (!check.classList.contains("is-checked")) throw new Error("Space 后视觉状态没同步");
+    if (!spaceEvent.defaultPrevented) throw new Error("Space 没有被 preventDefault（会滚动页面）");
+
+    // Enter is accepted too, and toggles back off.
+    key(check, "Enter");
+    await sleep(60);
+    if (check.getAttribute("aria-checked") !== "false") throw new Error("Enter 没有取消勾选");
+
+    // A radio follows the same path. Pick the unchecked one: toggling the
+    // checked radio would just turn it off.
+    const radioOff = boxes[2];
+    key(radioOff, " ");
+    await sleep(60);
+    if (radioOff.getAttribute("aria-checked") !== "true") throw new Error("Space 没有选中单选框");
+
+    // Other keys must not change state.
+    key(check, "a");
+    await sleep(40);
+    if (check.getAttribute("aria-checked") !== "false") throw new Error("普通按键误触发了切换");
+    key(radioOff, "Tab");
+    await sleep(40);
+    if (radioOff.getAttribute("aria-checked") !== "true") throw new Error("Tab 误触发了切换");
+
+    return { check: check.getAttribute("aria-checked"), radio: radioOff.getAttribute("aria-checked") };
+  });
+
+  await makeCheck(results, "预设列表用 aria-current 标出当前源", async () => {
+    const app = window.__PCL_RENDERER__;
+    if (!app?.state) throw new Error("找不到应用状态");
+    const pclList = document.getElementById("pclPresetList");
+    if (!pclList) throw new Error("找不到 PCL2 预设列表");
+    const buttons = [...pclList.querySelectorAll("[data-preset]")];
+    if (!buttons.length) throw new Error("预设列表为空");
+
+    const original = app.state.preset;
+    const originalMode = app.state.mode;
+    const originalFile = app.state.fileContent;
+    try {
+      app.state.mode = "preset";
+      app.state.preset = "pcl2-12";
+      await app.renderCurrent({ reason: "manual" });
+      await sleep(120);
+
+      const marked = [...pclList.querySelectorAll("[data-preset]")].filter(
+        (node) => node.getAttribute("aria-current") === "true"
+      );
+      if (marked.length !== 1) throw new Error(`aria-current 数量应为 1，实际 ${marked.length}`);
+      if (marked[0].dataset.preset !== "pcl2-12") throw new Error(`标错预设：${marked[0].dataset.preset}`);
+      if (!marked[0].classList.contains("is-active")) throw new Error("aria-current 与 is-active 不一致");
+
+      // Filtering rebuilds the list; the marker must survive and must not
+      // land on a hidden/removed node.
+      const search = document.getElementById("pclPresetSearch");
+      if (search) {
+        search.value = "GitHub";
+        search.dispatchEvent(new Event("input", { bubbles: true }));
+        await sleep(160);
+        const afterFilter = [...pclList.querySelectorAll("[data-preset]")].filter(
+          (node) => node.getAttribute("aria-current") === "true"
+        );
+        if (afterFilter.length !== 1 || afterFilter[0].dataset.preset !== "pcl2-12") {
+          throw new Error("过滤后当前预设标记丢失");
+        }
+        search.value = "";
+        search.dispatchEvent(new Event("input", { bubbles: true }));
+        await sleep(160);
+      }
+
+      // Switching to a non-preset source clears the marker. A file source needs
+      // content, so borrow the document that just rendered.
+      app.state.mode = "file";
+      app.state.fileContent = '<StackPanel><TextBlock Text="aria-current 清除检查" /></StackPanel>';
+      await app.renderCurrent({ reason: "manual" }).catch(() => {});
+      await sleep(160);
+      const cleared = [...pclList.querySelectorAll("[data-preset][aria-current]")];
+      if (cleared.length) throw new Error("非预设源仍残留 aria-current");
+      return { marked: marked[0].dataset.preset };
+    } finally {
+      app.state.mode = originalMode;
+      app.state.preset = original;
+      app.state.fileContent = originalFile;
+      await app.renderCurrent({ reason: "manual" }).catch(() => {});
+      await sleep(150);
+    }
+  });
+
   await makeCheck(results, "MyCard 标题、正文与按钮不重叠", async () => {
     harness.renderer.render(`
       <local:MyCard Margin="0">
@@ -2281,12 +2393,25 @@ export async function runRegression() {
     const active = () => tabs.find((tab) => tab.getAttribute("aria-selected") === "true");
     const press = (tab, key) => tab.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
 
+    // A modal left open by an earlier check puts everything else behind
+    // `inert`, and focus() then silently does nothing. Close it first.
+    const modal = document.getElementById("pclModalLayer");
+    if (modal && !modal.hidden) {
+      modal.querySelector(".pcl-modal__buttons button")?.click();
+      await sleep(320);
+    }
+
     initial[0].focus();
     press(initial[0], "ArrowRight");
     await sleep(60);
     let current = active();
     if (current?.dataset.tab !== "url") throw new Error(`→ 没有切到联网：${current?.dataset.tab}`);
-    if (document.activeElement !== current) throw new Error("方向键切换后焦点没有跟随标签");
+    if (document.activeElement !== current) {
+      const focused = document.activeElement;
+      throw new Error(
+        `方向键切换后焦点没有跟随标签：active=${focused?.className || focused?.tagName} current=${current.className}`
+      );
+    }
     if (stops().length !== 1 || stops()[0] !== current) throw new Error("切换后 roving tabindex 没有移动");
     if (document.getElementById("tabUrl")?.hidden) throw new Error("联网面板没有显示");
 

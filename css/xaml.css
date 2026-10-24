@@ -995,6 +995,12 @@
   user-select: none;
 }
 
+/* The control is a focusable div with an ARIA role, so no UA ring appears. */
+.pcl-check:focus-visible {
+  outline: 2px solid var(--pcl-c3);
+  outline-offset: 2px;
+}
+
 .pcl-check__box {
   display: grid;
   place-items: center;
