@@ -6,7 +6,7 @@
 >
 > PCL 仓库：<https://github.com/Meloong-Git/PCL> · 分发许可：<https://github.com/Meloong-Git/PCL/blob/main/LICENCE>
 
-这是一个在浏览器里预览 PCL（Plain Craft Launcher 2）自定义主页 `Custom.xaml` 的工具。它按 PCL 的 850 × 500 窗口、300px 左侧栏、25px 页面边距、PCL 字体与主题色阶重绘画布，并实现 PCL 自定义事件在 Web 环境中的对应行为。
+这是一个在浏览器里预览 PCL（Plain Craft Launcher 2）自定义主页 `Custom.xaml` 的工具。它按 PCL 的 850 × 500 内容区、300px 左侧栏、25px 页面边距、PCL 字体与主题色阶重绘画布，并实现 PCL 自定义事件在 Web 环境中的对应行为。
 
 > 状态：可运行 · Node.js 18+ · 无需构建步骤 · 原创代码采用 MIT 许可（PCL 素材除外）
 
@@ -43,8 +43,10 @@ npm run test:dist     # 构建 dist/ 并做构建产物烟雾测试（文件、�
 npm run headers       # 校验四处安全头副本与 api/security-headers.js 一致
 npm run headers:write # 以 api/security-headers.js 为准重新生成上面四处副本
 npm run lint          # ESLint 静态检查
-npm run format:check  # Prettier 格式检查
+npm run format:check  # Prettier 格式检查（js / tools / api / server.js / json / README）
 ```
+
+`index.html` 与 `css/**` **故意不写进**格式检查的 glob：这两个文件手工保持 CRLF 与逐行对照 PCL 常量（如 48px 标题栏、25px 页边距、`ColorBrush` 变量表）的排版，Prettier 会把 `index.html` 从 393 行重排到 687 行、把 `css/*.css` 整文件换行重排，产生几千行与语义无关的 diff，反而盖住真正的视觉改动。格式检查范围因此固定为「随 JS 生态走的文件」，CI 不会因为这两个文件而红。
 
 如果浏览器不在常见路径，可设置：
 
@@ -253,7 +255,7 @@ Root Directory: 留空
 - **三种来源**：本地 `.xaml` 文件（拖拽或 Ctrl+O）、联网 URL、直接编辑 XAML 源码。
 - **四个内置预设**：PCL 原版教程、控件画廊、事件测试台、替换标记示例。
 - **PCL2 预设面板**：接入 PCL2 启动器内置的 25 个主页预设，支持搜索名称 / 域名，标注“通常可用 / 上游可能不可用 / 会被安全阻止”；在线项优先使用 `PCL2/2.99.0.0` UA，并在内存中缓存，刷新按钮可强制重新拉取。
-- **1:1 PCL 外观**：850 × 500 窗口、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。
+- **1:1 PCL 外观**：850 × 500 内容区（真实 PCL 的窗口另加 `PanBack` 10px + `BorderForm` 8px 共 36px 外框，内容区默认 864 × 514，可用切换窗口尺寸得到 850 × 500）、48px 标题栏、300px 侧栏、8px 滚动条、500px 主页内容宽度、PCL English 字体、`ColorBrush1–8` 主题色阶、卡片/提示条/按钮/列表项的 PCL 尺寸与动画。**例外**：左侧栏（正版/离线徽标、Steve/Alex 头像、版本卡、「最近提交」）是演示用的展示 UI，并非 PCL `PageLaunchLeft` 的 1:1 复刻。
 - **跨浏览器滚动条**：Chromium 使用 8px WebKit 滚动条，Firefox 使用标准 `scrollbar-width: thin` / `scrollbar-color`，保持透明轨道和半透明滑块。
 - **四档界面外观**：右上角可切换「跟随系统 / 浅色 / 深色 / AMOLED」，选择保存在 `localStorage`（`pcl.lab.appearance.v1`）。各档只改变工具外壳与画布的衬底，画布内渲染的 XAML 完全一致；深色的两档都会把 850 × 500 画布压到 90% 亮度（`--appearance-dim`），避免白底卡片在暗环境里刺眼。默认跟随系统，第一次打开就与系统一致。
   - **跟随系统**：由 `prefers-color-scheme` 决定用浅色还是深色，系统在日落后切换时会跟着变；更动系统偏好不会覆盖手选的档位。首帧就按系统解析（`js/boot-theme.js`），不会先闪一下浅色再变暗。
@@ -282,7 +284,7 @@ Root Directory: 留空
 
 ### PCL 控件
 
-`local:MyCard`、`local:MyHint`、`local:MyButton`、`local:MyTextButton`、`local:MyIconButton`、`local:MyIconTextButton`、`local:MyListItem`、`local:MyImage`、`local:MyLoading`，以及 `MyCheckBox` / `MyRadioBox` / `MyRadioButton` 的基础外观。
+`local:MyCard`、`local:MyHint`、`local:MyButton`、`local:MyTextButton`、`local:MyIconButton`、`local:MyIconTextButton`、`local:MyListItem`、`local:MyImage`、`local:MyLoading`、`local:MyTextBox`、`local:MyComboBox`（含 `MyComboBoxItem`）、`local:MySearchBox`、`local:MySlider`、`local:MyExtraButton`、`local:MyExtraTextButton`，以及 `MyCheckBox` / `MyRadioBox` / `MyRadioButton` 的基础外观。
 
 常用的 PCL 属性包括：`Title`、`Text`、`Info`、`Theme`、`ColorType`、`Logo`、`LogoScale`、`CanSwap`、`IsSwapped` / `IsSwaped`、`SwapLogoRight`、`UseAnimation`、`HasMouseAnimation`、`CanClose`、`RelativeSetup`、`IsWarn`、`Source`、`FallbackSource`、`LoadingSource`、`Stretch`、`Type`、`EventType`、`EventData`、`ToolTip`、`PaddingLeft`、`MinPaddingRight` 等。
 
@@ -364,7 +366,7 @@ Root Directory: 留空
 
 ## 主题色说明
 
-工具外壳（左侧控制面板、标题、背景）默认使用 PCL 蓝色，可切换为「深色 / AMOLED」两种深色外观，也可选「跟随系统」由系统偏好决定（见「功能」）。主页源码中的 `{setup:UiLauncherHue}` 与 `修改设置 UiLauncherHue|<数值>` 只会重绘 850 × 500 的 PCL 预览画布，用来检查自定义主页在 PCL 不同色相下的外观。色阶按 PCL 的 `MyColor.FromHSL2` 亮度补偿公式计算；210° 使用 PCL 公布的 `ColorBrush` 表。
+工具外壳（左侧控制面板、标题、背景）默认使用 PCL 蓝色，可切换为「深色 / AMOLED」两种深色外观，也可选「跟随系统」由系统偏好决定（见「功能」）。主页源码中的 `{setup:UiLauncherHue}` 与 `修改设置 UiLauncherHue|<数值>` 只会重绘 850 × 500 的 PCL 预览画布，用来检查自定义主页在 PCL 不同色相下的外观。色阶按 PCL 的 `MyColor.FromHSL2` 亮度补偿公式计算（默认色相 210°、饱和度 85，与 PCL `ModSecret.vb` 的运行时取值一致），标题栏与页面渐变也照 `ThemeRefresh` 的停靠点复现。
 
 ## 安全边界
 
