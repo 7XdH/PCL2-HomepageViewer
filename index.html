@@ -367,7 +367,7 @@
               </div>
             </div>
 
-            <div class="pcl-loading-layer" id="pclLoadingLayer" hidden>
+            <div class="pcl-loading-layer" id="pclLoadingLayer" role="status" aria-live="polite" hidden>
               <span class="pcl-loading-ring" aria-hidden="true"></span>
               <span class="pcl-loading-text" id="pclLoadingText">正在加载主页…</span>
             </div>
@@ -401,6 +401,8 @@
 
   <input id="fileInput" type="file" accept=".xaml,.xml,.txt,text/xml,application/xml" hidden>
   <div class="pcl-tooltip" id="pclTooltip" role="tooltip" hidden></div>
+  <!-- 渲染结果对读屏只播报一次结论，避免和加载层的 role=status 重复朗读。 -->
+  <div class="sr-only" id="renderAnnouncer" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div class="boot-fallback" id="bootFallback" hidden>
     <strong>需要通过本地服务器打开</strong>

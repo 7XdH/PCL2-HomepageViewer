@@ -40,6 +40,7 @@ const $ = {
   sourceLabel: el("sourceLabel"),
   renderStats: el("renderStats"),
   renderIssues: el("renderIssues"),
+  renderAnnouncer: el("renderAnnouncer"),
   runtimePill: el("runtimePill"),
   runtimeText: el("runtimeText"),
   fileInput: el("fileInput"),
@@ -145,6 +146,22 @@ function setRuntime(text, mode = "ready") {
   $.runtimeText.textContent = text;
   $.runtimePill.classList.toggle("is-busy", mode === "busy");
   $.runtimePill.classList.toggle("is-error", mode === "error");
+}
+
+// 画布本身就是一段会整体替换的文档树，渲染期间标 aria-busy 让读屏先别读
+// 半成品；结论再通过 renderAnnouncer 播报一次。清空再写入是为了让重复的
+// 相同结论也能被重新朗读。
+function announceRender(message) {
+  const node = $.renderAnnouncer;
+  if (!node) return;
+  node.textContent = "";
+  window.setTimeout(() => {
+    node.textContent = message;
+  }, 30);
+}
+
+function setCanvasBusy(busy) {
+  $.root?.setAttribute("aria-busy", String(Boolean(busy)));
 }
 
 function handleSettingChange(key, value) {
@@ -368,6 +385,7 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
   const activePreset = state.mode === "preset" ? PRESETS[state.preset] : null;
   const remotePreset = Boolean(activePreset?.url);
   setRuntime(reason === "initial" ? "正在加载" : "正在渲染", "busy");
+  setCanvasBusy(true);
   $.renderBtn.disabled = true;
   const network =
     (state.mode === "url" && (!state.urlContent || forceRemote)) ||
@@ -394,6 +412,10 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
     $.renderStats.title = result.warnings.length ? result.warnings.join("\n") : "";
     updateRenderIssues(result.issues || []);
     setRuntime("渲染就绪", "ready");
+    setCanvasBusy(false);
+    announceRender(
+      `已渲染 ${result.controls} 个控件，用时 ${result.duration} 毫秒${result.warnings.length ? `，${result.warnings.length} 个警告` : ""}`
+    );
     setPresetActive(state.mode === "preset" ? state.preset : null);
     updateFileMeta();
     saveSourceState(content);
@@ -402,8 +424,10 @@ async function renderCurrent({ reason = "manual", forceRemote = false } = {}) {
   } catch (error) {
     if (token !== renderToken || error.name === "AbortError") return false;
     setRuntime("渲染失败", "error");
+    setCanvasBusy(false);
     $.renderStats.textContent = "渲染失败";
     $.renderStats.title = error.message || String(error);
+    announceRender(`渲染失败：${error.message || String(error)}`);
     updateRenderIssues([]);
     shell.setLoading(false);
     // Classification lives in its own module so it can be unit-tested without a

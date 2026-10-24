@@ -434,6 +434,46 @@ export async function runRegression() {
     return { before, after };
   });
 
+  await makeCheck(results, "加载中与渲染结果都有可播报状态", async () => {
+    const layer = document.getElementById("pclLoadingLayer");
+    const announcer = document.getElementById("renderAnnouncer");
+    const root = document.getElementById("pclHomeRoot");
+    if (!layer) throw new Error("找不到加载层");
+    if (!announcer) throw new Error("找不到渲染播报节点");
+    if (layer.getAttribute("role") !== "status") throw new Error("加载层缺少 role=status");
+    if (layer.getAttribute("aria-live") !== "polite") throw new Error("加载层不是 polite live region");
+    if (announcer.getAttribute("role") !== "status") throw new Error("播报节点缺少 role=status");
+    if (announcer.getAttribute("aria-live") !== "polite") throw new Error("播报节点不是 polite live region");
+    if (!announcer.classList.contains("sr-only")) throw new Error("播报节点会占版面");
+
+    // aria-busy must be cleared after the initial render settled.
+    if (root.getAttribute("aria-busy") === "true") throw new Error("初始渲染完成后 aria-busy 仍为 true");
+
+    // Drive one render and watch both the busy flag and the announcement.
+    const shell = window.__PCL_RENDERER__?.shell;
+    if (!shell?.setLoading) throw new Error("找不到加载接口");
+    announcer.textContent = "";
+    const rendered = window.__PCL_RENDERER__?.renderCurrent({ reason: "manual" });
+    const busyDuring = root.getAttribute("aria-busy");
+    if (busyDuring !== "true") throw new Error(`渲染期间 aria-busy 不是 true：${busyDuring}`);
+    await rendered;
+    await sleep(120);
+    if (root.getAttribute("aria-busy") !== "false") throw new Error("渲染结束后 aria-busy 没有复位");
+    if (!/已渲染 \d+ 个控件，用时 \d+ 毫秒/.test(announcer.textContent)) {
+      throw new Error(`播报文本不符合预期：${announcer.textContent}`);
+    }
+
+    // The loading layer must be a real live region while it is visible.
+    shell.setLoading(true, "正在拉取联网主页…");
+    if (!layer.isConnected || layer.hidden) throw new Error("setLoading(true) 没有显示加载层");
+    if (!layer.textContent.includes("正在拉取联网主页")) throw new Error("加载文案没有同步");
+    shell.setLoading(false, "");
+    if (!layer.hidden) throw new Error("setLoading(false) 没有隐藏加载层");
+
+    if (!root.querySelector(".pcl-card, .pcl-text")) throw new Error("重渲染后画布为空");
+    return { announcer: announcer.textContent };
+  });
+
   await makeCheck(results, "使用说明弹窗滚动布局", async () => {
     const helpButton = document.getElementById("helpBtn");
     if (!helpButton) throw new Error("找不到使用说明按钮");
