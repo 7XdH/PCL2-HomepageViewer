@@ -1083,7 +1083,27 @@ test("runtime: {setup:*} defaults follow PCL except the deliberate hue", async (
   assert.equal(substitutePlaceholders("{setup:UiLauncherHue}", runtime.context), "180");
 
   // README has to spell the difference out, otherwise users assume parity.
-  const readme = fs.readFileSync("README.md", "utf8");
+  const readme = fs.readFileSync(new URL("../README.md", import.meta.url), "utf8");
   assert.match(readme, /UiLauncherHue[^\n]*180/, "README 应说明 PCL 的默认 hue 是 180");
   assert.match(readme, /210/, "README 应说明预览器用的是 210");
+});
+
+test("proxy: the public deployment checklist names where rate limiting belongs", async () => {
+  // Vercel / Netlify run many short-lived instances, so an in-process counter
+  // only protects one of them. The repo therefore documents the edge layer
+  // instead of pretending to rate limit; the checklist has to stay actionable
+  // and must not drift back to "we do it in-process".
+  const readme = fs.readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  assert.match(readme, /公开部署检查清单（限流）/, "README 应保留公开部署检查清单");
+  assert.match(readme, /有意不内置限流/, "README 应说明为何不内置限流");
+  for (const platform of ["Vercel", "Netlify", "Cloudflare", "nginx"]) {
+    assert.ok(readme.includes(platform), `检查清单应覆盖 ${platform}`);
+  }
+  assert.match(readme, /limit_req_zone/, "nginx 示例应给出 limit_req_zone");
+  assert.match(readme, /429/, "应说明超限时的状态码");
+  assert.match(readme, /PCL_PROXY_ALLOWLIST/, "应把白名单列为必做项");
+  // No in-process limiter should sneak into the server: that is the failure mode
+  // the checklist exists to avoid.
+  const server = fs.readFileSync(new URL("../server.js", import.meta.url), "utf8");
+  assert.ok(!/retry-after|Retry-After/.test(server), "server.js 不应伪造限流响应头");
 });

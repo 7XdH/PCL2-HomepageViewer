@@ -206,7 +206,7 @@ PCL_PROXY_UA=PCL2-Homepage-Viewer
 
 `ua` 参数为空或未提供时，代理会使用 `PCL_PROXY_UA`；该环境变量未设置时使用默认值 `PCL2-Homepage-Viewer`。查询参数优先于环境变量。
 
-不设置白名单时允许访问任意公网 HTTP(S) 文本地址。它仍然是一个出站代理，公开运行时请按需增加平台限流；不要把代理用作通用开放代理。
+不设置白名单时允许访问任意公网 HTTP(S) 文本地址。它仍然是一个出站代理，公开运行时必须在外层配置限流；不要把代理用作通用开放代理。具体落点见下面的「公开部署检查清单（限流）」。
 
 Vercel 会在 `vercel.json` 的 `functions` 中读取 `api/proxy.js` 的 `maxDuration`；Netlify 通过 `netlify/functions/proxy.mjs` 复用同一份代码。GitHub Pages 是纯静态托管，不包含这个函数。
 
@@ -220,6 +220,26 @@ Cloudflare 之类的 CDN 会把源站返回的任何 5xx 换成自己的通用�
 - `image=1` 图片模式**保留真实 4xx/5xx**，否则 `<img>` 会把文本当成图片解码。
 
 前端在 `js/app/remote.js` 里先读这个响应头，再回退到 `response.ok`，因此本地 `node server.js`、Vercel、以及任何经过 CDN 的部署行为一致。仓库外的 `server.js` 使用同一个 `proxyFailure()`。
+
+#### 公开部署检查清单（限流）
+
+仓库**有意不内置限流**：Vercel / Netlify 的每个函数实例都是短命且水平扩展的，进程内计数器只会保护单个实例，超限行为取决于请求被路由到哪个实例——这种「看起来有、实际没用」的保护比没有更危险。限流必须落在能看见全局流量的那一层，也就是平台防火墙或反向代理。超限时的行为因此是可预测的：由你配置的那一层返回 `429`（带 `Retry-After`），请求根本到不了函数。
+
+公开部署前至少确认这几项：
+
+1. **收窄目标域名**：设置 `PCL_PROXY_ALLOWLIST`（逗号分隔，子域需逐个列出，见上一节）。不设置时任何人都能借你的部署访问任意公网 HTTP(S) 文本地址。
+2. **给 `/api/proxy` 配一条限流规则**，按 IP 或按 IP + 路径计算。参考值：每分钟 30~60 次、突发 10 次；静态资源不要一并限流。
+3. **保留 `X-PCL-Proxy-Status` 响应头**：如果前面还套了一层会改写响应头的 CDN 规则，确认它透传该头，否则前端又会退回到「代理不存在」的误判。
+4. **确认函数时长**：`vercel.json` 里 `api/proxy.js` 的 `maxDuration` 与 `api/proxy-core.js` 的 25 秒预算要匹配，否则平台先杀函数、用户看到的是通用 5xx。
+
+各平台的落点：
+
+- **Vercel**：Project → Firewall → Rate Limiting 新建规则，Path 选 `/api/proxy`，按 IP 限速；也可以在 Firewall 的 Custom Rules 里对 `api/proxy` 加「Challenge」作为兜底。这类规则不在 `vercel.json` 里，属于项目设置，换项目要重配。
+- **Netlify**：没有内置的按 IP 限流，用 `netlify.toml` 的 `[[headers]]` 透传不了计数，实际做法是在前面套一层 Cloudflare（或 Netlify 的 Enterprise Edge WAF）。
+- **Cloudflare**：Security → WAF → Rate limiting rules，表达式 `(http.request.uri.path eq "/api/proxy")`，每 60 秒 30 次，Action 选 Block（或 Managed Challenge）。
+- **自建 nginx**：`limit_req_zone $binary_remote_addr zone=pclproxy:10m rate=30r/m;` 配合 `location = /api/proxy { limit_req zone=pclproxy burst=10 nodelay; proxy_pass http://127.0.0.1:3000; }`。
+
+`server.js` 只用于本地开发（默认监听 127.0.0.1），本身也不带限流；如果要在内网对外提供，请按上面 nginx 的方式前置。
 
 ### Vercel 显示 `NOT_FOUND`
 
@@ -376,7 +396,7 @@ Root Directory: 留空
 - 页面使用严格 CSP：脚本、样式和字体只允许同源资源。首帧外观恢复脚本放在 `js/boot-theme.js`，启动兜底脚本已放到 `js/boot.js`，页面没有内联脚本或内联样式；远程图片和 XAML 直连仍允许 `http(s)`，`data:` / `blob:` 仅用于图片。`server.js`、Vercel 和 Netlify 会发送 CSP 与 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、COOP 等安全头；GitHub Pages 等无法自定义响应头的静态托管依靠 `index.html` 中的 meta CSP。
 - 本地文件、编辑器源码、远程 XAML / 帮助页统一限制为 **4 MiB**；超限会拒绝渲染并显示实际大小，不会截断 XAML。远程直连响应采用流式累计字节，超过上限立即取消；`localStorage` 只持久化约 **500 KB** 的内容，超过时会提示使用“导出”保存。
 - 链接只允许 `http` / `https` / `mailto`，以及与 PCL 兼容的 `minecraft://` / `minecraft-preview://`；`打开网页` 与 `下载文件` 会校验协议，`javascript:`、`file:`、`data:`、其他自定义协议等会被拒绝。
-- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 与 Vercel 的 `api/proxy.js` 共用 `api/proxy-core.js`，都会拦截本机 / 内网 / 保留地址、非 80 / 443 端口、带用户名密码的 URL、HTML 响应和超限内容，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应；远程 SVG 仍允许渲染，但会附加沙箱 CSP，禁止脚本、外部资源、对象和导航，避免直接打开代理 SVG 时执行脚本。公开部署时仍建议设置白名单并按需限流。本地 `server.js` 不内置速率限制，公开运行时必须在反向代理 / 平台层限制请求频率；仅在本地探针 / 开发需要访问内网 fixture 时才可设置 `PCL_PROXY_ALLOW_LOCAL=1`；它会放开内网地址与任意端口限制，不要用于公开服务。
+- `/api/proxy` 是服务端出站代理，不是通用开放代理。本地 `server.js` 与 Vercel 的 `api/proxy.js` 共用 `api/proxy-core.js`，都会拦截本机 / 内网 / 保留地址、非 80 / 443 端口、带用户名密码的 URL、HTML 响应和超限内容，并可通过 `PCL_PROXY_ALLOWLIST` 限定域名。UA 只接受 1–512 个可打印 ASCII 字符，不能注入请求头。`image=1` 模式只接受图片响应；远程 SVG 仍允许渲染，但会附加沙箱 CSP，禁止脚本、外部资源、对象和导航，避免直接打开代理 SVG 时执行脚本。公开部署时必须设置白名单，并在能看见全局流量的那一层限流（见上文「公开部署检查清单（限流）」）。本地 `server.js` 不内置速率限制；仅在本地探针 / 开发需要访问内网 fixture 时才可设置 `PCL_PROXY_ALLOW_LOCAL=1`；它会放开内网地址与任意端口限制，不要用于公开服务。
 - 静态部署时，联网 URL 受目标站点 CORS 策略限制；这属于浏览器安全边界，不是渲染器错误。Vercel 部署可通过同源 `/api/proxy` 获取未开放 CORS 的内容。
 - 远程图片优先直连；失败后通过 `/api/proxy?image=1` 重试，仍失败才使用 `FallbackSource` 或 `NoIcon`。
 
