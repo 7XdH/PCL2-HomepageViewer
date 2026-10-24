@@ -202,6 +202,55 @@ export async function runRegression() {
     }
   });
 
+  await makeCheck(results, "重新渲染后旧图片回调不再改动新文档", async () => {
+    // loadImageSource used to keep its onload/onerror alive across renders, so a
+    // slow image from the previous source could repaint the new DOM (and log a
+    // warning against it). Every render now bumps a generation token.
+    const imageHarness = createHarness("pclStaleImageTest");
+    try {
+      const settled = [];
+      const dataUrl = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+      imageHarness.renderer.loadImageSource(
+        dataUrl,
+        () => settled.push("load"),
+        () => settled.push("error")
+      );
+      if (imageHarness.renderer.pendingImages.size !== 1) {
+        throw new Error(`加载中应有 1 条待定请求，实际 ${imageHarness.renderer.pendingImages.size}`);
+      }
+
+      // Replace the document before the data URL finishes decoding.
+      imageHarness.renderer.render(`<StackPanel><TextBlock Text="第二次渲染" /></StackPanel>`);
+      if (imageHarness.renderer.pendingImages.size !== 0) {
+        throw new Error(`重渲染后待定请求应清空，实际 ${imageHarness.renderer.pendingImages.size}`);
+      }
+
+      await sleep(400);
+      if (settled.length) {
+        throw new Error(`旧请求的回调仍被执行：${settled.join("、")}`);
+      }
+      if (imageHarness.renderer.warnings.length) {
+        throw new Error(`旧请求向新文档写入警告：${imageHarness.renderer.warnings.join("；")}`);
+      }
+      if (imageHarness.root.textContent.trim() !== "第二次渲染") {
+        throw new Error(`新文档被改动：${imageHarness.root.textContent.trim()}`);
+      }
+
+      // A fresh call in the current generation still settles normally.
+      const fresh = [];
+      imageHarness.renderer.loadImageSource(
+        dataUrl,
+        () => fresh.push("load"),
+        () => fresh.push("error")
+      );
+      await sleep(400);
+      if (fresh[0] !== "load") throw new Error(`当前代次的图片未回调：${fresh.join("、") || "无"}`);
+      return { stale: settled.length, fresh: fresh.length };
+    } finally {
+      imageHarness.root.remove();
+    }
+  });
+
   await makeCheck(results, "大小上限拒绝超限内容", async () => {
     const oversized = "x".repeat(MAX_SOURCE_BYTES + 1);
     let error;

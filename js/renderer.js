@@ -17,6 +17,23 @@ export class PclRenderer extends PclDocumentBuilders {
     this.resources = new Map();
     this.implicitStyles = new Map();
     this.resourceNodes = new WeakSet();
+    // Bumped by every render(). Image callbacks compare against it so a request
+    // started for the previous document cannot write into the new one.
+    this.imageGeneration = 0;
+    this.pendingImages = new Set();
+  }
+
+  cancelPendingImages() {
+    for (const entry of this.pendingImages) {
+      const { image } = entry;
+      image.onload = null;
+      image.onerror = null;
+      // A detached Image() keeps downloading until its src is cleared. An
+      // element still in the tree belongs to the document that is about to be
+      // replaced, so the browser drops it with the subtree anyway.
+      if (image && !image.isConnected) image.src = "";
+    }
+    this.pendingImages.clear();
   }
 
   proxyImageSource(source, ua) {
@@ -37,18 +54,30 @@ export class PclRenderer extends PclDocumentBuilders {
       if (proxied !== source && !candidates.includes(proxied)) candidates.push(proxied);
     }
 
+    const generation = this.imageGeneration;
+    const entry = { image: null };
     let index = 0;
+    const settle = (callback, value) => {
+      this.pendingImages.delete(entry);
+      // A callback that outlives its render must be a no-op: it would otherwise
+      // patch the new document with the old document's image.
+      if (generation !== this.imageGeneration) return;
+      callback?.(value);
+    };
     const attempt = () => {
       if (index >= candidates.length) {
-        onError?.();
+        settle(onError);
         return;
       }
       const candidate = candidates[index++];
       // Keep the legacy preload path for eager/test renderers; the visible
       // element is used directly only when native lazy loading is enabled.
       const image = target && this.lazyImages ? target : new Image();
+      entry.image = image;
+      if (generation !== this.imageGeneration) return;
+      this.pendingImages.add(entry);
       image.referrerPolicy = "no-referrer";
-      image.onload = () => onLoad?.(candidate);
+      image.onload = () => settle(onLoad, candidate);
       image.onerror = attempt;
       image.src = candidate;
     };
@@ -57,6 +86,10 @@ export class PclRenderer extends PclDocumentBuilders {
 
   render(source) {
     const started = performance.now();
+    // Drop callbacks of the document that is being replaced before building the
+    // new one, so a slow image cannot patch the new DOM when it finally lands.
+    this.imageGeneration += 1;
+    this.cancelPendingImages();
     this.warnings = [];
     this.controlCount = 0;
     const documentRoot = parseXaml(source, this.runtime.context);
