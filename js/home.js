@@ -17,6 +17,8 @@ import { createAppearance } from "./app/appearance.js";
 import { getProxyUaCandidates } from "./ua.js";
 import { isMinecraftUrl, normalizeExternalUrl } from "./url.js";
 import { hintColors } from "./shell/helpers.js";
+import { LruCache } from "./lru-cache.js";
+import { PRESET_CACHE_LIMIT } from "./limits.js";
 
 const ZOOM_KEY = "pcl.lab.home.zoom.v1";
 
@@ -45,7 +47,7 @@ let fitWidth = false;
 let zoom = 1;
 let renderToken = 0;
 let renderAbort = null;
-const presetCache = new Map();
+const presetCache = new LruCache(PRESET_CACHE_LIMIT);
 
 // ---------------------------------------------------------------------------
 // Shell: the standalone page has no chrome, so PCL events degrade to a runtime

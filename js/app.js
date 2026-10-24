@@ -7,7 +7,8 @@ import { createHelpNavigation } from "./app/help-navigation.js";
 import { renderPresetList } from "./app/presets.js";
 import { createSourceLoader } from "./app/sources.js";
 import { createAppearance } from "./app/appearance.js";
-import { SOURCE_STATE_PERSIST_LIMIT, assertSourceWithinLimit } from "./limits.js";
+import { SOURCE_STATE_PERSIST_LIMIT, assertSourceWithinLimit, PRESET_CACHE_LIMIT } from "./limits.js";
+import { LruCache } from "./lru-cache.js";
 import { parseRemoteHomeUrl } from "./url.js";
 import { classifyRenderError, renderErrorCaption } from "./app/render-error.js";
 import { resolveExportSource } from "./app/export-source.js";
@@ -19,7 +20,7 @@ import {
   serializeSourceState
 } from "./app/source-state.js";
 
-const presetCache = new Map();
+const presetCache = new LruCache(PRESET_CACHE_LIMIT);
 let renderToken = 0;
 let renderAbort = null;
 let stageFitFrame = 0;

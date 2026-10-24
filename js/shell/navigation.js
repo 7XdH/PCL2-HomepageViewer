@@ -1,5 +1,6 @@
 import { PclShellBase } from "./base.js";
 import { PAGE_LABELS, NAV_FOR_PAGE, VERSIONS, ACCOUNTS, timeString, saveShellPreferences } from "./helpers.js";
+import { EVENT_LOG_LIMIT, EVENT_DATA_LIMIT } from "../limits.js";
 
 export class PclShellNavigation extends PclShellBase {
   bindWindowControls() {
@@ -204,13 +205,19 @@ export class PclShellNavigation extends PclShellBase {
   }
 
   pushEvent(entry) {
+    // A single event can carry a whole command line or URL. Cap it before it is
+    // stored, so the 100-entry log has a bounded size instead of only a bounded
+    // entry count.
+    if (entry.data && entry.data.length > EVENT_DATA_LIMIT) {
+      entry = { ...entry, data: `${entry.data.slice(0, EVENT_DATA_LIMIT)}…` };
+    }
     if (entry.status === "run") {
       this.eventText.textContent = `${timeString(entry.time)} · ${entry.type}${entry.data ? ` → ${entry.data}` : ""} …`;
       this.eventText.dataset.status = "run";
       return;
     }
     this.events.push(entry);
-    if (this.events.length > 100) this.events.splice(0, this.events.length - 100);
+    if (this.events.length > EVENT_LOG_LIMIT) this.events.splice(0, this.events.length - EVENT_LOG_LIMIT);
     if (this.eventCount) this.eventCount.textContent = String(this.events.length);
     const detail = entry.data ? ` → ${entry.data}` : "";
     const message = entry.status === "error" ? ` × ${entry.message}` : entry.message ? ` · ${entry.message}` : "";

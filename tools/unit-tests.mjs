@@ -22,7 +22,16 @@ import { helpJsonTitle, resolveHelpUrls, resolveHelpXamlUrl } from "../js/help.j
 import { isOpenableExternalUrl, isMinecraftUrl, normalizeExternalUrl, parseRemoteHomeUrl } from "../js/url.js";
 import { classifyRenderError, renderErrorCaption } from "../js/app/render-error.js";
 import { exportFileName, resolveExportSource, safeFileName } from "../js/app/export-source.js";
-import { MAX_SOURCE_BYTES, assertSourceWithinLimit, formatByteSize } from "../js/limits.js";
+import {
+  MAX_SOURCE_BYTES,
+  assertSourceWithinLimit,
+  formatByteSize,
+  PRESET_CACHE_LIMIT,
+  HELP_HISTORY_LIMIT,
+  EVENT_LOG_LIMIT,
+  EVENT_DATA_LIMIT
+} from "../js/limits.js";
+import { LruCache } from "../js/lru-cache.js";
 import {
   PROXY_STATUS_HEADER,
   ProxyError,
@@ -389,6 +398,50 @@ test("limits: source size rejection", () => {
     () => assertSourceWithinLimit("x".repeat(MAX_SOURCE_BYTES + 1), "test"),
     (error) => error.code === "SOURCE_TOO_LARGE"
   );
+});
+
+test("limits: the preset cache, help history and event log are bounded", () => {
+  // Each cached preset source can be 4 MiB, so the cache must evict by count
+  // (LRU) instead of growing for the tab's lifetime.
+  const cache = new LruCache(3);
+  cache.set("a", 1);
+  cache.set("b", 2);
+  cache.set("c", 3);
+  assert.equal(cache.get("a"), 1); // touch a, so b is now the oldest
+  cache.set("d", 4);
+  assert.equal(cache.size, 3);
+  assert.equal(cache.has("b"), false, "最久未使用的条目应先被淘汰");
+  assert.equal(cache.has("a") && cache.has("c") && cache.has("d"), true);
+  cache.set("c", 30); // re-set moves it to the tail
+  cache.set("e", 5);
+  assert.equal(cache.has("a"), false, "重新 set 后旧键应改变淘汰顺序");
+  assert.equal(cache.get("c"), 30);
+
+  // `has()` must not count as a use, otherwise the "网络" decision in app.js
+  // (which calls has() to decide whether to refetch) would keep entries alive.
+  const second = new LruCache(2);
+  second.set("x", 1);
+  second.set("y", 2);
+  assert.equal(second.has("x"), true);
+  second.set("z", 3);
+  assert.equal(second.has("x"), false, "has() 不应刷新 LRU 顺序");
+
+  assert.ok(PRESET_CACHE_LIMIT >= 8 && PRESET_CACHE_LIMIT <= 12, "预取缓存容量应在 8~12");
+  assert.equal(HELP_HISTORY_LIMIT, 20);
+  assert.equal(EVENT_LOG_LIMIT, 100);
+  assert.ok(EVENT_DATA_LIMIT > 0 && EVENT_DATA_LIMIT <= 1000);
+
+  // The three long-lived collections must actually read the shared limits.
+  const nav = fs.readFileSync(new URL("../js/shell/navigation.js", import.meta.url), "utf8");
+  assert.match(nav, /EVENT_LOG_LIMIT/, "事件日志应使用共享上限");
+  assert.match(nav, /EVENT_DATA_LIMIT/, "事件 data 应限长");
+  const help = fs.readFileSync(new URL("../js/app/help-navigation.js", import.meta.url), "utf8");
+  assert.match(help, /HELP_HISTORY_LIMIT/, "帮助历史应限层数");
+  for (const entry of ["../js/app.js", "../js/home.js"]) {
+    const app = fs.readFileSync(new URL(entry, import.meta.url), "utf8");
+    assert.match(app, /new LruCache\(PRESET_CACHE_LIMIT\)/, `${entry} 的预设缓存应改为 LRU`);
+    assert.doesNotMatch(app, /const presetCache = new Map\(\)/, `${entry} 不应再使用无上限 Map`);
+  }
 });
 
 test("assets: favicon and logo are optimized", () => {

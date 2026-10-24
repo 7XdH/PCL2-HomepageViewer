@@ -9,6 +9,15 @@ export const SOURCE_STATE_PERSIST_LIMIT = 500000;
 export const MAX_XAML_NODES = 20000;
 export const MAX_XAML_DEPTH = 64;
 
+// Long-lived collections. Each cached preset source can be up to
+// MAX_SOURCE_BYTES, help history holds whole rendered documents, and the event
+// log keeps a single `data` string per event, so all three need a ceiling that
+// used to be missing.
+export const PRESET_CACHE_LIMIT = 10;
+export const HELP_HISTORY_LIMIT = 20;
+export const EVENT_LOG_LIMIT = 100;
+export const EVENT_DATA_LIMIT = 400;
+
 export function formatByteSize(bytes) {
   const value = Math.max(0, Number(bytes) || 0);
   if (value >= 1024 * 1024) {

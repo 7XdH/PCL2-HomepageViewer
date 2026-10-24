@@ -1,5 +1,6 @@
 import { resolveHelpUrls, helpJsonTitle, helpTitleFromXaml } from "../help.js";
 import { getProxyUaCandidates, PCL_FALLBACK_UA } from "../ua.js";
+import { HELP_HISTORY_LIMIT } from "../limits.js";
 
 export function createHelpNavigation({
   shell,
@@ -62,6 +63,11 @@ export function createHelpNavigation({
         xaml
       };
       helpHistory.push(entry);
+      // Each entry keeps a whole rendered document. Drop the oldest instead of
+      // growing for the lifetime of the tab; Back still walks what is left.
+      if (helpHistory.length > HELP_HISTORY_LIMIT) {
+        helpHistory.splice(0, helpHistory.length - HELP_HISTORY_LIMIT);
+      }
       try {
         renderHelpEntry(entry);
       } catch (error) {
