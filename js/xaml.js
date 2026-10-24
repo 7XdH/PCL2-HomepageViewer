@@ -421,7 +421,15 @@ export function parseThickness(value) {
     [l, t] = numbers;
     r = l;
     b = t;
+  } else if (numbers.length === 3) {
+    // WPF's ThicknessConverter only takes 1, 2 or 4 numbers. Three is a typo,
+    // so read it as CSS does (top, left+right, bottom) instead of leaving the
+    // fourth side undefined.
+    [t, l, b] = numbers;
+    r = l;
   } else {
+    // Four or more: WPF would throw; keep the first four so a stray extra value
+    // cannot produce undefined sides either.
     [l, t, r, b] = numbers;
   }
   return { l, t, r, b, css: `${t}px ${r}px ${b}px ${l}px` };

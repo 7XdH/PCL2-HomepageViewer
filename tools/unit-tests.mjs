@@ -84,6 +84,23 @@ test("xaml: numeric and color parsing", () => {
     b: 4,
     css: "2px 3px 4px 1px"
   });
+  // Three values used to leave the fourth side as `undefinedpx`. WPF only takes
+  // 1, 2 or 4 numbers, so a three-value typo now follows the CSS order.
+  assert.deepEqual(parseThickness("1,2,3"), {
+    l: 2,
+    t: 1,
+    r: 2,
+    b: 3,
+    css: "1px 2px 3px 2px"
+  });
+  assert.deepEqual(parseThickness("1"), { l: 1, t: 1, r: 1, b: 1, css: "1px 1px 1px 1px" });
+  assert.deepEqual(parseThickness("1,2"), { l: 1, t: 2, r: 1, b: 2, css: "2px 1px 2px 1px" });
+  assert.deepEqual(parseThickness("1,2,3,4,5"), { l: 1, t: 2, r: 3, b: 4, css: "2px 3px 4px 1px" });
+  for (const value of ["1,2,3", "1,2,3,4,5"]) {
+    if (/undefined/.test(parseThickness(value).css)) {
+      throw new Error(`厚度值 ${value} 产生了 undefined：${parseThickness(value).css}`);
+    }
+  }
   assert.equal(parseCornerRadius("1,2"), "1px 2px");
   assert.equal(parseFontWeight("semibold"), "600");
   assert.equal(parseFontWeight("750"), "750");
