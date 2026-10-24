@@ -523,3 +523,47 @@ test("Netlify config: routes /api/proxy to the function bundle", () => {
     "index.html still claims Netlify has no proxy"
   );
 });
+
+test("Static build: ships home.html and stamps its bundle urls", () => {
+  const build = fs.readFileSync(new URL("./build-static.mjs", import.meta.url), "utf8");
+  const entries = build.match(/const ENTRIES = \[([^\]]*)\]/);
+  assert.ok(entries, "build-static.mjs must declare ENTRIES");
+  assert.match(entries[1], /"home\.html"/, "home.html must be copied into dist");
+  assert.match(build, /addCacheVersion\("home\.html"\)/, "home.html needs the build stamp too");
+
+  // A CSP that only covers / and /index.html would be ignored by the other
+  // document, so index.html's own meta tag is the shared reference. Meta tags
+  // cannot express frame-ancestors, the one directive only the header carries.
+  const meta = fs
+    .readFileSync(new URL("../index.html", import.meta.url), "utf8")
+    .match(/http-equiv="Content-Security-Policy" content="([^"]+)"/);
+  assert.ok(meta, "index.html must declare a CSP meta tag");
+  const headers = fs.readFileSync(new URL("../api/security-headers.js", import.meta.url), "utf8");
+  const serverCsp = headers.match(/const DOCUMENT_CSP = \[([\s\S]*?)\]\.join\("; "\)/);
+  assert.ok(serverCsp, "security-headers.js must build DOCUMENT_CSP from a list");
+  const directives = [...serverCsp[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]).join("; ");
+  assert.equal(
+    meta[1],
+    directives.replace("frame-ancestors 'none'; ", ""),
+    "index.html CSP meta must match the header"
+  );
+
+  const home = fs.readFileSync(new URL("../home.html", import.meta.url), "utf8");
+  assert.equal(
+    home.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)?.[1],
+    meta[1],
+    "home.html CSP meta must match the server's document policy"
+  );
+
+  const vercel = JSON.parse(fs.readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
+  const homeRule = vercel.headers.find((entry) => entry.source === "/home.html");
+  assert.ok(homeRule, "vercel.json must send the document CSP for /home.html");
+  assert.equal(
+    homeRule.headers.find((header) => header.key === "Content-Security-Policy")?.value,
+    directives,
+    "vercel.json /home.html CSP must match the shared policy"
+  );
+
+  const toml = fs.readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
+  assert.match(toml, /\[\[headers\]\]\s*\n\s*for = "\/home\.html"/, "netlify.toml must cover /home.html");
+});

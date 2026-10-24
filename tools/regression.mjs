@@ -495,6 +495,13 @@ const main = async () => {
       if (!result.ok) failed = true;
     }
 
+    // Runs last: it navigates the tab to home.html, a different document.
+    if (WANT_REGRESSION) {
+      const homeResult = await loadHomeSuite(browser.cdp, browser.sessionId, baseUrl);
+      printRegression(homeResult);
+      if (!homeResult.ok) failed = true;
+    }
+
     process.exitCode = failed ? 1 : 0;
   } finally {
     await cleanupBrowser(browser);
@@ -531,6 +538,41 @@ const loadSuite = async (cdp, sessionId, baseUrl, method) => {
       lastError = error;
       if (!isContextDestroyed(error) || attempt === 2) throw error;
       await sleep(300);
+    }
+  }
+  throw lastError;
+};
+
+// home.html is a separate document with its own entry (js/home.js), so its
+// checks need their own navigation and readiness probe.
+const loadHomeSuite = async (cdp, sessionId, baseUrl) => {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await cdp.send(
+        "Emulation.setDeviceMetricsOverride",
+        { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false },
+        sessionId
+      );
+      await cdp.send("Page.navigate", { url: new URL("/home.html", baseUrl).href }, sessionId);
+      await waitFor(
+        () =>
+          evaluate(cdp, sessionId, "document.readyState === 'complete' && window.__PCL_HOME__?.ready === true").catch(
+            () => false
+          ),
+        { timeout: 30000, label: "独立主页页就绪" }
+      );
+      await cdp.send("Runtime.enable", {}, sessionId);
+      const moduleUrl = new URL(`/tools/home-suite.js?t=${Date.now()}-${attempt}`, baseUrl).href;
+      const expression = `(async () => {
+        const module = await import(${JSON.stringify(moduleUrl)});
+        return await module.runHomeCheck();
+      })()`;
+      return await evaluate(cdp, sessionId, expression, 180000);
+    } catch (error) {
+      lastError = error;
+      if (!isContextDestroyed(error) || attempt === 2) throw error;
+      await sleep(400);
     }
   }
   throw lastError;
