@@ -489,6 +489,59 @@ const runNetworkChecks = async (baseUrl) => {
     return { compressedLength, plainLength };
   });
 
+  await check("HEAD 请求缺失的资源返回 404", async () => {
+    for (const target of ["/js/definitely-missing.js", "/assets/presets/missing.xaml"]) {
+      const response = await fetch(`${baseUrl}${target.slice(1)}`, { method: "HEAD", cache: "no-store" });
+      if (response.status !== 404) throw new Error(`${target} 的 HEAD 应为 404，实际 ${response.status}`);
+      if (await response.text()) throw new Error(`${target} 的 HEAD 不应返回响应体`);
+    }
+    // A denied path must look the same over HEAD as over GET, so probe both.
+    const deniedGet = await fetch(`${baseUrl}.git/HEAD`, { cache: "no-store" });
+    const deniedHead = await fetch(`${baseUrl}.git/HEAD`, { method: "HEAD", cache: "no-store" });
+    if (deniedGet.status !== 403 || deniedHead.status !== 403) {
+      throw new Error(`/.git/HEAD 应一致返回 403，实际 GET ${deniedGet.status} / HEAD ${deniedHead.status}`);
+    }
+    return { missing: 2, denied: deniedGet.status };
+  });
+
+  await check("静态目录里的符号链接不能指向仓库外", async () => {
+    // A path prefix check cannot see symlinks; the server realpaths the target
+    // before reading, so a link inside js/ must not leak an outside file.
+    const linkName = `_symlink-probe-${process.pid}.txt`;
+    const linkPath = path.join(ROOT, "js", linkName);
+    const outside = path.join(os.tmpdir(), `pcl-outside-${process.pid}.txt`);
+    const marker = "outside-the-repository";
+    fs.writeFileSync(outside, marker);
+    try {
+      try {
+        fs.symlinkSync(outside, linkPath);
+      } catch (error) {
+        // Windows without developer mode cannot create symlinks; the check is
+        // still meaningful on CI and on POSIX, so skip rather than fail.
+        return { skipped: `符号链接不可用：${error.code}` };
+      }
+      const response = await fetch(`${baseUrl}js/${linkName}`, { cache: "no-store" });
+      if (response.status !== 404) {
+        const body = await response.text();
+        throw new Error(
+          `越界符号链接应返回 404，实际 ${response.status}${body.includes(marker) ? "（泄露了仓库外内容）" : ""}`
+        );
+      }
+      return { status: 404 };
+    } finally {
+      try {
+        fs.rmSync(linkPath, { force: true });
+      } catch {
+        /* ignore */
+      }
+      try {
+        fs.rmSync(outside, { force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
   return { ok: results.every((item) => item.ok), results };
 };
 
