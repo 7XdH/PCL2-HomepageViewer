@@ -743,10 +743,22 @@ export class PclLayoutBuilders {
     this.count(node);
     this.applyBox(node, props);
     this.applyAlignment(node, props, layout);
+    // WPF's Viewbox measures its child with an infinite constraint and then
+    // scales the arranged result down to the slot (Stretch=Uniform by default),
+    // which shrinks the *typography* along with the boxes: the skin page's four
+    // 449px cards become 120px cards with 52px names rendered at 14px. CSS
+    // cannot reproduce measure-then-scale in one pass, so the child lives in an
+    // inner block sized to max-content and PclRenderer.syncViewboxes() applies
+    // the scale transform once the subtree is attached and measurable.
+    const content = document.createElement("div");
+    content.className = "pcl-viewbox__content";
     for (const child of directContentChildren(element)) {
       const childNode = this.buildNode(child, { kind: "border" });
-      if (childNode) node.append(childNode);
+      if (childNode) content.append(childNode);
     }
+    node.append(content);
+    node.dataset.stretch = String(getProp(props, "Stretch") || "Uniform");
+    node.dataset.stretchDirection = String(getProp(props, "StretchDirection") || "Both");
     this.bindEvents(node, element);
     return node;
   }

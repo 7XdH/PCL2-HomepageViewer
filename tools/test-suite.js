@@ -2676,6 +2676,41 @@ export async function runRegression() {
     });
     return { rows };
   });
+  await makeCheck(results, "Viewbox 按 WPF 的先量后缩把子内容缩进槽位", async () => {
+    // PCL measures the child unconstrained and scales the arranged result, so a
+    // 449px card with a 52px name inside a 120px slot renders at 27%: the
+    // typography shrinks with the boxes. Leaving the child at max-content made
+    // preset 05's skin bands overflow the page.
+    await renderSource(
+      harness,
+      `<Viewbox Width="120" Height="120" Stretch="Uniform">
+        <StackPanel Width="449">
+          <TextBlock Text="Howard" FontSize="52" />
+          <Border Height="80" Background="#4890f5" />
+        </StackPanel>
+      </Viewbox>`
+    );
+    const box = harness.root.querySelector(".pcl-viewbox");
+    const content = box.querySelector(".pcl-viewbox__content");
+    if (!content) throw new Error("Viewbox 缺少内容层");
+    const zoom = Number.parseFloat(getComputedStyle(content).zoom || "1");
+    // offsetWidth reports the element's own layout box (pre-zoom); the visual
+    // size after zoom shows up in getBoundingClientRect.
+    const raw = content.offsetWidth;
+    if (Math.abs(raw - 449) > 1.5) throw new Error(`内容层自然宽度：期望 449，实际 ${raw.toFixed(1)}`);
+    if (Math.abs(zoom - 120 / 449) > 0.01) {
+      throw new Error(`缩放比：期望 ${(120 / 449).toFixed(3)}，实际 ${zoom.toFixed(3)}`);
+    }
+    const slot = box.getBoundingClientRect();
+    const scaled = content.getBoundingClientRect();
+    if (scaled.width > slot.width + 1) {
+      throw new Error(`内容溢出槽位：${scaled.width.toFixed(1)} > ${slot.width.toFixed(1)}`);
+    }
+    const text = content.querySelector(".pcl-text");
+    const textHeight = text.getBoundingClientRect().height;
+    if (textHeight > 20) throw new Error(`52px 字号没有随 Viewbox 缩小：${textHeight.toFixed(1)}px`);
+    return { zoom: Number(zoom.toFixed(3)), textHeight: Number(textHeight.toFixed(1)) };
+  });
   await makeCheck(results, "运行时提示条按 PCL 的类型、去重与上限工作", async () => {
     // ModMain.vb HintTick: three official palettes, newline collapse, at most 20
     // bars (extra ones dropped, not queued), duplicates reuse the existing bar.

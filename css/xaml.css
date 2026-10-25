@@ -104,6 +104,16 @@
   max-width: 100%;
 }
 
+/* The child is laid out at its natural (infinite-constraint) size and then
+   scaled by PclRenderer.syncViewboxes(), which is what makes a Viewbox shrink
+   typography along with its boxes the way WPF does. `flex: none` keeps the
+   pre-scale width so the measured ratio stays stable. */
+.pcl-viewbox__content {
+  flex: none;
+  width: max-content;
+  transform-origin: center center;
+}
+
 .pcl-unsupported {
   display: block;
   padding: 7px 9px;

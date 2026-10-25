@@ -121,6 +121,7 @@ export class PclRenderer extends PclDocumentBuilders {
 
     this.root.replaceChildren(stack);
     this.syncGroupBoxFrames();
+    this.syncViewboxes();
     this.clampCardTexts();
     this.root.scrollTop = 0;
     this.reportBaseUrlExtension();
@@ -183,6 +184,56 @@ export class PclRenderer extends PclDocumentBuilders {
       // BorderGapMaskConverter uses the "Header" border's ActualWidth and a
       // fixed 7px offset for the left edge of the erased gap.
       box.style.setProperty("--groupbox-gap-width", `${Number.isFinite(width) ? width : 0}px`);
+    }
+  }
+
+  syncViewboxes() {
+    // WPF's Viewbox measures the child unconstrained and then scales the
+    // arranged result into the slot, so the child's typography shrinks with its
+    // boxes. The child is laid out at max-content width here, then zoomed; zoom
+    // (rather than a transform) keeps the scaled size in flow, so the slot keeps
+    // a matching height and the flex centering still lines up.
+    for (const box of this.root.querySelectorAll(".pcl-viewbox")) {
+      const content = box.firstElementChild;
+      if (!content) continue;
+      content.style.zoom = "";
+      content.style.transform = "";
+      const stretch = (box.dataset.stretch || "Uniform").toLowerCase();
+      if (stretch === "none") continue;
+      const contentWidth = content.offsetWidth;
+      const contentHeight = content.offsetHeight;
+      if (!contentWidth || !contentHeight) continue;
+      const slotWidth = box.clientWidth;
+      if (!slotWidth) continue;
+      let scale =
+        stretch === "uniformtofill"
+          ? Math.max(slotWidth / contentWidth, (box.clientHeight || contentHeight) / contentHeight)
+          : slotWidth / contentWidth;
+      if (stretch === "uniform") {
+        const slotHeight = Number.parseFloat(box.style.height);
+        if (Number.isFinite(slotHeight) && slotHeight > 0) {
+          scale = Math.min(scale, slotHeight / contentHeight);
+        }
+      }
+      const direction = (box.dataset.stretchDirection || "Both").toLowerCase();
+      if (direction === "downonly") scale = Math.min(scale, 1);
+      else if (direction === "uponly") scale = Math.max(scale, 1);
+      if (stretch === "fill") {
+        // Fill ignores the aspect ratio. Zoom reproduces the horizontal ratio in
+        // flow (the layout width has to match the slot), and the leftover
+        // vertical ratio rides on a transform: an auto-sized slot keeps the
+        // child's natural height, which is what WPF reports for Fill when the
+        // Viewbox has no explicit Height.
+        const zoom = slotWidth / contentWidth;
+        content.style.zoom = String(zoom);
+        const slotHeight = Number.parseFloat(box.style.height);
+        if (Number.isFinite(slotHeight) && slotHeight > 0) {
+          content.style.transformOrigin = "center center";
+          content.style.transform = `scaleY(${slotHeight / (contentHeight * zoom)})`;
+        }
+        continue;
+      }
+      content.style.zoom = String(scale);
     }
   }
 
