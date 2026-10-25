@@ -780,7 +780,10 @@ export class PclControlBuilders extends PclLayoutBuilders {
         img.referrerPolicy = "no-referrer";
         img.loading = this.lazyImages ? "lazy" : "eager";
         img.decoding = "async";
-        const resolvedLogo = resolveImageSource(logoSource, this.baseUrl) || NO_ICON;
+        const resolvedLogo =
+          resolveImageSource(logoSource, this.baseUrl, (source, resolved) =>
+            this.noteBaseUrlSource(source, resolved)
+          ) || NO_ICON;
         logo.append(img);
         if (/^https?:/i.test(resolvedLogo)) {
           this.loadImageSource(
@@ -868,9 +871,10 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const height = parseSize(getProp(props, "Height"));
     const source = getProp(props, "Source");
     const fallbackSource = getProp(props, "FallbackSource");
-    const loadingSource = resolveImageSource(getProp(props, "LoadingSource"), this.baseUrl) || NO_ICON;
-    const resolved = resolveImageSource(source, this.baseUrl);
-    const fallback = resolveImageSource(fallbackSource, this.baseUrl);
+    const noteBase = (source, resolved) => this.noteBaseUrlSource(source, resolved);
+    const loadingSource = resolveImageSource(getProp(props, "LoadingSource"), this.baseUrl, noteBase) || NO_ICON;
+    const resolved = resolveImageSource(source, this.baseUrl, noteBase);
+    const fallback = resolveImageSource(fallbackSource, this.baseUrl, noteBase);
     const stretch = String(getProp(props, "Stretch") || "Uniform").toLowerCase();
     const objectFit =
       stretch === "fill" ? "fill" : stretch === "uniformtofill" ? "cover" : stretch === "none" ? "none" : "contain";
@@ -1018,7 +1022,9 @@ export class PclControlBuilders extends PclLayoutBuilders {
     const fillProperty = findPropertyElement(element, "Fill");
     const fillBrush =
       kind === "Rectangle" || kind === "Ellipse"
-        ? resolveBrush(fillProperty ? directContentChildren(fillProperty)[0] : null, this.baseUrl)
+        ? resolveBrush(fillProperty ? directContentChildren(fillProperty)[0] : null, this.baseUrl, (source, resolved) =>
+            this.noteBaseUrlSource(source, resolved)
+          )
         : null;
     // resolveBrush returns an object for <ImageBrush>; gradient and solid
     // brushes stay plain CSS strings.

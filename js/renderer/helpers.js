@@ -145,7 +145,7 @@ function imageBrushAlignment(value) {
 // string for solid and gradient brushes, or an object describing a tiled or
 // stretched bitmap for <ImageBrush>, which PCL homepages use for full-bleed
 // wallpaper backgrounds.
-export function resolveBrush(element, baseUrl = "") {
+export function resolveBrush(element, baseUrl = "", onBaseUrl = null) {
   if (!element) return null;
   const name = tagName(element);
   const props = readProps(element);
@@ -171,7 +171,7 @@ export function resolveBrush(element, baseUrl = "") {
   }
 
   if (name === "ImageBrush") {
-    const source = resolveImageSource(getProp(props, "ImageSource"), baseUrl);
+    const source = resolveImageSource(getProp(props, "ImageSource"), baseUrl, onBaseUrl);
     if (!source) return null;
     const stretch = String(getProp(props, "Stretch") || "Fill").toLowerCase();
     return {

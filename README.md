@@ -325,7 +325,7 @@ Root Directory: 留空
 - 支持 `Style` 的隐式样式（无 `x:Key`，按 `TargetType` 匹配）、显式 `Style="{StaticResource Key}"`、`BasedOn` 与普通 `Setter`。页面级样式会参与布局、字体、颜色、边距和按钮 `EventType` 等属性。
 - `pack://application:,,,/images/...` 会映射到 `assets/pcl/images/`，且大小写不敏感（例如 `Cobblestone.png` 可匹配 `CobbleStone.png`）。
 - 支持 `http(s)`、`data:`、`blob:` 与相对路径图片；远程图片使用 `no-referrer` 请求，减少防盗链导致的 403。
-- 联网主页与远程帮助页里的相对图片路径（`images/a.png`、`../shared/b.png`、`/root.png`）按该文档的最终 URL 解析，`../` 与站点根路径都会正确归一化；`pack://` 与 PCL 内置图名（`Blocks/Grass.png`、`Heads/x.png`）始终优先命中本地资源。这是预览器的补充行为——PCL 用没有基地址的 `MemoryStream` 交给 `XamlReader.Load`，同样的相对路径在 PCL 里取不到图。
+- 联网主页与远程帮助页里的相对图片路径（`images/a.png`、`../shared/b.png`、`/root.png`）按该文档的最终 URL 解析，`../` 与站点根路径都会正确归一化；`pack://` 与 PCL 内置图名（`Blocks/Grass.png`、`Heads/x.png`）始终优先命中本地资源。这是预览器自己的扩展——PCL 用没有基地址的 `MemoryStream` 交给 `XamlReader.Load`，同样的相对路径在 PCL 里取不到图。为了不让这类页面看起来「两边都能用」，每渲染一份这样的文档都会记一条警告：`相对图片路径按文档 URL 解析了 N 处（…）；PCL 的 XamlReader 没有基地址，这些图在真实启动器中会丢失。`
 
 ## 替换标记
 

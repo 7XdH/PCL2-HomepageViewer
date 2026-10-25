@@ -1060,6 +1060,52 @@ export async function runRegression() {
     return { styles };
   });
 
+  await makeCheck(results, "相对图片按文档 URL 解析时留下可见警告", async () => {
+    // Resolving relative sources is a viewer extension (PCL's XamlReader gets a
+    // MemoryStream with no base URI), so the render has to say so instead of
+    // letting a page look portable when only the browser finds its images.
+    const baseUrl = "https://example.com/home/v2/Custom.xaml";
+    const relative = await harness.renderer.render(
+      `
+      <StackPanel>
+        <local:MyImage Source="images/a.png" Width="60" Height="40" />
+        <Border Width="120" Height="60">
+          <Border.Background><ImageBrush ImageSource="../shared/b.png" /></Border.Background>
+        </Border>
+      </StackPanel>
+    `,
+      { baseUrl }
+    );
+    const warning = relative.warnings.find((text) => text.includes("相对图片路径"));
+    if (!warning) throw new Error(`相对图片没有产生警告：${relative.warnings.join("；") || "（无）"}`);
+    if (!warning.includes("2 处")) throw new Error(`警告里没有统计数量：${warning}`);
+    if (!warning.includes("images/a.png")) throw new Error(`警告里没有列出样例路径：${warning}`);
+    if (!warning.includes("XamlReader")) throw new Error(`警告没有说明 PCL 的行为：${warning}`);
+
+    // Absolute sources never depend on the base URL, so a normal page stays quiet.
+    const absolute = await harness.renderer.render(
+      `
+      <StackPanel>
+        <local:MyImage Source="https://example.com/a.png" Width="60" Height="40" />
+        <local:MyImage Source="Blocks/Grass.png" Width="60" Height="40" />
+      </StackPanel>
+    `,
+      { baseUrl }
+    );
+    if (absolute.warnings.some((text) => text.includes("相对图片路径"))) {
+      throw new Error(`绝对路径被误报为相对解析：${absolute.warnings.join("；")}`);
+    }
+    // The same relative page without a document URL resolves nothing and must
+    // stay silent too (there is no extension to announce).
+    const noBase = await harness.renderer.render(
+      `<StackPanel><local:MyImage Source="images/a.png" Width="60" Height="40" /></StackPanel>`
+    );
+    if (noBase.warnings.some((text) => text.includes("相对图片路径"))) {
+      throw new Error(`没有 baseUrl 时不应警告：${noBase.warnings.join("；")}`);
+    }
+    return { warning };
+  });
+
   await makeCheck(results, "MyCheckBox 读取 PCL 的 Checked 属性并保留 IsChecked 兼容", async () => {
     harness.renderer.render(`
       <StackPanel>

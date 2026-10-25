@@ -16,6 +16,7 @@ export class PclRenderer extends PclDocumentBuilders {
     // against the downloaded file's folder. The viewer keeps the final URL of
     // the fetched document here; custom code and local files leave it empty.
     this.baseUrl = "";
+    this.baseUrlSources = new Set();
     this.warnings = [];
     this.issues = [];
     this.controlCount = 0;
@@ -102,6 +103,7 @@ export class PclRenderer extends PclDocumentBuilders {
     this.imageGeneration += 1;
     this.cancelPendingImages();
     this.warnings = [];
+    this.baseUrlSources.clear();
     this.controlCount = 0;
     const documentRoot = parseXaml(source, this.runtime.context);
     const elements = this.collectResources(documentRoot);
@@ -121,6 +123,7 @@ export class PclRenderer extends PclDocumentBuilders {
     this.syncGroupBoxFrames();
     this.clampCardTexts();
     this.root.scrollTop = 0;
+    this.reportBaseUrlExtension();
     const duration = Math.max(1, Math.round(performance.now() - started));
     return {
       controls: this.controlCount,
@@ -237,6 +240,27 @@ export class PclRenderer extends PclDocumentBuilders {
   warn(message) {
     this.warnings.push(message);
     console.warn("[PCL Renderer]", message);
+  }
+
+  /**
+   * Callback for `resolveImageSource`: records a source that only resolved
+   * because the viewer knows the document URL.
+   */
+  noteBaseUrlSource(source, resolved) {
+    this.baseUrlSources.add(`${source} → ${resolved}`);
+  }
+
+  reportBaseUrlExtension() {
+    // PCL hands XamlReader.Load a MemoryStream without a base URI
+    // (ModBase.vb:1130-1145), so every relative `Source="images/a.png"`
+    // resolves to nothing there. Resolving it is a viewer extension; say so
+    // once per document instead of leaving the page silently non-portable.
+    if (!this.baseUrlSources.size) return;
+    const samples = [...this.baseUrlSources].slice(0, 3).join("、");
+    const more = this.baseUrlSources.size > 3 ? " 等" : "";
+    this.warn(
+      `相对图片路径按文档 URL 解析了 ${this.baseUrlSources.size} 处（${samples}${more}）；PCL 的 XamlReader 没有基地址，这些图在真实启动器中会丢失。`
+    );
   }
 
   count(node) {

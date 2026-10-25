@@ -504,8 +504,11 @@ export function propertyElementName(element) {
  *
  * @param {unknown} source
  * @param {string} [baseUrl] URL of the document that contains the source
+ * @param {(source: string, resolved: string) => void} [onBaseUrl] called when a
+ * source is only resolved because of `baseUrl`, so the caller can log that the
+ * page relies on a viewer extension
  */
-export function resolveImageSource(source, baseUrl = "") {
+export function resolveImageSource(source, baseUrl = "", onBaseUrl = null) {
   const value = String(source ?? "").trim();
   if (!value) return null;
   if (/^(https?:|data:|blob:)/i.test(value)) return value;
@@ -520,7 +523,14 @@ export function resolveImageSource(source, baseUrl = "") {
   if (baseUrl) {
     try {
       const resolved = new URL(value, baseUrl);
-      if (/^https?:$/i.test(resolved.protocol)) return resolved.toString();
+      if (/^https?:$/i.test(resolved.protocol)) {
+        const url = resolved.toString();
+        // PCL hands XamlReader a MemoryStream without a base URI, so this
+        // success is the viewer's own extension. Report it instead of letting
+        // a page look portable when only the browser finds its images.
+        onBaseUrl?.(value, url);
+        return url;
+      }
     } catch {
       /* An unusable base URL simply means "no resolution", like before. */
     }
