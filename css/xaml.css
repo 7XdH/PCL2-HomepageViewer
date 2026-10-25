@@ -30,6 +30,15 @@
   flex-direction: row;
 }
 
+/* A WPF StackPanel arranges each child at the size it asked for and lets the
+   row overflow, so the three 500x10 stripes on preset 05 spill past the card
+   instead of shrinking into it. Flex would otherwise shrink them to fit, which
+   turned three full-width stripes into 172px stubs. Only images are pinned:
+   text and panels still shrink so long captions keep their ellipsis. */
+.pcl-stack--h > .pcl-image-wrap {
+  flex-shrink: 0;
+}
+
 .pcl-grid {
   display: grid;
   min-width: 0;

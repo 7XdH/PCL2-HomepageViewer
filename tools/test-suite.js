@@ -2676,6 +2676,27 @@ export async function runRegression() {
     });
     return { rows };
   });
+  await makeCheck(results, "横向 StackPanel 里的图片保持自身尺寸不被压缩", async () => {
+    // WPF's StackPanel arranges each child at its desired size and lets the row
+    // overflow; flex would otherwise shrink the three 500x10 stripes on preset
+    // 05 down to the narrow slot.
+    await renderSource(
+      harness,
+      `<StackPanel Orientation="Horizontal">
+        <Image Height="10" Width="500" Source="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" />
+        <Image Height="10" Width="500" Margin="-10,0,0,0" Source="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" />
+        <Image Height="10" Width="500" Margin="-10,0,0,0" Source="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" />
+      </StackPanel>`
+    );
+    const row = harness.root.querySelector(".pcl-stack--h");
+    const wraps = [...row.querySelectorAll(".pcl-image-wrap")];
+    if (wraps.length !== 3) throw new Error(`图片数量：期望 3，实际 ${wraps.length}`);
+    const widths = wraps.map((wrap) => +wrap.getBoundingClientRect().width.toFixed(1));
+    for (const width of widths) {
+      if (Math.abs(width - 500) > 0.6) throw new Error(`横向图片被压缩成 ${width}px（期望 500px）`);
+    }
+    return { widths };
+  });
   await makeCheck(results, "Viewbox 按 WPF 的先量后缩把子内容缩进槽位", async () => {
     // PCL measures the child unconstrained and scales the arranged result, so a
     // 449px card with a 52px name inside a 120px slot renders at 27%: the
