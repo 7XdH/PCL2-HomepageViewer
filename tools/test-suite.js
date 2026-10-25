@@ -1630,6 +1630,15 @@ export async function runRegression() {
     if (title.textContent !== "版本列表") throw new Error(`子页面标题错误：${title.textContent}`);
     const sidebar = document.getElementById("pclSidebar");
     if (sidebar && getComputedStyle(sidebar).display !== "none") throw new Error("帮助页没有隐藏侧栏");
+    // PCL collapses PanTitleMain (wordmark + navigation) when PanTitleInner
+    // takes over; only hiding the nav left the P on top of the back arrow.
+    const logo = document.querySelector(".pcl-titlebar__logo");
+    const back = document.getElementById("pclSubpageBack");
+    if (!logo || !back) throw new Error("标题栏缺少字标或返回键");
+    if (getComputedStyle(logo).visibility !== "hidden") {
+      throw new Error(`子页面仍然显示 PCL 字标：${getComputedStyle(logo).visibility}`);
+    }
+    if (getComputedStyle(back).visibility === "hidden") throw new Error("子页面的返回键被一起隐藏了");
 
     document.getElementById("pclSubpageBack")?.click();
     await sleep(80);
@@ -1637,6 +1646,7 @@ export async function runRegression() {
     if (!helpPage.hidden) throw new Error("返回后帮助页没有隐藏");
     if (homePage.hidden) throw new Error("返回后主页没有恢复");
     if (!titlebarSub.hidden) throw new Error("返回后子页面标题栏没有隐藏");
+    if (getComputedStyle(logo).visibility === "hidden") throw new Error("返回后 PCL 字标没有恢复");
     return { title: "版本列表" };
   });
 

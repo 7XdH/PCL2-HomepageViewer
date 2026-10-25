@@ -323,6 +323,16 @@ img {
   visibility: hidden;
 }
 
+/* PCL keeps the wordmark and the main navigation in one container, PanTitleMain,
+   and collapses that container wholesale when a subpage opens
+   (FormMain.xaml.vb:1443-1456 hides PanTitleMain and shows PanTitleInner), so a
+   subpage bar carries only the back arrow and the page title. The viewer hid
+   just the nav and left the wordmark behind: its ink starts at 20.4px, which put
+   the P on top of the 28px back button that starts at 12px. */
+.pcl-window.is-subpage .pcl-titlebar__spacer {
+  visibility: hidden;
+}
+
 .pcl-window.is-subpage .pcl-sidebar {
   display: none;
 }
