@@ -24,6 +24,7 @@ import {
   resolveBrush,
   applyBrush
 } from "../helpers.js";
+import { isRegisteredSetting } from "../pcl-settings.js";
 
 export class PclControlBuilders extends PclLayoutBuilders {
   buildMyCard(element, layout) {
@@ -222,6 +223,17 @@ export class PclControlBuilders extends PclLayoutBuilders {
     // dismissal cannot hide a hint that PCL would always show.
     const canClose = parseBool(getProp(props, "CanClose"), false);
     const relativeSetup = canClose ? String(getProp(props, "RelativeSetup") ?? "").trim() : "";
+    // PCL reads the flag with Settings.Get, which throws
+    // KeyNotFoundException("未找到设置项：" & Key) for a name that is not in
+    // Settings.vb's static registry — the whole page then fails to load. The
+    // previewer keeps its localStorage behaviour (otherwise every hint would
+    // need a registered name) but reports the mismatch so the difference is
+    // visible instead of silent.
+    if (relativeSetup && !isRegisteredSetting(relativeSetup)) {
+      this.warn(
+        `MyHint 的 RelativeSetup 指向未注册的设置项“${relativeSetup}”：PCL 会抛出「未找到设置项：${relativeSetup}」并中断整页加载，预览器改用浏览器本地存储继续渲染。`
+      );
+    }
     const storageKey = relativeSetup ? `pcl.hint.${relativeSetup}` : null;
     let dismissed = false;
     if (storageKey) {

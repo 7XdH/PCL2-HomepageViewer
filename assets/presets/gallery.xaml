@@ -36,7 +36,7 @@
         <local:MyHint Text="Blue：用于普通的说明与提示。" Theme="Blue" />
         <local:MyHint Margin="0,8,0,0" Text="Yellow：用于需要注意、但不算错误的信息。" Theme="Yellow" />
         <local:MyHint Margin="0,8,0,0" Text="Red：这是默认主题。如果不写 Theme，提示条就是红色。" />
-        <local:MyHint Margin="0,8,0,0" Text="这条提示可以关闭。关闭状态会保存在浏览器中。" Theme="Blue" CanClose="True" RelativeSetup="GalleryHintClosed" />
+        <local:MyHint Margin="0,8,0,0" Text="这条提示可以关闭，关闭状态会被记住。RelativeSetup 指向 PCL 已注册的 HintSnapshot，因此在真实启动器里同样有效。" Theme="Blue" CanClose="True" RelativeSetup="HintSnapshot" />
     </StackPanel>
 </local:MyCard>
 

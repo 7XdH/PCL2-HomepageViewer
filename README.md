@@ -325,7 +325,7 @@ Root Directory: 留空
 - 支持 `Style` 的隐式样式（无 `x:Key`，按 `TargetType` 匹配）、显式 `Style="{StaticResource Key}"`、`BasedOn` 与普通 `Setter`。页面级样式会参与布局、字体、颜色、边距和按钮 `EventType` 等属性。
 - `pack://application:,,,/images/...` 会映射到 `assets/pcl/images/`，且大小写不敏感（例如 `Cobblestone.png` 可匹配 `CobbleStone.png`）。
 - 支持 `http(s)`、`data:`、`blob:` 与相对路径图片；远程图片使用 `no-referrer` 请求，减少防盗链导致的 403。
-- 联网主页与远程帮助页里的相对图片路径（`images/a.png`、`../shared/b.png`、`/root.png`）按该文档的最终 URL 解析，`../` 与站点根路径都会正确归一化；`pack://` 与 PCL 内置图名（`Blocks/Grass.png`、`Heads/x.png`）始终优先命中本地资源。这是预览器自己的扩展——PCL 用没有基地址的 `MemoryStream` 交给 `XamlReader.Load`，同样的相对路径在 PCL 里取不到图。为了不让这类页面看起来「两边都能用」，每渲染一份这样的文档都会记一条警告：`相对图片路径按文档 URL 解析了 N 处（…）；PCL 的 XamlReader 没有基地址，这些图在真实启动器中会丢失。`
+- 联网主页与远程帮助页里的相对图片路径（`images/a.png`、`../shared/b.png`、`/root.png`）按该文档的最终 URL 解析，`../` 与站点根路径都会正确归一化；`pack://` 与 PCL 内置图名（`Blocks/Grass.png`、`Heads/x.png`）始终优先命中本地资源。这是预览器自己的扩展——PCL 用没有基地址的 `MemoryStream` 交给 `XamlReader.Load`，同样的相对路径在 PCL 里取不到图。为了不让这类页面看起来「两边都能用」，预览器每渲染一份文档都会在控制台与警告计数里记一条 `相对图片路径按文档 URL 解析了 N 处（…）；PCL 的 XamlReader 没有基地址，这些图在真实启动器中会丢失。`
 
 ## 替换标记
 
@@ -409,7 +409,7 @@ Root Directory: 留空
 - 文本换行、字体度量与 WPF 不是逐像素完全相同；已对齐主要尺寸、边距、颜色与字号。
 - 远程主页中的相对图片路径会按文档自身的 URL 解析（见上文「资源、样式与图片」）；这一项预览器比 PCL 更宽松，PCL 的 `XamlReader.Load` 没有基地址，取不到相对路径的图片。
 - 颜色、`Cursor`、`FontFamily` 与 `Style` 的 `Setter` 都按白名单过滤：颜色只接受十六进制、`rgb()/rgba()/hsl()`、`ColorBrush*` 等主题变量与 WPF 命名色；`url(...)`、`expression(...)`、`@import` 与反斜杠一律丢弃，`Setter` 只允许渲染器实际支持的成员。带引号的 `FontFamily` 与位图 `Cursor` 因此不会生效。
-- `MyHint` 的 `RelativeSetup` 存在两处差异。其一，预览器把「不再提示」记在 `localStorage["pcl.hint.<名字>"]`，而 PCL 用 `Settings.Get(Of Boolean)(RelativeSetup)` **按名字查已注册的设置项**，名字没在 `PCL\Setup.ini` / 注册表里注册过就会抛 `KeyNotFoundException`（真实日志：`未找到设置项：GalleryHintClosed`，调用栈是 `PCL.Settings.Get` ← `PCL.MyHint.MyHint_Loaded`），整条提示因此渲染失败。预览器无法枚举 PCL 的设置项注册表，所以保持宽容：写 `RelativeSetup` 就能关闭，无需额外注册。其二，两者都只在 `CanClose="True"` 时读这个标记（PCL 的来源是 `If CanClose AndAlso Settings.Get(…Semantics)`），预览器的判断顺序与此一致。
+- `MyHint` 的 `RelativeSetup` 存在两处差异。其一，预览器把「不再提示」记在 `localStorage["pcl.hint.<名字>"]`，而 PCL 用 `Settings.Get(Of Boolean)(RelativeSetup)` **按名字查已注册的设置项**：`Pages/PageSetup/Settings.vb:5` 的 `Entries` 字典固定了 192 个名字，`Settings.Get/Set` 命中不了就抛 `KeyNotFoundException`（`未找到设置项：…`），整页加载失败。预览器内置了这份名单（`js/renderer/pcl-settings.js`）用于体检，但仍然保持宽容：写 `RelativeSetup` 就能关闭，无需额外注册。名字不在名单里时会记一条警告 `MyHint 的 RelativeSetup 指向未注册的设置项“X”：PCL 会抛出「未找到设置项：X」并中断整页加载，预览器改用浏览器本地存储继续渲染。`；写成 PCL 已注册的名字（如内置画廊用的 `HintSnapshot`）则两边都能生效，不会告警。其二，两者都只在 `CanClose="True"` 时读这个标记（PCL 的来源是 `If CanClose AndAlso Settings.Get(Of Boolean)(RelativeSetup)`），预览器的判断顺序与此一致。
 
 ## 与 PCL 的加载语义差异
 
@@ -445,6 +445,7 @@ js/xaml.js                 XAML 解析、替换标记、安全过滤
 js/renderer.js             WPF / PCL 控件到 DOM 的渲染器入口
 js/renderer/helpers.js     渲染器共用的解析/几何/文本辅助函数
 js/renderer/known-attributes.js  PCL 控件属性白名单，用于兼容性警告
+js/renderer/pcl-settings.js  PCL 启动时注册的设置项名单（用于 RelativeSetup 体检）
 js/renderer/builders/      布局、控件、文档流三类控件构建器
 js/runtime.js              自定义事件引擎
 js/shell.js                窗口外壳入口

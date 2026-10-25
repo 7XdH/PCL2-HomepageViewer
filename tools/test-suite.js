@@ -1106,6 +1106,40 @@ export async function runRegression() {
     return { warning };
   });
 
+  await makeCheck(results, "未注册的 RelativeSetup 报告 PCL 的 KeyNotFound 行为", async () => {
+    // PCL: MyHint_Loaded calls Settings.Get(Of Boolean)(RelativeSetup), and
+    // Settings.Get throws KeyNotFoundException("未找到设置项：" & Key) when the
+    // name is absent from Settings.vb's static registry. The previewer keeps
+    // rendering and keeping the flag in localStorage, but it has to report it.
+    const unregistered = await harness.renderer.render(`
+      <StackPanel>
+        <local:MyHint Text="只在预览器里能关" CanClose="True" RelativeSetup="GalleryHintClosed" />
+      </StackPanel>
+    `);
+    const warning = unregistered.warnings.find((text) => text.includes("未找到设置项"));
+    if (!warning) throw new Error(`未注册的设置项没有报告：${unregistered.warnings.join("；") || "（无）"}`);
+    if (!warning.includes("GalleryHintClosed")) throw new Error(`警告里没有设置项名字：${warning}`);
+
+    // A name PCL really registers (Settings.vb "HintSnapshot") is portable and
+    // must not be reported.
+    const registered = await harness.renderer.render(`
+      <StackPanel>
+        <local:MyHint Text="PCL 里也能关" CanClose="True" RelativeSetup="HintSnapshot" />
+      </StackPanel>
+    `);
+    if (registered.warnings.some((text) => text.includes("未找到设置项"))) {
+      throw new Error(`已注册的设置项被误报：${registered.warnings.join("；")}`);
+    }
+    // Without CanClose, PCL never reads the name, so there is nothing to report.
+    const inert = await harness.renderer.render(`
+      <StackPanel><local:MyHint Text="没有关闭按钮" RelativeSetup="GalleryHintClosed" /></StackPanel>
+    `);
+    if (inert.warnings.some((text) => text.includes("未找到设置项"))) {
+      throw new Error(`没有 CanClose 时不应读取 RelativeSetup：${inert.warnings.join("；")}`);
+    }
+    return { warning, registered: registered.warnings.length, inert: inert.warnings.length };
+  });
+
   await makeCheck(results, "MyCheckBox 读取 PCL 的 Checked 属性并保留 IsChecked 兼容", async () => {
     harness.renderer.render(`
       <StackPanel>
